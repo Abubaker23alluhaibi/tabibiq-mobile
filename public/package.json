@@ -1,0 +1,12 @@
+{
+  "name": "tabibiq-web",
+  "version": "1.0.0",
+  "description": "TabibiQ Web Landing Page",
+  "main": "index.html",
+  "scripts": {
+    "start": "echo 'Static site - no build required'"
+  },
+  "keywords": ["medical", "healthcare", "iraq", "static"],
+  "author": "TabibiQ Team",
+  "license": "MIT"
+}

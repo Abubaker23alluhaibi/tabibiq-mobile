@@ -1,6 +1,7 @@
 {
   "version": 2,
   "outputDirectory": "public",
-  "installCommand": "echo 'Skipping install for static site'",
-  "buildCommand": "echo 'Skipping build for static site'"
+  "installCommand": "echo 'Static site - no dependencies needed'",
+  "buildCommand": "echo 'Static site - no build needed'",
+  "framework": null
 }
