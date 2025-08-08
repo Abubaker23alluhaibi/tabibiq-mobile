@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "TabibiQ - منصة طبيب العراق",
+    "slug": "tabibiq-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tabibiq.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "يحتاج التطبيق إلى الوصول للكاميرا لالتقاط صور الملف الشخصي",
+        "NSPhotoLibraryUsageDescription": "يحتاج التطبيق إلى الوصول لمكتبة الصور لاختيار صور الملف الشخصي",
+        "NSLocationWhenInUseUsageDescription": "يحتاج التطبيق إلى موقعك للعثور على الأطباء القريبين",
+        "NSMicrophoneUsageDescription": "يحتاج التطبيق إلى الميكروفون للتسجيلات الصوتية"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.tabibiq.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "webpack"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-image-picker",
+      "expo-camera",
+      "expo-location",
+      "expo-media-library"
+    ],
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#4CAF50",
+      "iosDisplayInForeground": true,
+      "androidMode": "default",
+      "androidCollapsedTitle": "TabibiQ"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
+    "owner": "tabibiq-team"
+  }
+}
