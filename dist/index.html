@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="theme-color" content="#009688" />
+    <title>TabibiQ - منصة طبيب العراق</title>
+    <style>
+        html, body, #root {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #root {
+            display: flex;
+            flex-direction: column;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #009688 0%, #00796B 50%, #004D40 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .loading-text {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="loading">
+            <div class="loading-text">
+                جاري تحميل TabibiQ...<br>
+                Loading TabibiQ...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Expo Web Runtime -->
+    <script src="https://unpkg.com/@expo/metro-runtime@~5.0.4/build/index.js"></script>
+    
+    <!-- Load your app bundle -->
+    <script>
+        // Simple React app for web
+        const { useState, useEffect } = React;
+        
+        function TabibiQApp() {
+            const [isLoading, setIsLoading] = useState(true);
+            
+            useEffect(() => {
+                // Simulate app loading
+                setTimeout(() => {
+                    setIsLoading(false);
+                }, 2000);
+            }, []);
+            
+            if (isLoading) {
+                return (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '100vh',
+                        background: 'linear-gradient(135deg, #009688 0%, #00796B 50%, #004D40 100%)',
+                        color: 'white',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif'
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>
+                                TabibiQ - منصة طبيب العراق
+                            </h1>
+                            <p style={{ fontSize: '16px', opacity: 0.9 }}>
+                                جاري التحميل... Loading...
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+            
+            return (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh',
+                    background: 'linear-gradient(135deg, #009688 0%, #00796B 50%, #004D40 100%)',
+                    color: 'white',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif'
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px' }}>
+                            🏥 TabibiQ
+                        </h1>
+                        <p style={{ fontSize: '18px', marginBottom: '30px' }}>
+                            منصة طبيب العراق
+                        </p>
+                        <div style={{ 
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                            padding: '20px', 
+                            borderRadius: '10px',
+                            maxWidth: '400px'
+                        }}>
+                            <p style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                                مرحباً بك في منصة طبيب العراق! 🎉
+                                <br /><br />
+                                هذا التطبيق متاح حالياً على الهواتف الذكية.
+                                <br /><br />
+                                للوصول للتطبيق الكامل، يرجى تحميله من:
+                                <br />
+                                📱 App Store أو Google Play
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Render the app
+        ReactDOM.render(React.createElement(TabibiQApp), document.getElementById('root'));
+    </script>
+</body>
+</html>
