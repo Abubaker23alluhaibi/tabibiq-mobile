@@ -1,11 +1,4 @@
 {
   "version": 2,
-  "outputDirectory": "public",
-  "installCommand": "npm install",
-  "builds": [
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ]
+  "outputDirectory": "public"
 }
