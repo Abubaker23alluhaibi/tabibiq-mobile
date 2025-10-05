@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { theme } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
+import DeepLinkHandler from '../components/DeepLinkHandler';
 
 // تجاهل تحذيرات shadow* من React Navigation
 // @ts-ignore
@@ -15,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import LandingScreen from '../screens/LandingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import UserSignUpScreen from '../screens/UserSignUpScreen';
-import DoctorSignUpScreen from '../screens/DoctorSignUpScreen';
 import UserHomeScreen from '../screens/UserHomeScreen';
 import DoctorDashboardScreen from '../screens/DoctorDashboardScreen';
 import DoctorDetailsScreen from '../screens/DoctorDetailsScreen';
@@ -23,19 +25,21 @@ import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import DoctorProfileScreen from '../screens/DoctorProfileScreen';
 import DoctorAppointmentsScreen from '../screens/DoctorAppointmentsScreen';
-import AdminDashboardScreen from '../screens/AdminDashboardScreen';
-import AdminLoginScreen from '../screens/AdminLoginScreen';
 import MedicineReminderScreen from '../screens/MedicineReminderScreen';
 import HealthCentersScreen from '../screens/HealthCentersScreen';
 import CenterLoginScreen from '../screens/CenterLoginScreen';
 import CenterHomeScreen from '../screens/CenterHomeScreen';
 import DoctorCalendarScreen from '../screens/DoctorCalendarScreen';
 import DoctorAnalyticsScreen from '../screens/DoctorAnalyticsScreen';
-import WorkTimesEditorScreen from '../screens/WorkTimesEditorScreen';
 import AppointmentDurationEditorScreen from '../screens/AppointmentDurationEditorScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import DoctorProfileEditScreen from '../screens/DoctorProfileEditScreen';
 import UserProfileEditScreen from '../screens/UserProfileEditScreen';
+import AllDoctorsScreen from '../screens/AllDoctorsScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import TopRatedDoctorsScreen from '../screens/TopRatedDoctorsScreen';
+import DoctorReviewsScreen from '../screens/DoctorReviewsScreen';
 
 // أنواع التنقل
 import { RootStackParamList } from '../types';
@@ -56,12 +60,16 @@ const UserTabNavigator = () => {
 
           if (route.name === 'UserHome') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'TopRatedDoctors') {
+            iconName = focused ? 'star' : 'star-outline';
           } else if (route.name === 'MyAppointments') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'AllDoctors') {
+            iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'MedicineReminder') {
             iconName = focused ? 'medical' : 'medical-outline';
-          } else if (route.name === 'HealthCenters') {
-            iconName = focused ? 'business' : 'business-outline';
+          } else if (route.name === 'Notifications') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'UserProfile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -72,41 +80,45 @@ const UserTabNavigator = () => {
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarLabelStyle: { fontSize: 10 },
+        tabBarIconStyle: { marginTop: -4 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 5,
-          paddingTop: 5,
+          paddingBottom: 10,
+          paddingTop: 4,
           height: 60,
         },
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="UserHome" 
+      <Tab.Screen
+        name="UserHome"
         component={UserHomeScreen}
         options={{ tabBarLabel: t('user_home.title') }}
       />
-      <Tab.Screen 
-        name="MyAppointments" 
+      <Tab.Screen
+        name="TopRatedDoctors"
+        component={TopRatedDoctorsScreen}
+        options={{ tabBarLabel: t('rating.top_rated_doctors') }}
+      />
+      <Tab.Screen
+        name="MyAppointments"
         component={MyAppointmentsScreen}
         options={{ tabBarLabel: t('appointments.title') }}
       />
-      <Tab.Screen 
-        name="MedicineReminder" 
+      <Tab.Screen
+        name="AllDoctors"
+        component={AllDoctorsScreen}
+        options={{ tabBarLabel: t('common.see_all') }}
+      />
+      <Tab.Screen
+        name="MedicineReminder"
         component={MedicineReminderScreen}
         options={{ tabBarLabel: t('medicine_reminder.title') }}
       />
-      <Tab.Screen 
-        name="HealthCenters" 
-        component={HealthCentersScreen}
-        options={{ tabBarLabel: t('health_centers.title') }}
-      />
-      <Tab.Screen 
-        name="UserProfile" 
-        component={UserProfileScreen}
-        options={{ tabBarLabel: t('profile.title') }}
-      />
+      {/* إزالة تبويبات الإشعارات والملف الشخصي والمراكز الصحية لتبسيط الشريط */}
+      {/* HealthCenters و Notifications و UserProfile محذوفة من الشريط */}
     </Tab.Navigator>
   );
 };
@@ -117,6 +129,7 @@ const DoctorTabNavigator = () => {
 
   return (
     <Tab.Navigator
+      initialRouteName="DoctorDashboard"
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
@@ -129,6 +142,8 @@ const DoctorTabNavigator = () => {
             iconName = focused ? 'calendar-number' : 'calendar-number-outline';
           } else if (route.name === 'DoctorAnalytics') {
             iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Notifications') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'DoctorProfile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -139,83 +154,82 @@ const DoctorTabNavigator = () => {
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarLabelStyle: { fontSize: 10 },
+        tabBarIconStyle: { marginTop: 2 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 5,
-          paddingTop: 5,
-          height: 60,
+          paddingBottom: 3,
+          paddingTop: 3,
+          height: 52,
         },
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="DoctorDashboard" 
+      <Tab.Screen
+        name="DoctorDashboard"
         component={DoctorDashboardScreen}
         options={{ tabBarLabel: t('doctor.profile') }}
       />
-      <Tab.Screen 
-        name="DoctorAppointments" 
+      <Tab.Screen
+        name="DoctorAppointments"
         component={DoctorAppointmentsScreen}
         options={{ tabBarLabel: t('appointments.title') }}
       />
-      <Tab.Screen 
-        name="DoctorCalendar" 
+      <Tab.Screen
+        name="DoctorCalendar"
         component={DoctorCalendarScreen}
         options={{ tabBarLabel: t('doctor.calendar') }}
       />
-      <Tab.Screen 
-        name="DoctorAnalytics" 
-        component={DoctorAnalyticsScreen}
-        options={{ tabBarLabel: t('doctor.analytics') }}
-      />
-      <Tab.Screen 
-        name="DoctorProfile" 
-        component={DoctorProfileScreen}
-        options={{ tabBarLabel: t('profile.title') }}
-      />
+      {/* إزالة تبويبات الإشعارات والملف الشخصي للطبيب لتبسيط الشريط */}
+      {/* DoctorAnalytics و Notifications و DoctorProfile محذوفة من الشريط */}
     </Tab.Navigator>
   );
 };
 
-// شريط التنقل الجانبي للأدمن
-const AdminDrawerNavigator = () => {
-  const { t } = useTranslation();
-
-  return (
-    <Drawer.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.primary,
-        },
-        headerTintColor: theme.colors.white,
-        drawerActiveTintColor: theme.colors.primary,
-        drawerInactiveTintColor: theme.colors.textSecondary,
-        drawerStyle: {
-          backgroundColor: theme.colors.background,
-        },
-      }}
-    >
-      <Drawer.Screen 
-        name="AdminDashboard" 
-        component={AdminDashboardScreen}
-        options={{ 
-          title: t('admin.dashboard'),
-          drawerIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
-          ),
-        }}
-      />
-    </Drawer.Navigator>
-  );
-};
 
 // التنقل الرئيسي
 const AppNavigator = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isFirstLaunch, loading: appLoading } = useApp();
   const { t } = useTranslation();
+  const {
+    rescheduleAllNotificationsOnAppStart,
+    checkAndRescheduleMissingNotifications,
+    loadNotificationsForUser,
+  } = useNotifications();
 
-  if (loading) {
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+
+
+        // تحميل الإشعارات المخزنة للمستخدم الحالي إن وُجد
+        try {
+          await loadNotificationsForUser();
+        } catch {}
+        
+        // إعادة جدولة جميع الإشعارات عند بدء التطبيق
+        try {
+          await rescheduleAllNotificationsOnAppStart();
+        } catch {}
+        
+        // فحص الإشعارات المفقودة فقط (بدون إعادة جدولة تلقائية)
+        await checkAndRescheduleMissingNotifications();
+
+
+      } catch (error) {
+        // App initialization error handled silently
+      }
+    };
+
+    // تأخير قصير لضمان تحميل البيانات
+    const timer = setTimeout(initializeApp, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (authLoading || appLoading) {
     // يمكن إضافة شاشة تحميل هنا
     return null;
   }
@@ -223,6 +237,7 @@ const AppNavigator = () => {
   return (
     <NavigationContainer
       theme={{
+        dark: false,
         colors: {
           primary: theme.colors.primary,
           background: theme.colors.background,
@@ -232,130 +247,279 @@ const AppNavigator = () => {
           notification: theme.colors.error,
         },
       }}
+      linking={{
+        prefixes: ['tabibiq://', 'https://tabib-iq.com'],
+        config: {
+          screens: {
+            DoctorDetails: {
+              path: '/doctor/:doctorId',
+              parse: {
+                doctorId: (doctorId: string) => doctorId,
+              },
+            },
+            MyAppointments: '/appointments',
+            UserProfile: '/profile',
+            Notifications: '/notifications',
+          },
+        },
+      }}
     >
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.colors.primary,
-          },
-          headerTintColor: theme.colors.white,
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          cardStyle: { backgroundColor: theme.colors.background },
-        }}
-      >
-        {!user ? (
-          // شاشات غير مسجل الدخول
-          <>
-            <Stack.Screen 
-              name="Landing" 
-              component={LandingScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen}
-              options={{ title: t('auth.login') }}
-            />
-            <Stack.Screen 
-              name="UserSignUp" 
-              component={UserSignUpScreen}
-              options={{ title: t('auth.signup') }}
-            />
-            <Stack.Screen 
-              name="DoctorSignUp" 
-              component={DoctorSignUpScreen}
-              options={{ title: t('auth.signup_as_doctor') }}
-            />
-            <Stack.Screen 
-              name="AdminLogin" 
-              component={AdminLoginScreen}
-              options={{ title: t('admin.login') }}
-            />
-            <Stack.Screen 
-              name="CenterLogin" 
-              component={CenterLoginScreen}
-              options={{ title: t('center.login') }}
-            />
-          </>
-        ) : (
-          // شاشات مسجل الدخول
-          <>
-            {user.user_type === 'user' && (
-              <>
-                <Stack.Screen 
-                  name="UserHome" 
-                  component={UserTabNavigator}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                  name="DoctorDetails" 
-                  component={DoctorDetailsScreen}
-                  options={{ title: t('doctor.details') }}
-                />
-                <Stack.Screen 
-                  name="NotificationSettings" 
-                  component={NotificationSettingsScreen}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                  name="UserProfileEdit" 
-                  component={UserProfileEditScreen}
-                  options={{ title: t('profile.edit_profile') }}
-                />
-              </>
-            )}
-            
-            {user.user_type === 'doctor' && (
-              <>
-                <Stack.Screen 
-                  name="DoctorDashboard" 
-                  component={DoctorTabNavigator}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                  name="WorkTimesEditor" 
-                  component={WorkTimesEditorScreen}
-                  options={{ title: 'أوقات الدوام' }}
-                />
-                <Stack.Screen 
-                  name="AppointmentDurationEditor" 
-                  component={AppointmentDurationEditorScreen}
-                  options={{ title: 'مدة الموعد' }}
-                />
-                <Stack.Screen 
-                  name="DoctorProfileEdit" 
-                  component={DoctorProfileEditScreen}
-                  options={{ title: t('profile.edit_profile') }}
-                />
-              </>
-            )}
-            
-            {user.user_type === 'admin' && (
-              <>
-                <Stack.Screen 
-                  name="AdminDashboard" 
-                  component={AdminDrawerNavigator}
-                  options={{ headerShown: false }}
-                />
-              </>
-            )}
-            
-            {user.user_type === 'center' && (
-              <>
-                <Stack.Screen 
-                  name="CenterHome" 
-                  component={CenterHomeScreen}
-                  options={{ title: t('center.home') }}
-                />
-              </>
-            )}
-          </>
-        )}
-      </Stack.Navigator>
+      <DeepLinkHandler>
+        <Stack.Navigator
+          initialRouteName={!user
+            ? (isFirstLaunch ? 'Landing' : 'Login')
+            : (user.user_type === 'user'
+                ? 'UserHomeStack'
+                : user.user_type === 'doctor'
+                  ? 'DoctorDashboard'
+                  : user.user_type === 'admin'
+                    ? 'UserHomeStack' // الإدارة تستخدم واجهة المستخدم العادي
+                    : user.user_type === 'center'
+                      ? 'CenterHome'
+                      : 'Login')}
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: theme.colors.primary,
+            },
+            headerTintColor: theme.colors.white,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            cardStyle: { backgroundColor: theme.colors.background },
+          }}
+        >
+          {!user ? (
+            // شاشات غير مسجل الدخول
+            <>
+              <Stack.Screen
+                name="Landing"
+                component={LandingScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="UserSignUp"
+                component={UserSignUpScreen}
+                options={{ title: t('auth.login') }}
+              />
+              <Stack.Screen
+                name="CenterLogin"
+                component={CenterLoginScreen}
+                options={{ title: t('center.login') }}
+              />
+              <Stack.Screen
+                name="DoctorDetails"
+                component={DoctorDetailsScreen}
+                options={({ route }) => ({
+                  title: t('doctor.details'),
+                  headerShown: true,
+                })}
+              />
+            </>
+          ) : (
+            // شاشات مسجل الدخول
+            <>
+              {user.user_type === 'user' && (
+                <>
+                  <Stack.Screen
+                    name="UserHomeStack"
+                    component={UserTabNavigator}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="UserProfile"
+                    component={UserProfileScreen}
+                    options={{ title: t('profile.title') }}
+                  />
+                  <Stack.Screen
+                    name="DoctorDetails"
+                    component={DoctorDetailsScreen}
+                    options={({ route }) => ({
+                      title: t('doctor.details'),
+                      headerShown: true,
+                    })}
+                  />
+                  <Stack.Screen
+                    name="AllDoctors"
+                    component={AllDoctorsScreen}
+                    options={{ title: t('user_home.recommended_doctors') }}
+                  />
+                  <Stack.Screen
+                    name="NotificationSettings"
+                    component={NotificationSettingsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="UserProfileEdit"
+                    component={UserProfileEditScreen}
+                    options={{ title: t('profile.edit_profile') }}
+                  />
+                  <Stack.Screen
+                    name="ChangePassword"
+                    component={ChangePasswordScreen}
+                    options={{ title: t('auth.change_password') }}
+                  />
+                  <Stack.Screen
+                    name="TopRatedDoctors"
+                    component={TopRatedDoctorsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="DoctorReviews"
+                    component={DoctorReviewsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="HealthCenters"
+                    component={HealthCentersScreen}
+                    options={{ title: t('health_centers.title') }}
+                  />
+                </>
+              )}
+
+              {user.user_type === 'doctor' && (
+                <>
+                  <Stack.Screen
+                    name="DoctorDashboard"
+                    component={DoctorTabNavigator}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="DoctorProfile"
+                    component={DoctorProfileScreen}
+                    options={{ title: t('profile.title') }}
+                  />
+                  <Stack.Screen
+                    name="DoctorAnalytics"
+                    component={DoctorAnalyticsScreen}
+                    options={{ title: t('doctor.analytics') }}
+                  />
+                  <Stack.Screen
+                    name="AppointmentDurationEditor"
+                    component={AppointmentDurationEditorScreen}
+                    options={{ title: 'مدة الموعد' }}
+                  />
+                  <Stack.Screen
+                    name="DoctorProfileEdit"
+                    component={DoctorProfileEditScreen}
+                    options={{ title: t('profile.edit_profile') }}
+                  />
+                  <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="NotificationSettings"
+                    component={NotificationSettingsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="ChangePassword"
+                    component={ChangePasswordScreen}
+                    options={{ title: t('auth.change_password') }}
+                  />
+                  <Stack.Screen
+                    name="DoctorReviews"
+                    component={DoctorReviewsScreen}
+                    options={{ headerShown: false }}
+                  />
+                </>
+              )}
+
+              {user.user_type === 'admin' && (
+                <>
+                  {/* الإدارة متاحة فقط من الموقع - التطبيق يتلقى الأوامر من الباك إند */}
+                  <Stack.Screen
+                    name="UserHomeStack"
+                    component={UserTabNavigator}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="UserProfile"
+                    component={UserProfileScreen}
+                    options={{ title: t('profile.title') }}
+                  />
+                  <Stack.Screen
+                    name="DoctorDetails"
+                    component={DoctorDetailsScreen}
+                    options={({ route }) => ({
+                      title: t('doctor.details'),
+                      headerShown: true,
+                    })}
+                  />
+                  <Stack.Screen
+                    name="AllDoctors"
+                    component={AllDoctorsScreen}
+                    options={{ title: t('user_home.recommended_doctors') }}
+                  />
+                  <Stack.Screen
+                    name="NotificationSettings"
+                    component={NotificationSettingsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="UserProfileEdit"
+                    component={UserProfileEditScreen}
+                    options={{ title: t('profile.edit_profile') }}
+                  />
+                  <Stack.Screen
+                    name="ChangePassword"
+                    component={ChangePasswordScreen}
+                    options={{ title: t('auth.change_password') }}
+                  />
+                  <Stack.Screen
+                    name="TopRatedDoctors"
+                    component={TopRatedDoctorsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="DoctorReviews"
+                    component={DoctorReviewsScreen}
+                    options={{ headerShown: false }}
+                  />
+                </>
+              )}
+
+              {user.user_type === 'center' && (
+                <>
+                  <Stack.Screen
+                    name="CenterHome"
+                    component={CenterHomeScreen}
+                    options={{ title: t('center.home') }}
+                  />
+                  <Stack.Screen
+                    name="Notifications"
+                    component={NotificationsScreen}
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="NotificationSettings"
+                    component={NotificationSettingsScreen}
+                    options={{ headerShown: false }}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </Stack.Navigator>
+      </DeepLinkHandler>
     </NavigationContainer>
   );
 };
 
-export default AppNavigator; 
+export default AppNavigator;

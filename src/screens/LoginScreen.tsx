@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,57 +12,71 @@ import {
   StatusBar,
   Image,
   ImageBackground,
+  ScrollView,
+  Linking,
 } from 'react-native';
-import CSSScrollView from '../components/web/CSSScrollView';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
 import { isValidEmail, isValidPhone } from '../utils/helpers';
-import { getCurrentServerInfo, testEndpoints } from '../config/api';
+import { getCurrentServerInfo } from '../config/api';
+import { theme } from '../utils/theme';
+import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
+import TermsOfServiceButton from '../components/TermsOfServiceButton';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const { t } = useTranslation();
-  const { signIn, testConnection } = useAuth();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginType, setLoginType] = useState<'user' | 'doctor'>('user');
+  const { signIn } = useAuth();
+  const { markAppAsLaunched } = useApp();
+
+  // الحصول على البيانات المحفوظة من التسجيل
+  const prefilledData = route.params as {
+    prefilledEmail?: string;
+    prefilledPassword?: string;
+    prefilledLoginType?: 'user' | 'doctor';
+  } | undefined;
+
+  const [email, setEmail] = useState(prefilledData?.prefilledEmail || '');
+  const [password, setPassword] = useState(prefilledData?.prefilledPassword || '');
+  const [loginType, setLoginType] = useState<'user' | 'doctor'>(prefilledData?.prefilledLoginType || 'user');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // الحصول على معلومات الخادم الحالي
   const serverInfo = getCurrentServerInfo();
 
-  const testServerConnection = async () => {
-    setLoading(true);
-    try {
-      const result = await testConnection();
-      if (result.success) {
-        Alert.alert('✅ نجح الاتصال', 'الخادم متاح ويعمل بشكل صحيح');
-      } else {
-        Alert.alert('❌ فشل الاتصال', `لا يمكن الاتصال بالخادم: ${result.error}`);
+  // تحديث البيانات عند تغيير المعاملات
+  useEffect(() => {
+    if (prefilledData) {
+      
+      if (prefilledData.prefilledEmail) {
+        setEmail(prefilledData.prefilledEmail);
       }
-    } catch (error) {
-      Alert.alert('❌ خطأ', 'حدث خطأ أثناء اختبار الاتصال');
-    } finally {
-      setLoading(false);
+      if (prefilledData.prefilledPassword) {
+        setPassword(prefilledData.prefilledPassword);
+      }
+      if (prefilledData.prefilledLoginType) {
+        setLoginType(prefilledData.prefilledLoginType);
+      }
     }
-  };
+  }, [prefilledData]);
 
-  const testAllEndpoints = async () => {
-    setLoading(true);
-    try {
-      await testEndpoints();
-      Alert.alert('✅ تم الاختبار', 'تم اختبار جميع نقاط الاتصال. تحقق من Console للتفاصيل.');
-    } catch (error) {
-      Alert.alert('❌ خطأ', 'حدث خطأ أثناء اختبار نقاط الاتصال');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // تحديث البيانات عند التركيز على الشاشة
+  useFocusEffect(
+    React.useCallback(() => {
+      const params = route.params as any;
+      if (params?.prefilledEmail) {
+        setEmail(params.prefilledEmail);
+        setPassword(params.prefilledPassword || '');
+        setLoginType(params.prefilledLoginType || 'user');
+      }
+    }, [route.params])
+  );
 
   const handleLogin = async () => {
     // التحقق من صحة البيانات
@@ -70,6 +84,8 @@ const LoginScreen = () => {
       Alert.alert('خطأ', 'يرجى إدخال جميع البيانات المطلوبة');
       return;
     }
+
+    // إذا كانت البيانات محفوظة من التسجيل، عرض رسالة ترحيبية
 
     // التحقق من صحة البريد الإلكتروني أو رقم الهاتف
     if (!isValidEmail(email) && !isValidPhone(email)) {
@@ -80,18 +96,15 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      console.log('🔄 بدء عملية تسجيل الدخول...');
       const result = await signIn(email.trim(), password, loginType);
-      
+
       if (result.error) {
-        console.error('❌ خطأ في تسجيل الدخول:', result.error);
         Alert.alert('خطأ في تسجيل الدخول', result.error);
       } else {
-        console.log('✅ تم تسجيل الدخول بنجاح');
         // سيتم التنقل تلقائياً من خلال AuthContext
+        await markAppAsLaunched();
       }
     } catch (error) {
-      console.error('❌ خطأ غير متوقع:', error);
       Alert.alert('خطأ', 'حدث خطأ أثناء تسجيل الدخول');
     } finally {
       setLoading(false);
@@ -103,131 +116,166 @@ const LoginScreen = () => {
   };
 
   const navigateToDoctorSignUp = () => {
-    navigation.navigate('DoctorSignUp' as never);
+    Linking.openURL('https://www.tabib-iq.com/signup-doctor');
   };
 
-  const navigateToAdminLogin = () => {
-    navigation.navigate('AdminLogin' as never);
+
+  const navigateToLanding = () => {
+    navigation.navigate('Landing' as never);
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
       enabled={true}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      {/* Background Gradient - مطابق للواجهة الأمامية */}
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={theme.colors.primary}
+      />
+
+      {/* Header - الهيدر الثابت */}
       <LinearGradient
-        colors={['#009688', '#00796B', '#004D40']}
-        style={styles.backgroundGradient}
+        colors={['rgba(0, 150, 136, 0.1)', 'rgba(0, 150, 136, 0.9)']}
+        style={styles.header}
       >
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-
-          {/* Test Connection Button */}
+        <View style={styles.headerContent}>
+          {/* Back Button - زر الرجوع */}
           <TouchableOpacity 
-            style={styles.testButton}
-            onPress={testServerConnection}
-            disabled={loading}
+            style={styles.backButton} 
+            onPress={navigateToLanding}
           >
-            <Ionicons name="wifi" size={20} color="#FFFFFF" />
-            <Text style={styles.testButtonText}>اختبار الاتصال</Text>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
           </TouchableOpacity>
 
-          {/* Test Endpoints Button */}
-          <TouchableOpacity 
-            style={styles.testEndpointsButton}
-            onPress={testAllEndpoints}
-            disabled={loading}
-          >
-            <Ionicons name="list" size={20} color="#FFFFFF" />
-            <Text style={styles.testButtonText}>اختبار النقاط</Text>
-          </TouchableOpacity>
-
-          {/* Server Info */}
-          <View style={styles.serverInfo}>
-            <Text style={styles.serverInfoText}>
-              الخادم: {serverInfo.serverType}
-            </Text>
-            <Text style={styles.serverInfoText}>
-              {serverInfo.baseUrl}
-            </Text>
+          {/* Logo Container - حاوية اللوجو */}
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <View style={styles.logoText}>
+              <Text style={styles.logoTitle}>{t('auth.platform_title')}</Text>
+              <Text style={styles.logoSubtitle}>{t('auth.platform_subtitle')}</Text>
+            </View>
           </View>
 
-          {/* Login Box - مطابق للواجهة الأمامية */}
-          <CSSScrollView style={styles.loginBox} showsVerticalScrollIndicator={false}>
-            {/* Logo */}
-            <View style={styles.logoContainer}>
-              <View style={styles.logoPlaceholder}>
-                <Ionicons name="medical" size={50} color="#FFFFFF" />
-              </View>
-            </View>
+          {/* Empty View for balance */}
+          <View style={styles.headerSpacer} />
+        </View>
+      </LinearGradient>
 
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>تسجيل الدخول</Text>
-              <Text style={styles.headerSubtitle}>مرحباً بك مرة أخرى</Text>
-            </View>
+      {/* Content - مطابق لصفحة إنشاء الحساب */}
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled={true}
+        removeClippedSubviews={false}
+      >
+        <View style={styles.formContainer}>
+          {/* Logo Section - قسم اللوجو */}
+          <View style={styles.logoSection}>
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={styles.formLogoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.formLogoTitle}>{t('auth.platform_title')}</Text>
+            <Text style={styles.formLogoSubtitle}>{t('auth.platform_subtitle')}</Text>
+          </View>
 
-            {/* Login Type Selector */}
-            <View style={styles.typeSelector}>
-              <TouchableOpacity
+          {/* Login Title - عنوان تسجيل الدخول */}
+          <Text style={styles.loginTitle}>{t('auth.login_title')}</Text>
+
+          {/* Login Type Selector */}
+          <View style={styles.typeSelector}>
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                loginType === 'user' && styles.typeButtonActive,
+              ]}
+              onPress={() => setLoginType('user')}
+            >
+              <Ionicons
+                name="person"
+                size={22}
+                color={
+                  loginType === 'user'
+                    ? theme.colors.white
+                    : theme.colors.textSecondary
+                }
+              />
+              <Text
                 style={[
-                  styles.typeButton,
-                  loginType === 'user' && styles.typeButtonActive,
-                ]}
-                onPress={() => setLoginType('user')}
-              >
-                <Ionicons 
-                  name="person" 
-                  size={16} 
-                  color={loginType === 'user' ? '#FFFFFF' : '#757575'} 
-                />
-                <Text style={[
                   styles.typeButtonText,
                   loginType === 'user' && styles.typeButtonTextActive,
-                ]}>
-                  مريض
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
-                  loginType === 'doctor' && styles.typeButtonActive,
                 ]}
-                onPress={() => setLoginType('doctor')}
               >
-                <Ionicons 
-                  name="medical" 
-                  size={16} 
-                  color={loginType === 'doctor' ? '#FFFFFF' : '#757575'} 
-                />
-                <Text style={[
+                {t('auth.patient')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                loginType === 'doctor' && styles.typeButtonActive,
+              ]}
+              onPress={() => setLoginType('doctor')}
+            >
+              <Ionicons
+                name="medical"
+                size={22}
+                color={
+                  loginType === 'doctor'
+                    ? theme.colors.white
+                    : theme.colors.textSecondary
+                }
+              />
+              <Text
+                style={[
                   styles.typeButtonText,
                   loginType === 'doctor' && styles.typeButtonTextActive,
-                ]}>
-                  طبيب
-                </Text>
-              </TouchableOpacity>
-            </View>
+                ]}
+              >
+                {t('auth.doctor')}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-            {/* Form */}
-            <View style={styles.form}>
-              {/* Email/Phone Input */}
-              <View style={styles.inputContainer}>
+          {/* رسالة ترحيبية للمستخدمين الجدد */}
+          {prefilledData?.prefilledEmail && prefilledData?.prefilledPassword && (
+            <View style={styles.welcomeMessage}>
+              <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
+              <Text style={styles.welcomeText}>
+                مرحباً! تم حفظ بياناتك من التسجيل، اضغط "تسجيل الدخول" للمتابعة
+              </Text>
+            </View>
+          )}
+
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Email/Phone Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>
+                {t('auth.email_or_phone')}
+              </Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="mail"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
-                  placeholder="البريد الإلكتروني أو رقم الهاتف"
-                  placeholderTextColor="rgba(0, 150, 136, 0.7)"
+                  placeholder={t('auth.enter_email_or_phone')}
+                  placeholderTextColor={theme.colors.textSecondary}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -239,13 +287,22 @@ const LoginScreen = () => {
                   editable={!loading}
                 />
               </View>
+            </View>
 
-              {/* Password Input */}
-              <View style={styles.passwordContainer}>
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t('auth.password')}</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                  style={styles.inputIcon}
+                />
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="كلمة المرور"
-                  placeholderTextColor="rgba(0, 150, 136, 0.7)"
+                  style={styles.input}
+                  placeholder={t('auth.enter_password')}
+                  placeholderTextColor={theme.colors.textSecondary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -261,89 +318,88 @@ const LoginScreen = () => {
                   style={styles.passwordToggle}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Ionicons 
-                    name={showPassword ? "eye-off" : "eye"} 
-                    size={20} 
-                    color="#757575" 
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={22}
+                    color={theme.colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
-
-              {/* Login Button */}
-              <TouchableOpacity
-                style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="log-in" size={16} color="#FFFFFF" />
-                    <Text style={styles.loginButtonText}>تسجيل الدخول</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Forgot Password */}
-              <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={styles.forgotPasswordText}>نسيت كلمة المرور؟</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>أو</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Sign Up Options */}
-            <View style={styles.signUpSection}>
-              <Text style={styles.signUpTitle}>ليس لديك حساب؟</Text>
-              
-              <TouchableOpacity style={styles.signUpButton} onPress={navigateToSignUp}>
-                <Ionicons name="person-add" size={16} color="#009688" />
-                <Text style={styles.signUpButtonText}>إنشاء حساب مريض</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.signUpButton} onPress={navigateToDoctorSignUp}>
-                <Ionicons name="medical" size={16} color="#009688" />
-                <Text style={styles.signUpButtonText}>إنشاء حساب طبيب</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.adminButton} onPress={navigateToAdminLogin}>
-                <Ionicons name="settings" size={16} color="#757575" />
-                <Text style={styles.adminButtonText}>تسجيل دخول الأدمن</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Additional Content for Scrolling */}
-            <View style={styles.additionalContent}>
-              <Text style={styles.additionalTitle}>معلومات إضافية</Text>
-              <Text style={styles.additionalText}>
-                منصة طبيب العراق تقدم خدمات طبية متكاملة
+            {/* Login Button */}
+            <TouchableOpacity
+              style={[
+                styles.loginButton,
+                loading && styles.loginButtonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              <Text style={styles.loginButtonText}>
+                {loading ? t('auth.logging_in') : t('auth.login')}
               </Text>
-              
-                             <View style={styles.featuresList}>
-                 <View style={styles.featureItem}>
-                   <Ionicons name="shield-checkmark" size={16} color="#009688" />
-                   <Text style={styles.featureText}>أمان تام للبيانات</Text>
-                 </View>
-                 
-                 <View style={styles.featureItem}>
-                   <Ionicons name="time" size={16} color="#009688" />
-                   <Text style={styles.featureText}>خدمة 24/7</Text>
-                 </View>
-                 
-                 <View style={styles.featureItem}>
-                   <Ionicons name="medical" size={16} color="#009688" />
-                   <Text style={styles.featureText}>أطباء معتمدون</Text>
-                 </View>
-               </View>
-            </View>
-          </CSSScrollView>
-        </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>{t('auth.forgot_password')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('auth.or')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Sign Up Options */}
+          <View style={styles.signUpSection}>
+            <Text style={styles.signUpTitle}>{t('auth.no_account')}</Text>
+
+            <TouchableOpacity
+              style={styles.signUpButton}
+              onPress={navigateToSignUp}
+            >
+              <Ionicons
+                name="person-add"
+                size={22}
+                color={theme.colors.white}
+              />
+              <Text style={styles.signUpButtonText}>{t('auth.create_patient_account')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.signUpButton}
+              onPress={navigateToDoctorSignUp}
+            >
+              <Ionicons name="open-outline" size={22} color={theme.colors.white} />
+              <Text style={styles.signUpButtonText}>{t('auth.create_doctor_account')} (موقع الويب)</Text>
+            </TouchableOpacity>
+
+          </View>
+
+          {/* سياسة الخصوصية وشروط الاستخدام */}
+          <View style={styles.privacySection}>
+            <PrivacyPolicyButton 
+              variant="text" 
+              size="small"
+              showIcon={false}
+              style={styles.privacyButton}
+            />
+            <TermsOfServiceButton 
+              variant="text" 
+              size="small"
+              showIcon={false}
+              style={styles.termsButton}
+            />
+            <Text style={styles.privacyText}>
+              {t('auth.privacy_notice') || 'باستخدام التطبيق، فإنك توافق على سياسة الخصوصية وشروط الاستخدام الخاصة بنا'}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -351,345 +407,320 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 50, // إضافة مساحة في الأسفل للتمرير
+    backgroundColor: theme.colors.background,
   },
-  backgroundGradient: {
-    flex: 1,
-    justifyContent: 'center',
+  header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    height: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
   backButton: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    zIndex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
     padding: 8,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
-  testButton: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    zIndex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  testEndpointsButton: {
-    position: 'absolute',
-    top: 100,
-    left: 16,
-    zIndex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  testButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  serverInfo: {
-    position: 'absolute',
-    top: 150,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 8,
-    alignItems: 'center',
-  },
-  serverInfoText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.colors.white,
     textAlign: 'center',
+    marginTop: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 1,
   },
-  loginBox: {
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    padding: 20, // تقليل المساحة
-    width: '100%',
-    height: '100%',
-    shadowColor: 'transparent',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderWidth: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerSpacer: {
+    width: 60, // Same width as back button for balance
   },
   logoContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15, // تقليل المساحة
   },
-  logo: {
-    width: 100, // تصغير الشعار
-    height: 100,
-    borderRadius: 50,
+  logoImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 12,
   },
-  logoPlaceholder: {
+  logoText: {
+    flexDirection: 'column',
+  },
+  logoTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  logoSubtitle: {
+    fontSize: 16,
+    color: 'rgba(0, 150, 136, 0.8)',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    paddingBottom: 150, // إضافة مساحة في الأسفل للتمرير
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  formContainer: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 20,
+    padding: 25,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  formLogoImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 4,
+    borderColor: theme.colors.primaryLight,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 20, // تقليل المساحة
-  },
-  headerTitle: {
-    fontSize: 24, // تصغير الخط
+  formLogoTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#009688',
+    color: theme.colors.textPrimary,
+    marginTop: 15,
     textAlign: 'center',
-    marginBottom: 10, // تقليل المساحة
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
   },
-  headerSubtitle: {
-    fontSize: 16, // تصغير الخط
-    color: '#009688',
+  formLogoSubtitle: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginTop: 5,
     textAlign: 'center',
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+  },
+  loginTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   typeSelector: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20, // تقليل المساحة
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   typeButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10, // تقليل المساحة
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginHorizontal: 2,
   },
   typeButtonActive: {
-    backgroundColor: 'transparent',
-    borderColor: '#009688',
-    borderWidth: 1,
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.white,
+    borderWidth: 2,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   typeButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#009688',
-    marginLeft: 8,
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    color: theme.colors.textSecondary,
+    marginLeft: 10,
   },
   typeButtonTextActive: {
-    color: '#009688',
+    color: theme.colors.white,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+  },
+  welcomeMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.success + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '40',
+  },
+  welcomeText: {
+    color: theme.colors.success,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
+    textAlign: 'right',
   },
   form: {
-    marginBottom: 20, // تقليل المساحة
+    marginBottom: 20,
     width: '100%',
   },
   inputContainer: {
-    position: 'relative',
-    marginBottom: 12, // تقليل المساحة
+    marginBottom: 20,
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#009688',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10, // تقليل المساحة
-    fontSize: 14, // تصغير الخط
-    color: '#009688',
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
     textAlign: 'right',
-    fontWeight: '600',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  passwordContainer: {
-    position: 'relative',
-    marginBottom: 12, // تقليل المساحة
-  },
-  passwordInput: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#009688',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10, // تقليل المساحة
-    fontSize: 14, // تصغير الخط
-    color: '#009688',
-    textAlign: 'right',
-    fontWeight: '600',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
   },
   passwordToggle: {
-    position: 'absolute',
-    left: 16,
-    top: 16,
-    zIndex: 1,
+    marginLeft: 12,
+    padding: 4,
   },
   loginButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.primary,
     borderRadius: 8,
-    paddingVertical: 14, // تقليل المساحة
+    paddingVertical: 16,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#009688',
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    width: '100%',
   },
   loginButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-    opacity: 0.7,
+    opacity: 0.6,
   },
   loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16, // تصغير الخط
+    color: theme.colors.white,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginRight: 8,
-    letterSpacing: 1,
   },
   forgotPassword: {
     alignItems: 'center',
     marginTop: 16,
   },
   forgotPasswordText: {
-    color: '#009688',
+    color: theme.colors.primary,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 16,
     fontWeight: '600',
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 24,
+    width: '100%',
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: theme.colors.border,
   },
   dividerText: {
-    color: '#757575',
+    color: theme.colors.textSecondary,
     fontSize: 16,
     marginHorizontal: 16,
   },
   signUpSection: {
     alignItems: 'center',
+    width: '100%',
   },
   signUpTitle: {
-    fontSize: 16, // تصغير الخط
+    fontSize: 16,
     fontWeight: '600',
-    color: '#212121',
-    marginBottom: 12, // تقليل المساحة
+    color: theme.colors.textPrimary,
+    marginBottom: 12,
   },
   signUpButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.primary,
     borderRadius: 12,
-    paddingVertical: 10, // تقليل المساحة
-    paddingHorizontal: 16,
-    marginBottom: 10, // تقليل المساحة
-    borderWidth: 1,
-    borderColor: '#009688',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
     width: '100%',
     justifyContent: 'center',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   signUpButtonText: {
-    color: '#009688',
-    fontSize: 16, // تصغير الخط
+    color: theme.colors.white,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    marginLeft: 10,
   },
-  adminButton: {
-    flexDirection: 'row',
+  privacySection: {
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  adminButtonText: {
-    color: '#757575',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  additionalContent: {
-    marginTop: 30, // تقليل المساحة
+    marginTop: 20,
     paddingHorizontal: 20,
-    paddingBottom: 30, // تقليل المساحة
   },
-  additionalTitle: {
-    fontSize: 16, // تصغير الخط
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  privacyButton: {
+    marginBottom: 8,
+  },
+  termsButton: {
+    marginBottom: 8,
+  },
+  privacyText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 10, // تقليل المساحة
-  },
-  additionalText: {
-    fontSize: 12, // تصغير الخط
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 15, // تقليل المساحة
-    opacity: 0.9,
-  },
-  featuresList: {
-    gap: 8, // تقليل المساحة
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 10, // تقليل المساحة
-  },
-  featureText: {
-    color: '#FFFFFF',
-    fontSize: 12, // تصغير الخط
-    marginLeft: 8,
+    lineHeight: 16,
   },
 });
 
-export default LoginScreen; 
+export default LoginScreen;

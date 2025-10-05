@@ -1,14 +1,53 @@
 import { Dimensions, Platform } from 'react-native';
-import { safeFormatTime, safeGetInitials } from './debug';
 
-// الحصول على أبعاد الشاشة
+const safeFormatTime = (time: any): string => {
+  if (!time || typeof time !== 'string') {
+    return '';
+  }
+  
+  try {
+    const parts = time.split(':');
+    if (parts.length < 2) {
+      return time;
+    }
+    
+    const hours = parseInt(parts[0]);
+    const minutes = parts[1];
+    
+    if (isNaN(hours)) {
+      return time;
+    }
+    
+    const ampm = hours >= 12 ? 'م' : 'ص';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return `${displayHour}:${minutes} ${ampm}`;
+  } catch (error) {
+    return time || '';
+  }
+};
+
+const safeGetInitials = (name: any): string => {
+  if (!name || typeof name !== 'string') {
+    return '';
+  }
+  
+  try {
+    return name
+      .split(' ')
+      .map((word: string) => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  } catch (error) {
+    return '';
+  }
+};
+
 export const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-// التحقق من نوع الجهاز
 export const isIOS = Platform.OS === 'ios';
 export const isAndroid = Platform.OS === 'android';
 
-// دالة لتنسيق التاريخ
 export const formatDate = (date: Date | string): string => {
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -18,17 +57,14 @@ export const formatDate = (date: Date | string): string => {
       day: 'numeric',
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
     return '';
   }
 };
 
-// دالة لتنسيق الوقت - استخدام الدالة الآمنة
 export const formatTime = (time: string): string => {
   return safeFormatTime(time);
 };
 
-// دالة لتنسيق المدة
 export const formatDuration = (minutes: number): string => {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
@@ -39,140 +75,71 @@ export const formatDuration = (minutes: number): string => {
   return `${remainingMinutes} دقيقة`;
 };
 
-// دالة لتنسيق الرقم
 export const formatNumber = (num: number): string => {
   return num.toLocaleString('ar-EG');
 };
 
-// دالة لتنسيق السعر
 export const formatPrice = (price: number): string => {
   return `${price.toLocaleString('ar-EG')} دينار عراقي`;
 };
 
-// دالة للتحقق من صحة البريد الإلكتروني
 export const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
-// دالة للتحقق من صحة رقم الهاتف العراقي
-export const isValidIraqiPhone = (phone: string): boolean => {
-  // رقم هاتف عراقي يبدأ بـ +964 أو 964 أو 07 أو 7
-  const phoneRegex = /^(\+964|964|07|7)?[0-9]{9}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
-};
-
-// دالة للتحقق من صحة رقم الهاتف (عامة)
 export const isValidPhone = (phone: string): boolean => {
-  // رقم هاتف عام يبدأ بـ + أو رقم
-  const phoneRegex = /^(\+?[0-9]{1,4})?[0-9]{7,15}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
+  const phoneRegex = /^(\+964|964|0)?7[0-9]{8}$/;
+  return phoneRegex.test(phone);
 };
 
-// دالة لتنسيق رقم الهاتف
-export const formatPhoneNumber = (phone: string): string => {
-  const cleaned = phone.replace(/\D/g, '');
-  
-  if (cleaned.startsWith('964')) {
-    return `+${cleaned}`;
-  } else if (cleaned.startsWith('07') || cleaned.startsWith('7')) {
-    return `+964${cleaned.substring(cleaned.startsWith('07') ? 2 : 1)}`;
+export const formatPhone = (phone: string): string => {
+  if (phone.startsWith('+964')) {
+    return phone;
+  } else if (phone.startsWith('964')) {
+    return `+${phone}`;
+  } else if (phone.startsWith('0')) {
+    return `+964${phone.substring(1)}`;
+  } else if (phone.startsWith('7')) {
+    return `+964${phone}`;
   }
-  
   return phone;
 };
 
-// دالة للحصول على الحرف الأول من كل كلمة - استخدام الدالة الآمنة
 export const getInitials = (name: string): string => {
   return safeGetInitials(name);
 };
 
-// دالة للحصول على لون عشوائي للملف الشخصي
-export const getRandomColor = (): string => {
-  const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-    '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2',
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
-};
-
-// دالة للحصول على عمر من تاريخ الميلاد
-export const getAge = (birthDate: Date | string): number => {
-  const birth = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  
-  return age;
-};
-
-// دالة للحصول على المسافة بين نقطتين
-export const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371; // نصف قطر الأرض بالكيلومترات
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-};
-
-// دالة لتنسيق المسافة
-export const formatDistance = (distance: number): string => {
-  if (distance < 1) {
-    return `${Math.round(distance * 1000)} متر`;
-  }
-  return `${distance.toFixed(1)} كم`;
-};
-
-// دالة للحصول على حالة الموعد
-export const getAppointmentStatus = (status: string): {
-  text: string;
-  color: string;
-  icon: string;
-} => {
+export const getStatusColor = (status: string): string => {
   switch (status.toLowerCase()) {
-    case 'confirmed':
-      return {
-        text: 'مؤكد',
-        color: '#4CAF50',
-        icon: 'checkmark-circle',
-      };
     case 'pending':
-      return {
-        text: 'في الانتظار',
-        color: '#FF9800',
-        icon: 'time',
-      };
+      return '#FF9800';
+    case 'confirmed':
+      return '#4CAF50';
     case 'cancelled':
-      return {
-        text: 'ملغي',
-        color: '#F44336',
-        icon: 'close-circle',
-      };
+      return '#F44336';
     case 'completed':
-      return {
-        text: 'مكتمل',
-        color: '#2196F3',
-        icon: 'checkmark-done-circle',
-      };
+      return '#2196F3';
     default:
-      return {
-        text: 'غير محدد',
-        color: '#757575',
-        icon: 'help-circle',
-      };
+      return '#757575';
   }
 };
 
-// دالة للحصول على نوع الموعد
+export const getStatusText = (status: string): string => {
+  switch (status.toLowerCase()) {
+    case 'pending':
+      return 'في الانتظار';
+    case 'confirmed':
+      return 'مؤكد';
+    case 'cancelled':
+      return 'ملغي';
+    case 'completed':
+      return 'مكتمل';
+    default:
+      return 'غير محدد';
+  }
+};
+
 export const getAppointmentType = (type: string): {
   text: string;
   color: string;
@@ -212,14 +179,10 @@ export const getAppointmentType = (type: string): {
   }
 };
 
-// دالة للتحقق من توفر الطبيب
 export const isDoctorAvailable = (schedule: any, date: string, time: string): boolean => {
-  // هنا يمكن إضافة منطق للتحقق من توفر الطبيب
-  // هذا مثال بسيط
   return true;
 };
 
-// دالة للحصول على التقييم بالنجوم
 export const getStarRating = (rating: number): string => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 !== 0;
@@ -228,12 +191,10 @@ export const getStarRating = (rating: number): string => {
   return '★'.repeat(fullStars) + (hasHalfStar ? '☆' : '') + '☆'.repeat(emptyStars);
 };
 
-// دالة لتقريب الرقم
 export const roundToNearest = (num: number, nearest: number): number => {
   return Math.round(num / nearest) * nearest;
 };
 
-// دالة للحصول على اسم الشهر
 export const getMonthName = (month: number): string => {
   const months = [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -242,7 +203,6 @@ export const getMonthName = (month: number): string => {
   return months[month - 1];
 };
 
-// دالة للحصول على اسم اليوم
 export const getDayName = (day: number): string => {
   const days = [
     'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'
@@ -250,41 +210,24 @@ export const getDayName = (day: number): string => {
   return days[day];
 };
 
-// دالة للتحقق من صحة كلمة المرور
 export const isStrongPassword = (password: string): boolean => {
-  // يجب أن تحتوي على 8 أحرف على الأقل
-  // حرف كبير، حرف صغير، رقم، رمز خاص
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  return passwordRegex.test(password);
+  return password.length >= 6;
 };
 
-// دالة لتقييم قوة كلمة المرور
 export const getPasswordStrength = (password: string): {
   score: number;
   text: string;
   color: string;
 } => {
-  let score = 0;
+  const length = password.length;
   
-  if (password.length >= 8) score++;
-  if (/[a-z]/.test(password)) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/\d/.test(password)) score++;
-  if (/[@$!%*?&]/.test(password)) score++;
-  
-  switch (score) {
-    case 0:
-    case 1:
-      return { score, text: 'ضعيفة جداً', color: '#F44336' };
-    case 2:
-      return { score, text: 'ضعيفة', color: '#FF9800' };
-    case 3:
-      return { score, text: 'متوسطة', color: '#FFC107' };
-    case 4:
-      return { score, text: 'قوية', color: '#4CAF50' };
-    case 5:
-      return { score, text: 'قوية جداً', color: '#2E7D32' };
-    default:
-      return { score, text: 'ضعيفة', color: '#F44336' };
+  if (length < 6) {
+    return { score: 1, text: 'قصيرة جداً', color: '#F44336' };
+  } else if (length >= 6 && length < 8) {
+    return { score: 2, text: 'مقبولة', color: '#FF9800' };
+  } else if (length >= 8 && length < 12) {
+    return { score: 3, text: 'جيدة', color: '#4CAF50' };
+  } else {
+    return { score: 4, text: 'ممتازة', color: '#2E7D32' };
   }
 }; 

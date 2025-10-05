@@ -1,4 +1,10 @@
 // دالة لتحويل التخصصات من البيانات الخلفية إلى الأسماء العربية المعروضة
+import i18n from '../locales';
+import { MEDICAL_SPECIALTIES, getSpecialtyById, getSpecialtyByKey } from './medicalSpecialties';
+
+// الحصول على مفاتيح التخصصات بالترتيب
+const specialtyKeysInOrder = MEDICAL_SPECIALTIES.map(specialty => specialty.key);
+
 export const mapSpecialtyToArabic = (specialty: string | number | null | undefined): string => {
   if (!specialty) {
     return 'غير محدد';
@@ -12,312 +18,262 @@ export const mapSpecialtyToArabic = (specialty: string | number | null | undefin
     return 'غير محدد';
   }
 
-  // قائمة التخصصات مع الترجمة العربية
-  const specialtyMap: Record<string, string> = {
-    // التخصصات الأساسية
-    'general_medicine': 'طب عام',
-    'cardiology': 'طب القلب',
-    'pediatrics': 'طب الأطفال',
-    'orthopedics': 'طب العظام',
-    'neurology': 'طب الأعصاب',
-    'dermatology': 'طب الجلد',
-    'ophthalmology': 'طب العيون',
-    'dentistry': 'طب الأسنان',
-    'psychiatry': 'طب النفس',
-    'gynecology': 'طب النساء',
-    'urology': 'طب المسالك البولية',
-    'gastroenterology': 'طب الجهاز الهضمي',
-    'endocrinology': 'طب الغدد الصماء',
-    'oncology': 'طب الأورام',
-    'rheumatology': 'طب الروماتيزم',
-    'pulmonology': 'طب الصدر',
-    'nephrology': 'طب الكلى',
-    'hematology': 'طب الدم',
-    'immunology': 'طب المناعة',
-    'infectious_diseases': 'الأمراض المعدية',
-    'emergency_medicine': 'طب الطوارئ',
-    'family_medicine': 'طب الأسرة',
-    'internal_medicine': 'طب الباطنة',
-    'surgery': 'الجراحة العامة',
-    'plastic_surgery': 'جراحة التجميل',
-    'neurosurgery': 'جراحة الأعصاب',
-    'cardiothoracic_surgery': 'جراحة القلب والصدر',
-    'vascular_surgery': 'جراحة الأوعية الدموية',
-    'orthopedic_surgery': 'جراحة العظام',
-    'pediatric_surgery': 'جراحة الأطفال',
-    'urological_surgery': 'جراحة المسالك البولية',
-    'gynecological_surgery': 'جراحة النساء',
-    'maxillofacial_surgery': 'جراحة الفم والوجه والفكين',
-    'anesthesiology': 'التخدير',
-    'radiology': 'الأشعة',
-    'pathology': 'علم الأمراض',
-    'laboratory_medicine': 'طب المختبرات',
-    'nuclear_medicine': 'الطب النووي',
-    'physical_medicine': 'طب التأهيل',
-    'sports_medicine': 'طب الرياضة',
-    'occupational_medicine': 'طب العمل',
-    'preventive_medicine': 'طب الوقاية',
-    'geriatrics': 'طب المسنين',
-    'palliative_care': 'الرعاية التلطيفية',
-
-    // التخصصات بالأرقام (من قاعدة البيانات)
-    '0': 'طب عام',
-    '1': 'طب القلب',
-    '2': 'طب الأطفال',
-    '3': 'طب العظام',
-    '4': 'طب الأعصاب',
-    '5': 'طب الجلد',
-    '6': 'طب العيون',
-    '7': 'طب الأسنان',
-    '8': 'طب النفس',
-    '9': 'طب النساء',
-    '10': 'طب المسالك البولية',
-    '11': 'طب الجهاز الهضمي',
-    '12': 'طب الغدد الصماء',
-    '13': 'طب الأورام',
-    '14': 'طب الروماتيزم',
-    '15': 'طب الصدر',
-    '16': 'طب الكلى',
-    '17': 'طب الدم',
-    '18': 'طب المناعة',
-    '19': 'الأمراض المعدية',
-    '20': 'طب الطوارئ',
-    '21': 'طب الأسرة',
-    '22': 'طب الباطنة',
-    '23': 'الجراحة العامة',
-    '24': 'جراحة التجميل',
-    '25': 'جراحة الأعصاب',
-    '26': 'جراحة القلب والصدر',
-    '27': 'جراحة الأوعية الدموية',
-    '28': 'جراحة العظام',
-    '29': 'جراحة الأطفال',
-    '30': 'جراحة المسالك البولية',
-    '31': 'جراحة النساء',
-    '32': 'جراحة الفم والوجه والفكين',
-    '33': 'التخدير',
-    '34': 'الأشعة',
-    '35': 'علم الأمراض',
-    '36': 'طب المختبرات',
-    '37': 'الطب النووي',
-    '38': 'طب التأهيل',
-    '39': 'طب الرياضة',
-    '40': 'طب العمل',
-    '41': 'طب الوقاية',
-    '42': 'طب المسنين',
-    '43': 'الرعاية التلطيفية',
-
-    // التخصصات باللغة العربية (إذا كانت موجودة بالفعل)
-    'طب القلب': 'طب القلب',
-    'طب الأطفال': 'طب الأطفال',
-    'طب العظام': 'طب العظام',
-    'طب الأعصاب': 'طب الأعصاب',
-    'طب الجلد': 'طب الجلد',
-    'طب العيون': 'طب العيون',
-    'طب الأسنان': 'طب الأسنان',
-    'طب النفس': 'طب النفس',
-    'طب النساء': 'طب النساء',
-    'طب المسالك البولية': 'طب المسالك البولية',
-    'طب الجهاز الهضمي': 'طب الجهاز الهضمي',
-    'طب الغدد الصماء': 'طب الغدد الصماء',
-    'طب الأورام': 'طب الأورام',
-    'طب الروماتيزم': 'طب الروماتيزم',
-    'طب الصدر': 'طب الصدر',
-    'طب الكلى': 'طب الكلى',
-    'طب الدم': 'طب الدم',
-    'طب المناعة': 'طب المناعة',
-    'الأمراض المعدية': 'الأمراض المعدية',
-    'طب الطوارئ': 'طب الطوارئ',
-    'طب الأسرة': 'طب الأسرة',
-    'طب الباطنة': 'طب الباطنة',
-    'الجراحة العامة': 'الجراحة العامة',
-    'جراحة التجميل': 'جراحة التجميل',
-    'جراحة الأعصاب': 'جراحة الأعصاب',
-    'جراحة القلب والصدر': 'جراحة القلب والصدر',
-    'جراحة الأوعية الدموية': 'جراحة الأوعية الدموية',
-    'جراحة العظام': 'جراحة العظام',
-    'جراحة الأطفال': 'جراحة الأطفال',
-    'جراحة المسالك البولية': 'جراحة المسالك البولية',
-    'جراحة النساء': 'جراحة النساء',
-    'جراحة الفم والوجه والفكين': 'جراحة الفم والوجه والفكين',
-    'التخدير': 'التخدير',
-    'الأشعة': 'الأشعة',
-    'علم الأمراض': 'علم الأمراض',
-    'طب المختبرات': 'طب المختبرات',
-    'الطب النووي': 'الطب النووي',
-    'طب التأهيل': 'طب التأهيل',
-    'طب الرياضة': 'طب الرياضة',
-    'طب العمل': 'طب العمل',
-    'طب الوقاية': 'طب الوقاية',
-    'طب المسنين': 'طب المسنين',
-    'الرعاية التلطيفية': 'الرعاية التلطيفية',
-
-    // التخصصات باللغة الكردية
-    'دڵناسی': 'طب القلب',
-    'منداڵناسی': 'طب الأطفال',
-    'ئێسکناسی': 'طب العظام',
-    'دەماری': 'طب الأعصاب',
-    'پێستناسی': 'طب الجلد',
-    'چاڤناسی': 'طب العيون',
-    'ددانناسی': 'طب الأسنان',
-    'دەروونناسی': 'طب النفس',
-    'ژنانناسی': 'طب النساء',
-    'میزڕێژناسی': 'طب المسالك البولية',
-    'گەدە و ڕیخۆڵەناسی': 'طب الجهاز الهضمي',
-    'دەرەقناسی': 'طب الغدد الصماء',
-    'شێرپەنجەناسی': 'طب الأورام',
-    'ڕیوومەتیزناسی': 'طب الروماتيزم',
-    'سییەناسی': 'طب الصدر',
-    'گورچیلەناسی': 'طب الكلى',
-    'خوێنناسی': 'طب الدم',
-    'بەرگریناسی': 'طب المناعة',
-    'نەخۆشی بەرگرییەکان': 'الأمراض المعدية',
-    'پزیشکی ناوچەپێویست': 'طب الطوارئ',
-    'پزیشکی خێزان': 'طب الأسرة',
-    'پزیشکی ناوەوە': 'طب الباطنة',
-    'نەشتەرگەری گشتی': 'الجراحة العامة',
-    'نەشتەرگەری جوانکاری': 'جراحة التجميل',
-    'نەشتەرگەری دەمار': 'جراحة الأعصاب',
-    'نەشتەرگەری دڵ و سییە': 'جراحة القلب والصدر',
-    'نەشتەرگەری خوێنبەر': 'جراحة الأوعية الدموية',
-    'نەشتەرگەری ئێسک': 'جراحة العظام',
-    'نەشتەرگەری منداڵان': 'جراحة الأطفال',
-    'نەشتەرگەری میزڕێژ': 'جراحة المسالك البولية',
-    'نەشتەرگەری ژنان': 'جراحة النساء',
-    'نەشتەرگەری دەم و دەموچاو': 'جراحة الفم والوجه والفكين',
-    'بێهۆشکردن': 'التخدير',
-    'تیشکناسی': 'الأشعة',
-    'نەخۆشیناسی': 'علم الأمراض',
-    'پزیشکی تاقیگە': 'طب المختبرات',
-    'پزیشکی ئەتۆمی': 'الطب النووي',
-    'پزیشکی جەستەیی': 'طب التأهيل',
-    'پزیشکی وەرزش': 'طب الرياضة',
-    'پزیشکی پیشەیی': 'طب العمل',
-    'پزیشکی پاراستن': 'طب الوقاية',
-    'پزیشکی بەتەمەن': 'طب المسنين',
-    'چاودێری ئارامکردن': 'الرعاية التلطيفية',
-  };
-
-  // البحث عن التخصص في القائمة
-  const mappedSpecialty = specialtyMap[specialtyStr.toLowerCase()];
-  
-  if (mappedSpecialty) {
-    return mappedSpecialty;
+  // البحث عن التخصص بالرقم
+  if (!isNaN(Number(specialtyStr))) {
+    const specialtyById = getSpecialtyById(Number(specialtyStr));
+    if (specialtyById) {
+      return specialtyById.ar;
+    }
   }
 
-  // محاولة البحث بالرقم مباشرة
-  const numericSpecialty = specialtyMap[specialtyStr];
-  if (numericSpecialty) {
-    return numericSpecialty;
+  // البحث عن التخصص بالمفتاح
+  const specialtyByKey = getSpecialtyByKey(specialtyStr.toLowerCase());
+  if (specialtyByKey) {
+    return specialtyByKey.ar;
+  }
+
+  // البحث في التخصصات الموجودة بالفعل
+  const existingSpecialty = MEDICAL_SPECIALTIES.find(s => 
+    s.ar === specialtyStr || 
+    s.en === specialtyStr || 
+    s.ku === specialtyStr ||
+    s.key === specialtyStr.toLowerCase()
+  );
+
+  if (existingSpecialty) {
+    return existingSpecialty.ar;
   }
 
   // إذا كان الرقم غير معرف، حاول إرجاع تخصص افتراضي
   if (!isNaN(Number(specialtyStr))) {
-    console.log(`⚠️ رقم تخصص غير معرف: "${specialtyStr}" - إرجاع تخصص افتراضي`);
-    return 'طب عام';
+
+    return 'الطب العام';
   }
 
   // إذا لم يتم العثور على التخصص، إرجاع القيمة الأصلية مع تحسين
-  console.log(`⚠️ تخصص غير معروف: "${specialtyStr}"`);
+
   return specialtyStr;
+};
+
+// ترجمة حسب اللغة الحالية (ar/en/ku) باستخدام مفاتيح specialties من i18n
+export const mapSpecialtyToLocalized = (specialty: string | number | null | undefined): string => {
+  if (specialty === null || specialty === undefined) return i18n.t('common.not_specified');
+  const raw = String(specialty).trim();
+  if (!raw) return i18n.t('common.not_specified');
+
+  // الحصول على اللغة الحالية
+  const currentLanguage = i18n.language || 'ar';
+  
+  // إذا كان مفتاحًا قياسيًا
+  const lower = raw.toLowerCase();
+  if (specialtyKeysInOrder.includes(lower)) {
+    const value = (i18n.t(`specialties.${lower}`) as any) || raw;
+    return typeof value === 'string' ? value : raw;
+  }
+
+  // إذا كان رقماً (فهرسًا)
+  if (!isNaN(Number(raw))) {
+    const idx = Number(raw);
+    const key = specialtyKeysInOrder[idx];
+    if (key) {
+      const value = (i18n.t(`specialties.${key}`) as any) || raw;
+      return typeof value === 'string' ? value : raw;
+    }
+  }
+
+  // البحث في التخصصات الطبية مباشرة أولاً
+  const medicalSpecialty = MEDICAL_SPECIALTIES.find(s => 
+    s.ar === raw || 
+    s.en === raw || 
+    s.ku === raw ||
+    s.key === lower ||
+    s.ar.toLowerCase() === lower ||
+    s.en.toLowerCase() === lower ||
+    s.ku.toLowerCase() === lower
+  );
+
+  if (medicalSpecialty) {
+    // إرجاع التخصص باللغة المحددة
+    switch (currentLanguage) {
+      case 'en':
+        return medicalSpecialty.en;
+      case 'ku':
+        return medicalSpecialty.ku;
+      case 'ar':
+      default:
+        return medicalSpecialty.ar;
+    }
+  }
+
+  // إذا كان نصاً باللغة العربية/الإنجليزية/الكردية، نحاول العثور على المفتاح بمقارنة القيم المحلية
+  try {
+    const specObj = i18n.t('specialties', { returnObjects: true }) as Record<string, string>;
+    if (specObj) {
+      const entry = Object.entries(specObj).find(([, v]) => String(v).toLowerCase() === lower);
+      if (entry) return entry[1];
+    }
+  } catch {}
+
+  // البحث الجزئي في التخصصات الطبية
+  const partialMatch = MEDICAL_SPECIALTIES.find(s => 
+    s.ar.includes(raw) || 
+    s.en.toLowerCase().includes(lower) ||
+    raw.includes(s.ar) ||
+    lower.includes(s.en.toLowerCase())
+  );
+
+  if (partialMatch) {
+    // إرجاع التخصص باللغة المحددة
+    switch (currentLanguage) {
+      case 'en':
+        return partialMatch.en;
+      case 'ku':
+        return partialMatch.ku;
+      case 'ar':
+      default:
+        return partialMatch.ar;
+    }
+  }
+
+  return raw;
 };
 
 // دالة لتحويل التخصصات من العربية إلى الإنجليزية (للتسجيل)
 export const mapSpecialtyToEnglish = (arabicSpecialty: string): string => {
-  const reverseMap: Record<string, string> = {
-    'طب القلب': 'cardiology',
-    'طب الأطفال': 'pediatrics',
-    'طب العظام': 'orthopedics',
-    'طب الأعصاب': 'neurology',
-    'طب الجلد': 'dermatology',
-    'طب العيون': 'ophthalmology',
-    'طب الأسنان': 'dentistry',
-    'طب النفس': 'psychiatry',
-    'طب النساء': 'gynecology',
-    'طب المسالك البولية': 'urology',
-    'طب الجهاز الهضمي': 'gastroenterology',
-    'طب الغدد الصماء': 'endocrinology',
-    'طب الأورام': 'oncology',
-    'طب الروماتيزم': 'rheumatology',
-    'طب الصدر': 'pulmonology',
-    'طب الكلى': 'nephrology',
-    'طب الدم': 'hematology',
-    'طب المناعة': 'immunology',
-    'الأمراض المعدية': 'infectious_diseases',
-    'طب الطوارئ': 'emergency_medicine',
-    'طب الأسرة': 'family_medicine',
-    'طب الباطنة': 'internal_medicine',
-    'الجراحة العامة': 'surgery',
-    'جراحة التجميل': 'plastic_surgery',
-    'جراحة الأعصاب': 'neurosurgery',
-    'جراحة القلب والصدر': 'cardiothoracic_surgery',
-    'جراحة الأوعية الدموية': 'vascular_surgery',
-    'جراحة العظام': 'orthopedic_surgery',
-    'جراحة الأطفال': 'pediatric_surgery',
-    'جراحة المسالك البولية': 'urological_surgery',
-    'جراحة النساء': 'gynecological_surgery',
-    'جراحة الفم والوجه والفكين': 'maxillofacial_surgery',
-    'التخدير': 'anesthesiology',
-    'الأشعة': 'radiology',
-    'علم الأمراض': 'pathology',
-    'طب المختبرات': 'laboratory_medicine',
-    'الطب النووي': 'nuclear_medicine',
-    'طب التأهيل': 'physical_medicine',
-    'طب الرياضة': 'sports_medicine',
-    'طب العمل': 'occupational_medicine',
-    'طب الوقاية': 'preventive_medicine',
-    'طب المسنين': 'geriatrics',
-    'الرعاية التلطيفية': 'palliative_care',
-  };
-
-  return reverseMap[arabicSpecialty] || arabicSpecialty;
+  const specialty = MEDICAL_SPECIALTIES.find(s => s.ar === arabicSpecialty);
+  return specialty ? specialty.en : arabicSpecialty;
 };
 
 // دالة للحصول على قائمة التخصصات العربية
 export const getArabicSpecialties = (): string[] => {
-  return [
-    'طب عام',
-    'طب القلب',
-    'طب الأطفال',
-    'طب العظام',
-    'طب الأعصاب',
-    'طب الجلد',
-    'طب العيون',
-    'طب الأسنان',
-    'طب النفس',
-    'طب النساء',
-    'طب المسالك البولية',
-    'طب الجهاز الهضمي',
-    'طب الغدد الصماء',
-    'طب الأورام',
-    'طب الروماتيزم',
-    'طب الصدر',
-    'طب الكلى',
-    'طب الدم',
-    'طب المناعة',
-    'الأمراض المعدية',
-    'طب الطوارئ',
-    'طب الأسرة',
-    'طب الباطنة',
-    'الجراحة العامة',
-    'جراحة التجميل',
-    'جراحة الأعصاب',
-    'جراحة القلب والصدر',
-    'جراحة الأوعية الدموية',
-    'جراحة العظام',
-    'جراحة الأطفال',
-    'جراحة المسالك البولية',
-    'جراحة النساء',
-    'جراحة الفم والوجه والفكين',
-    'التخدير',
-    'الأشعة',
-    'علم الأمراض',
-    'طب المختبرات',
-    'الطب النووي',
-    'طب التأهيل',
-    'طب الرياضة',
-    'طب العمل',
-    'طب الوقاية',
-    'طب المسنين',
-    'الرعاية التلطيفية',
-  ];
+  return MEDICAL_SPECIALTIES.map(specialty => specialty.ar);
+};
+
+// دالة لترجمة المحافظات حسب اللغة الحالية
+export const mapProvinceToLocalized = (province: string | null | undefined): string => {
+  if (province === null || province === undefined) return i18n.t('common.not_specified');
+  const raw = String(province).trim();
+  if (!raw) return i18n.t('common.not_specified');
+
+  // الحصول على اللغة الحالية
+  const currentLanguage = i18n.language || 'ar';
+  
+  // قائمة المحافظات العراقية مع ترجماتها
+  const provincesMap: Record<string, { ar: string; en: string; ku: string }> = {
+    'بغداد': { ar: 'بغداد', en: 'Baghdad', ku: 'بەغداد' },
+    'البصرة': { ar: 'البصرة', en: 'Basra', ku: 'بەسرە' },
+    'أربيل': { ar: 'أربيل', en: 'Erbil', ku: 'هەولێر' },
+    'السليمانية': { ar: 'السليمانية', en: 'Sulaymaniyah', ku: 'سلێمانی' },
+    'كركوك': { ar: 'كركوك', en: 'Kirkuk', ku: 'کەرکوک' },
+    'النجف': { ar: 'النجف', en: 'Najaf', ku: 'نجف' },
+    'كربلاء': { ar: 'كربلاء', en: 'Karbala', ku: 'کەربەلا' },
+    'الديوانية': { ar: 'الديوانية', en: 'Diwaniyah', ku: 'دیوانیە' },
+    'العمارة': { ar: 'العمارة', en: 'Amarah', ku: 'عەمارە' },
+    'نينوى': { ar: 'نينوى', en: 'Nineveh', ku: 'نینەوا' },
+    'الأنبار': { ar: 'الأنبار', en: 'Anbar', ku: 'ئەنبار' },
+    'ذي قار': { ar: 'ذي قار', en: 'Dhi Qar', ku: 'ذی قار' },
+    'صلاح الدين': { ar: 'صلاح الدين', en: 'Salah ad-Din', ku: 'سەلاحەدین' },
+    'ديالى': { ar: 'ديالى', en: 'Diyala', ku: 'دیالە' },
+    'بابل': { ar: 'بابل', en: 'Babil', ku: 'بابل' },
+    'واسط': { ar: 'واسط', en: 'Wasit', ku: 'واسط' },
+    'ميسان': { ar: 'ميسان', en: 'Maysan', ku: 'میسان' },
+    'القادسية': { ar: 'القادسية', en: 'Qadisiyah', ku: 'قادسیە' },
+    'المثنى': { ar: 'المثنى', en: 'Muthanna', ku: 'موثنا' },
+    'دهوك': { ar: 'دهوك', en: 'Duhok', ku: 'دهۆک' },
+    'حلبجة': { ar: 'حلبجة', en: 'Halabja', ku: 'هەڵەبجە' },
+    // إضافة الترجمات العكسية
+    'Baghdad': { ar: 'بغداد', en: 'Baghdad', ku: 'بەغداد' },
+    'Basra': { ar: 'البصرة', en: 'Basra', ku: 'بەسرە' },
+    'Erbil': { ar: 'أربيل', en: 'Erbil', ku: 'هەولێر' },
+    'Sulaymaniyah': { ar: 'السليمانية', en: 'Sulaymaniyah', ku: 'سلێمانی' },
+    'Kirkuk': { ar: 'كركوك', en: 'Kirkuk', ku: 'کەرکوک' },
+    'Najaf': { ar: 'النجف', en: 'Najaf', ku: 'نجف' },
+    'Karbala': { ar: 'كربلاء', en: 'Karbala', ku: 'کەربەلا' },
+    'Diwaniyah': { ar: 'الديوانية', en: 'Diwaniyah', ku: 'دیوانیە' },
+    'Amarah': { ar: 'العمارة', en: 'Amarah', ku: 'عەمارە' },
+    'Nineveh': { ar: 'نينوى', en: 'Nineveh', ku: 'نینەوا' },
+    'Anbar': { ar: 'الأنبار', en: 'Anbar', ku: 'ئەنبار' },
+    'Dhi Qar': { ar: 'ذي قار', en: 'Dhi Qar', ku: 'ذی قار' },
+    'Salah ad-Din': { ar: 'صلاح الدين', en: 'Salah ad-Din', ku: 'سەلاحەدین' },
+    'Diyala': { ar: 'ديالى', en: 'Diyala', ku: 'دیالە' },
+    'Babil': { ar: 'بابل', en: 'Babil', ku: 'بابل' },
+    'Wasit': { ar: 'واسط', en: 'Wasit', ku: 'واسط' },
+    'Maysan': { ar: 'ميسان', en: 'Maysan', ku: 'میسان' },
+    'Qadisiyah': { ar: 'القادسية', en: 'Qadisiyah', ku: 'قادسیە' },
+    'Muthanna': { ar: 'المثنى', en: 'Muthanna', ku: 'موثنا' },
+    'Duhok': { ar: 'دهوك', en: 'Duhok', ku: 'دهۆک' },
+    'Halabja': { ar: 'حلبجة', en: 'Halabja', ku: 'هەڵەبجە' },
+  };
+
+  // البحث عن المحافظة
+  const provinceData = provincesMap[raw] || provincesMap[raw.toLowerCase()];
+  
+  if (provinceData) {
+    switch (currentLanguage) {
+      case 'en':
+        return provinceData.en;
+      case 'ku':
+        return provinceData.ku;
+      case 'ar':
+      default:
+        return provinceData.ar;
+    }
+  }
+
+  // البحث الجزئي
+  const partialMatch = Object.entries(provincesMap).find(([key, value]) => 
+    key.toLowerCase().includes(raw.toLowerCase()) ||
+    value.ar.includes(raw) ||
+    value.en.toLowerCase().includes(raw.toLowerCase()) ||
+    value.ku.includes(raw)
+  );
+
+  if (partialMatch) {
+    const [, provinceData] = partialMatch;
+    switch (currentLanguage) {
+      case 'en':
+        return provinceData.en;
+      case 'ku':
+        return provinceData.ku;
+      case 'ar':
+      default:
+        return provinceData.ar;
+    }
+  }
+
+  return raw;
+};
+
+// ترجمة فئات التخصصات حسب اللغة الحالية
+export const mapCategoryToLocalized = (category: string | null | undefined): string => {
+  if (category === null || category === undefined) return i18n.t('common.not_specified');
+  const raw = String(category).trim();
+  if (!raw) return i18n.t('common.not_specified');
+
+  const currentLanguage = i18n.language || 'ar';
+
+  // القائمة الأساسية للفئات كما هي مستخدمة في البيانات (بالعربية)
+  const categoriesMap: Record<string, { ar: string; en: string; ku: string }> = {
+    'الطب العام والأساسي': { ar: 'الطب العام والأساسي', en: 'General & Basic Medicine', ku: 'پزیشکی گشتی و بنەڕەتی' },
+    'التخصصات الباطنية': { ar: 'التخصصات الباطنية', en: 'Internal Medicine Specialties', ku: 'تایبەتمەندییەکانی ناوخۆ' },
+    'التخصصات الجراحية': { ar: 'التخصصات الجراحية', en: 'Surgical Specialties', ku: 'تایبەتمەندییە جراحییەکان' },
+    'تخصصات الرأس والأسنان': { ar: 'تخصصات الرأس والأسنان', en: 'Head & Dental Specialties', ku: 'تایبەتمەندییەکانی سەر و ددان' },
+    'تخصصات الأطفال الدقيقة': { ar: 'تخصصات الأطفال الدقيقة', en: 'Pediatric Subspecialties', ku: 'تایبەتمەندی وردەکانی منداڵان' },
+    'التخصصات الطبية المساندة': { ar: 'التخصصات الطبية المساندة', en: 'Medical Support Specialties', ku: 'تایبەتمەندییە پشتیوانە پزیشکییەکان' },
+    'العلوم الطبية المساندة': { ar: 'العلوم الطبية المساندة', en: 'Allied Health Sciences', ku: 'زانستە هاوپۆلەکانێ تەندروستی' },
+    'التخصصات الجديدة والمتطورة': { ar: 'التخصصات الجديدة والمتطورة', en: 'New & Emerging Specialties', ku: 'تایبەتمەندییە نوێ و پێشکەوتووەکان' },
+  };
+
+  const data = categoriesMap[raw] || categoriesMap[raw.toLowerCase()];
+  if (!data) return raw;
+
+  switch (currentLanguage) {
+    case 'en':
+      return data.en;
+    case 'ku':
+      return data.ku;
+    case 'ar':
+    default:
+      return data.ar;
+  }
 };

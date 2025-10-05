@@ -11,8 +11,8 @@ import {
   StatusBar,
   RefreshControl,
   Alert,
+  ScrollView,
 } from 'react-native';
-import CSSScrollView from '../components/web/CSSScrollView';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,9 +21,88 @@ import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { API_CONFIG } from '../config/api';
-import { mapSpecialtyToArabic, getArabicSpecialties } from '../utils/specialtyMapper';
+import StarRating from '../components/StarRating';
+import { getTodayLocalizedDayName } from '../utils/dateUtils';
+import {
+  mapSpecialtyToLocalized,
+  getArabicSpecialties,
+  mapProvinceToLocalized,
+} from '../utils/specialtyMapper';
+import {
+  PROVINCES,
+  SPECIALTIES,
+  SPECIALTY_CATEGORIES,
+  getAllCategories,
+  getAllSubSpecialties,
+} from '../utils/constants';
+import i18n from '../locales/index';
+import { formatNumber, formatPrice } from '../utils/constants';
+import AdvertisementSlider from '../components/AdvertisementSlider';
+import { getResponsiveSearchBarStyles } from '../utils/searchBarStyles';
+import { logger, logError, logWarn, logInfo, logDebug, logUserAction, logApiCall, logApiResponse } from '../utils/logger';
+
+// بيانات احتياطية في حالة فشل الترجمة
+const FALLBACK_PROVINCES = [
+  'بغداد',
+  'البصرة',
+  'أربيل',
+  'السليمانية',
+  'كركوك',
+  'النجف',
+  'كربلاء',
+  'الديوانية',
+  'العمارة',
+];
+
+const FALLBACK_SPECIALTIES = [
+  'طب عام',
+  'طب القلب',
+  'طب الأطفال',
+  'طب العظام',
+  'طب الأعصاب',
+  'طب الجلد',
+  'طب العيون',
+  'طب الأسنان',
+  'طب النفس',
+  'طب النساء',
+  'طب المسالك البولية',
+  'طب الجهاز الهضمي',
+  'طب الغدد الصماء',
+  'طب الأورام',
+  'طب الروماتيزم',
+  'طب الصدر',
+  'طب الكلى',
+  'طب الدم',
+  'طب المناعة',
+  'الأمراض المعدية',
+  'طب الطوارئ',
+  'طب الأسرة',
+  'طب الباطنة',
+  'الجراحة العامة',
+  'جراحة التجميل',
+  'جراحة الأعصاب',
+  'جراحة القلب والصدر',
+  'جراحة الأوعية الدموية',
+  'جراحة العظام',
+  'جراحة الأطفال',
+  'جراحة المسالك البولية',
+  'جراحة النساء',
+  'جراحة الفم والوجه والفكين',
+  'التخدير',
+  'الأشعة',
+  'علم الأمراض',
+  'طب المختبرات',
+  'الطب النووي',
+  'طب التأهيل',
+  'طب الرياضة',
+  'طب العمل',
+  'طب الوقاية',
+  'طب المسنين',
+  'الرعاية التلطيفية',
+];
 
 const { width, height } = Dimensions.get('window');
+const GRID_CARD_WIDTH = Math.floor((width - 40 - 24) / 2); // paddingHorizontal 20 + مسافة بين الأعمدة ~24
 
 // تعريف نوع البيانات للطبيب
 interface Doctor {
@@ -33,8 +112,9 @@ interface Doctor {
   province: string;
   area: string;
   rating: number;
+  reviews_count?: number;
   experience: string;
-  image: string;
+  image: string | null;
   available: boolean;
   about?: string;
   clinicLocation?: string;
@@ -42,20 +122,21 @@ interface Doctor {
   email?: string;
   isFeatured?: boolean;
   status?: string;
+  work_times?: any[];
 }
 
 const UserHomeScreen = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { user, signOut } = useAuth();
-  const { 
-    notifications, 
-    scheduledNotifications, 
+  const { user, profile, signOut } = useAuth();
+  const {
+    notifications,
+    scheduledNotifications,
     isNotificationEnabled,
     registerForNotifications,
-    sendNotification 
+    sendNotification,
   } = useNotifications();
-  
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,85 +144,279 @@ const UserHomeScreen = () => {
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [provinces, setProvinces] = useState<string[]>(PROVINCES);
+  const [specialties, setSpecialties] = useState<string[]>(SPECIALTIES);
+  const [showAllRecommended, setShowAllRecommended] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  const provinces = (t('provinces', { returnObjects: true }) as string[]) || [];
-  const specialties = getArabicSpecialties();
+  // قوائم محسوبة للاستخدام في الواجهة
+  const computedProvinces =
+    provinces && provinces.length > 0 ? provinces : PROVINCES;
+  const computedSpecialties =
+    specialties && specialties.length > 0 ? specialties : SPECIALTIES;
+
+
+
+  // دالة مساعدة لتحميل خيارات الفلتر
+  const loadFilterOptions = () => {
+    try {
+      logDebug('بدء تحميل خيارات الفلتر');
+      logDebug('PROVINCES من constants', { count: PROVINCES.length, type: 'محافظة' });
+      logDebug('SPECIALTIES من constants', { count: SPECIALTIES.length, type: 'تخصص' });
+
+      // استخدام القيم الثابتة كأولوية
+      let provincesData = [...PROVINCES];
+      let specialtiesData = [...SPECIALTIES];
+
+      // محاولة تحميل من الترجمة إذا كانت متاحة
+      try {
+        // محاولة تحميل المحافظات من الترجمة
+        let translationProvinces: string[] = [];
+        try {
+          const provincesFromTranslation = t('provinces', {
+            returnObjects: true,
+          });
+          if (
+            Array.isArray(provincesFromTranslation) &&
+            provincesFromTranslation.length > 0
+          ) {
+            // التأكد من أن جميع العناصر هي نصوص
+            const validProvinces = provincesFromTranslation.filter(
+              item => typeof item === 'string'
+            ) as string[];
+            if (validProvinces.length > 0) {
+              translationProvinces = validProvinces;
+              logDebug('تم تحميل المحافظات من الترجمة', { 
+                count: translationProvinces.length, 
+                type: 'محافظة' 
+              });
+            }
+          }
+        } catch (e) {
+          logWarn('فشل في تحميل المحافظات من الترجمة، استخدام القيم الثابتة');
+        }
+
+        // محاولة تحميل التخصصات من الترجمة
+        let translationSpecialties: string[] = [];
+        try {
+          const specialtiesFromTranslation = t('specialties_list', {
+            returnObjects: true,
+          });
+          if (
+            Array.isArray(specialtiesFromTranslation) &&
+            specialtiesFromTranslation.length > 0
+          ) {
+            // التأكد من أن جميع العناصر هي نصوص
+            const validSpecialties = specialtiesFromTranslation.filter(
+              item => typeof item === 'string'
+            ) as string[];
+            if (validSpecialties.length > 0) {
+              translationSpecialties = validSpecialties;
+          logDebug('تم تحميل التخصصات من الترجمة', { 
+            count: translationSpecialties.length, 
+            type: 'تخصص' 
+          });
+            }
+          }
+        } catch (e) {
+          logWarn('فشل في تحميل التخصصات من الترجمة، استخدام القيم الثابتة');
+        }
+
+        // استخدام الترجمة إذا كانت متاحة وصحيحة
+        if (translationProvinces.length > 0) {
+          provincesData = translationProvinces;
+        } else {
+          logDebug('استخدام المحافظات الثابتة', { 
+            count: provincesData.length, 
+            type: 'محافظة' 
+          });
+        }
+
+        if (translationSpecialties.length > 0) {
+          specialtiesData = translationSpecialties;
+        } else {
+          logDebug('استخدام التخصصات الثابتة', { 
+            count: specialtiesData.length, 
+            type: 'تخصص' 
+          });
+        }
+      } catch (translationError) {
+        logWarn('فشل في تحميل الترجمة، استخدام القيم الثابتة');
+      }
+
+      // التأكد من أن البيانات صحيحة
+      if (!Array.isArray(provincesData) || provincesData.length === 0) {
+        logWarn('بيانات المحافظات غير صحيحة، استخدام القيم الثابتة');
+        provincesData = [...PROVINCES];
+      }
+
+      if (!Array.isArray(specialtiesData) || specialtiesData.length === 0) {
+        logWarn('بيانات التخصصات غير صحيحة، استخدام القيم الثابتة');
+        specialtiesData = [...SPECIALTIES];
+      }
+
+      logDebug('بيانات المحافظات النهائية', { provinces: provincesData });
+      logDebug('بيانات التخصصات النهائية', { specialties: specialtiesData });
+
+      setProvinces(Array.from(new Set(provincesData)));
+      setSpecialties(Array.from(new Set(specialtiesData)));
+
+      // تأكيد إضافي على تحديث الحالة
+      logInfo('تم تحديث الحالة', { 
+        provincesCount: provincesData.length,
+        specialtiesCount: specialtiesData.length
+      });
+    } catch (error) {
+      logError('خطأ في تحميل خيارات الفلتر', error);
+      // استخدام القيم الثابتة في حالة الخطأ
+      logDebug('استخدام القيم الثابتة للمحافظات', { provinces: PROVINCES });
+      logDebug('استخدام القيم الثابتة للتخصصات', { specialties: SPECIALTIES });
+
+      setProvinces([...PROVINCES]);
+      setSpecialties([...SPECIALTIES]);
+    }
+  };
 
   useEffect(() => {
+    // تحميل فوري بدون تأخير
+    loadFilterOptions();
+
     fetchDoctors();
-    
+
     // تسجيل الإشعارات إذا لم تكن مفعلة
     if (!isNotificationEnabled) {
       registerForNotifications();
     }
-  }, []);
+  }, [t]); // إضافة t كتبعية
 
   const fetchDoctors = async () => {
     setLoading(true);
     try {
-      console.log('🔄 جلب الأطباء من قاعدة البيانات...');
-      console.log('📍 عنوان API:', `${API_CONFIG.BASE_URL}/doctors`);
-      
+      logDebug('جلب الأطباء من قاعدة البيانات');
+      logApiCall('/doctors', 'GET');
+
       // جلب الأطباء من API الحقيقي
       const response = await fetch(`${API_CONFIG.BASE_URL}/doctors`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const doctorsData = await response.json();
-      console.log('📥 تم جلب الأطباء:', doctorsData.length, 'طبيب');
-      
+      logApiResponse('/doctors', response.status);
+
       // إضافة logging مفصل لبيانات الأطباء
-      console.log('🔍 عينة من بيانات الأطباء:', doctorsData.slice(0, 2) as any);
-      
-      // معالجة البيانات لتتناسب مع التطبيق
-      const processedDoctors = doctorsData.map((doctor: any, index: number) => {
-        // إضافة logging لكل طبيب
-        console.log(`🔍 معالجة الطبيب ${index + 1}:`, {
-          id: doctor._id || doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          originalSpecialty: doctor.specialty,
-          category_ar: doctor.category_ar,
-          category: doctor.category
+      logDebug('عينة من بيانات الأطباء', { sample: doctorsData.slice(0, 2) });
+
+      // معالجة البيانات لتتناسب مع التطبيق وتصفية الأطباء المعطلين
+      const processedDoctors = doctorsData
+        .filter((doctor: any) => {
+          // تصفية الأطباء - إظهار الأطباء المعتمدين والمفعلين وغير المعطلين فقط
+          const isApproved = doctor.status === 'approved';
+          const isActive = doctor.active !== false && doctor.active !== 'false';
+          const isNotDeleted = !doctor.deleted && doctor.deleted !== true;
+          const isNotDisabled = !doctor.disabled; // إضافة فلترة الأطباء المعطلين
+          
+          logDebug(`فحص حالة الطبيب ${doctor.name}`, {
+            id: doctor._id || doctor.id,
+            status: doctor.status,
+            active: doctor.active,
+            deleted: doctor.deleted,
+            disabled: doctor.disabled,
+            isApproved,
+            isActive,
+            isNotDeleted,
+            isNotDisabled,
+            willShow: isApproved && isActive && isNotDeleted && isNotDisabled
+          });
+
+          return isApproved && isActive && isNotDeleted && isNotDisabled;
+        })
+        .map((doctor: any, index: number) => {
+          // إضافة logging مفصل للصور
+          logDebug(`معالجة الطبيب ${index + 1}`, {
+            id: doctor._id || doctor.id,
+            name: doctor.name,
+            specialty: doctor.specialty,
+            originalSpecialty: doctor.specialty,
+            category_ar: doctor.category_ar,
+            category: doctor.category,
+            imageUrl: doctor.imageUrl,
+            profile_image: doctor.profile_image,
+            profileImage: doctor.profileImage,
+            image: doctor.image,
+          });
+
+          // تحسين استخراج التخصص باستخدام الدالة الجديدة
+          let specialty = mapSpecialtyToLocalized(
+            doctor.specialty || doctor.category_ar || doctor.category
+          );
+
+          const processedDoctor: Doctor = {
+            id: doctor._id || doctor.id,
+            name: doctor.name || t('common.unknown_doctor'),
+            specialty: specialty,
+            province: doctor.province || t('common.not_specified'),
+            area: doctor.area || t('common.not_specified'),
+            rating: doctor.rating || 0,
+            experience: doctor.experienceYears
+              ? `${doctor.experienceYears} ${t('common.years')}`
+              : t('common.not_specified'),
+            image: getImageUrl(
+              doctor.imageUrl ||
+                doctor.profile_image ||
+                doctor.profileImage ||
+                doctor.image
+            ),
+            available: doctor.status === 'approved' && doctor.active !== false,
+            about: doctor.about || '',
+            clinicLocation: doctor.clinicLocation || '',
+            phone: doctor.phone || '',
+            email: doctor.email || '',
+            isFeatured: !!(doctor.isFeatured || doctor.is_featured),
+            status: doctor.status || 'pending',
+          };
+
+          logDebug(`الطبيب ${index + 1} بعد المعالجة`, {
+            name: processedDoctor.name,
+            specialty: processedDoctor.specialty,
+            finalImage: processedDoctor.image,
+            available: processedDoctor.available,
+          });
+
+          return processedDoctor;
         });
-        
-        // تحسين استخراج التخصص باستخدام الدالة الجديدة
-        let specialty = mapSpecialtyToArabic(doctor.specialty || doctor.category_ar || doctor.category);
-        
-        const processedDoctor: Doctor = {
-          id: doctor._id || doctor.id,
-          name: doctor.name || 'د. غير محدد',
-          specialty: specialty,
-          province: doctor.province || 'غير محدد',
-          area: doctor.area || 'غير محدد',
-          rating: doctor.rating || 4.5,
-          experience: doctor.experienceYears ? `${doctor.experienceYears} سنة` : 'غير محدد',
-          image: doctor.imageUrl || (doctor.image ? `${API_CONFIG.BASE_URL}${doctor.image}` : 'https://via.placeholder.com/100'),
-          available: doctor.status === 'approved' && doctor.active !== false,
-          about: doctor.about || '',
-          clinicLocation: doctor.clinicLocation || '',
-          phone: doctor.phone || '',
-          email: doctor.email || '',
-          isFeatured: doctor.isFeatured || false,
-          status: doctor.status || 'pending'
-        };
-        
-        console.log(`✅ الطبيب ${index + 1} بعد المعالجة:`, {
-          name: processedDoctor.name,
-          specialty: processedDoctor.specialty
-        });
-        
-        return processedDoctor;
-      });
+
+
+      // ترتيب بإبراز الأطباء المميزين أولاً ثم عشوائي للباقي
+      const featured = (processedDoctors as Doctor[]).filter(
+        d => (d as any).isFeatured === true
+      );
+      const regular = (processedDoctors as Doctor[]).filter(
+        d => !(d as any).isFeatured
+      );
+      const shuffledRegular = shuffleArray<Doctor>(regular);
       
-      console.log('✅ تم معالجة الأطباء:', processedDoctors.length);
-      console.log('🔍 عينة من الأطباء المعالجين:', processedDoctors.slice(0, 2) as any);
-      setDoctors(processedDoctors);
+      // تحديد عدد الأطباء المطلوب عرضهم (10 أطباء)
+      const maxDoctorsToShow = 10;
       
+      // إضافة الأطباء المميزين أولاً
+      let finalDoctors = [...featured];
+      
+      // إضافة باقي الأطباء العاديين حتى نصل للعدد المطلوب
+      if (finalDoctors.length < maxDoctorsToShow) {
+        const remainingSlots = maxDoctorsToShow - finalDoctors.length;
+        const regularToAdd = shuffledRegular.slice(0, remainingSlots);
+        finalDoctors = [...finalDoctors, ...regularToAdd];
+      }
+      
+      // إذا كان عدد الأطباء المميزين أكثر من 10، نعرض فقط أول 10
+      if (finalDoctors.length > maxDoctorsToShow) {
+        finalDoctors = finalDoctors.slice(0, maxDoctorsToShow);
+      }
+      
+      setDoctors(finalDoctors);
     } catch (error) {
-      console.error('❌ خطأ في جلب الأطباء:', error);
       // في حالة الخطأ، استخدم بيانات وهمية كاحتياطي
       const fallbackDoctors: Doctor[] = [
         {
@@ -152,7 +427,8 @@ const UserHomeScreen = () => {
           area: 'الكرادة',
           rating: 4.8,
           experience: '15 سنة',
-          image: 'https://via.placeholder.com/100',
+          image:
+            'https://via.placeholder.com/100x100/4CAF50/FFFFFF?text=د.أحمد',
           available: true,
         },
         {
@@ -163,7 +439,8 @@ const UserHomeScreen = () => {
           area: 'المنصور',
           rating: 4.9,
           experience: '12 سنة',
-          image: 'https://via.placeholder.com/100',
+          image:
+            'https://via.placeholder.com/100x100/2196F3/FFFFFF?text=د.فاطمة',
           available: true,
         },
       ];
@@ -191,83 +468,232 @@ const UserHomeScreen = () => {
     // تطبيق الفلتر
   };
 
+  // دالة خلط عشوائي للمصفوفة
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
   // فلترة الأطباء حسب البحث والفلترة
-  const filteredDoctors = doctors.filter((doctor) => {
-    const matchesSearch = !searchQuery || 
+  const filteredDoctors = doctors.filter(doctor => {
+    const matchesSearch =
+      !searchQuery ||
       doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.province.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doctor.area.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesProvince = !selectedProvince || doctor.province === selectedProvince;
-    const matchesSpecialty = !selectedSpecialty || doctor.specialty === selectedSpecialty;
-    
+
+    const matchesProvince =
+      !selectedProvince || doctor.province === selectedProvince;
+    const matchesSpecialty =
+      !selectedSpecialty || doctor.specialty === selectedSpecialty;
+
     return matchesSearch && matchesProvince && matchesSpecialty;
   });
 
   const handleDoctorPress = (doctor: Doctor) => {
+    // التحقق من تسجيل الدخول
+    if (!user) {
+      Alert.alert(t('login_required.title'), t('login_required.message'), [
+        {
+          text: t('login_required.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('login_required.login'),
+          onPress: () => {
+            (navigation as any).navigate('Login');
+          },
+        },
+      ]);
+      return;
+    }
+
+    // الانتقال لصفحة تفاصيل الطبيب
     (navigation as any).navigate('DoctorDetails', { doctorId: doctor.id });
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      t('auth.logout'),
-      t('auth.logout_confirm'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('common.confirm'),
-          onPress: signOut,
-        },
-      ]
-    );
+    Alert.alert(t('auth.logout'), t('auth.logout_confirm'), [
+      {
+        text: t('common.cancel'),
+        style: 'cancel',
+      },
+      {
+        text: t('common.confirm'),
+        onPress: signOut,
+      },
+    ]);
+  };
+
+  // دالة لتنسيق أيام العمل
+  // دالة مساعدة لمعالجة مسار الصورة
+  const getImageUrl = (imagePath: string | null | undefined): string | null => {
+    if (!imagePath || imagePath === 'null' || imagePath === 'undefined') {
+      return null;
+    }
+
+    try {
+      // إذا كانت الصورة من Cloudinary (تبدأ بـ https://res.cloudinary.com)
+      if (imagePath.startsWith('https://res.cloudinary.com')) {
+        return imagePath;
+      }
+
+      // إذا كانت الصورة محلية (تبدأ بـ /uploads/)
+      if (imagePath.startsWith('/uploads/')) {
+        return `${API_CONFIG.BASE_URL}${imagePath}`;
+      }
+
+      // إذا كانت الصورة رابط كامل
+      if (imagePath.startsWith('http')) {
+        // التحقق من صحة الرابط
+        try {
+          new URL(imagePath);
+          return imagePath;
+        } catch {
+          return null;
+        }
+      }
+
+      // إذا كانت الصورة مسار نسبي (بدون /uploads/)
+      if (
+        imagePath &&
+        !imagePath.startsWith('http') &&
+        !imagePath.startsWith('/uploads/')
+      ) {
+        // تنظيف المسار من الأحرف غير المسموح بها
+        const cleanPath = imagePath.replace(/^\/+/, ''); // إزالة / من البداية
+        return `${API_CONFIG.BASE_URL}/${cleanPath}`;
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getWorkingDaysText = (workTimes: any[]) => {
+    if (!workTimes || workTimes.length === 0) {
+      return t('doctor.working_days_not_specified');
+    }
+
+    const daysMap = {
+      0: t('day_names.sunday'),
+      1: t('day_names.monday'),
+      2: t('day_names.tuesday'),
+      3: t('day_names.wednesday'),
+      4: t('day_names.thursday'),
+      5: t('day_names.friday'),
+      6: t('day_names.saturday'),
+    };
+
+    const availableDays = workTimes
+      .filter(wt => wt.is_available)
+      .map(wt => daysMap[wt.day as keyof typeof daysMap])
+      .filter(day => day);
+
+    if (availableDays.length === 0) {
+      return t('doctor.not_available');
+    }
+
+    if (availableDays.length <= 3) {
+      return availableDays.join('، ');
+    }
+
+    return `${availableDays.length} ${t('doctor.days')}`;
   };
 
   const renderDoctorCard = ({ item }: { item: Doctor }) => (
     <TouchableOpacity
-      style={styles.doctorCard}
+      style={[styles.doctorCard, { width: GRID_CARD_WIDTH }]}
       onPress={() => handleDoctorPress(item)}
     >
+      {/* Header with image and badges */}
       <View style={styles.doctorImageContainer}>
-        <Image source={{ uri: item.image }} style={styles.doctorImage} />
+        {item.image ? (
+          <Image
+            source={{ uri: item.image }}
+            style={styles.doctorImage}
+            resizeMode="cover"
+            defaultSource={require('../../assets/icon.png')}
+            onError={e => {
+
+            }}
+            onLoad={() => {
+
+            }}
+          />
+        ) : (
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.doctorImage}
+            resizeMode="cover"
+          />
+        )}
+        {(item as any).isFeatured && (
+          <View style={styles.featuredBadge}>
+            <Ionicons name="star" size={10} color={theme.colors.white} />
+            <Text style={styles.featuredText}>{t('doctor.featured')}</Text>
+          </View>
+        )}
         {item.available && (
           <View style={styles.availableBadge}>
             <Text style={styles.availableText}>{t('doctor.available')}</Text>
           </View>
         )}
       </View>
-      
+
+      {/* Doctor Info - Compact */}
       <View style={styles.doctorInfo}>
-        <Text style={styles.doctorName}>{item.name}</Text>
-        
-        {/* تحسين عرض التخصص */}
+        <Text style={styles.doctorName} numberOfLines={1}>
+          {item.name}
+        </Text>
+
         <View style={styles.specialtyContainer}>
-          <Ionicons name="medical" size={16} color={theme.colors.primary} />
-          <Text style={styles.doctorSpecialty}>
-            {item.specialty || 'غير محدد'}
+          <Ionicons name="medical" size={12} color={theme.colors.primary} />
+          <Text style={styles.doctorSpecialty} numberOfLines={1}>
+            {item.specialty || t('common.not_specified')}
           </Text>
         </View>
-        
+
         <View style={styles.doctorLocation}>
-          <Ionicons name="location" size={14} color={theme.colors.textSecondary} />
-          <Text style={styles.doctorLocationText}>
-            {item.province}, {item.area}
+          <Ionicons
+            name="location"
+            size={10}
+            color={theme.colors.textSecondary}
+          />
+          <Text style={styles.doctorLocationText} numberOfLines={1}>
+            {mapProvinceToLocalized(item.province)}, {item.area}
           </Text>
         </View>
-        
-        <View style={styles.doctorRating}>
-          <Ionicons name="star" size={16} color={theme.colors.warning} />
-          <Text style={styles.doctorRatingText}>{item.rating}</Text>
-          <Text style={styles.doctorExperience}>{item.experience}</Text>
-        </View>
+
+        {/* Rating - Compact */}
+        {(item.rating && item.rating > 0) && (
+          <View style={styles.doctorRating}>
+            <Ionicons name="star" size={12} color="#FFD700" />
+            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+            {item.reviews_count && item.reviews_count > 0 && (
+              <Text style={styles.ratingCount}>({item.reviews_count})</Text>
+            )}
+          </View>
+        )}
       </View>
-      
-      <TouchableOpacity style={styles.bookButton}>
-        <Text style={styles.bookButtonText}>{t('appointment.book')}</Text>
-      </TouchableOpacity>
+
+      {/* Book Button */}
+      <View style={styles.cardActions}>
+        <TouchableOpacity
+          style={styles.bookButton}
+          onPress={() => handleDoctorPress(item)}
+        >
+          <Text style={styles.bookButtonText}>
+            {t('appointment.book_appointment')}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -279,66 +705,100 @@ const UserHomeScreen = () => {
           <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>{t('search.province')}</Text>
-        <CSSScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {provinces.map((province: string) => (
+        <Text style={styles.filterLabel}>
+          {t('search.province')} ({computedProvinces.length})
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContainer}
+        >
+          {computedProvinces.length === 0 && (
+            <Text style={styles.emptyText}>{t('search.no_results')}</Text>
+          )}
+          {[
+            { label: t('common.all'), value: '' },
+            ...computedProvinces.map(p => ({ label: p, value: p })),
+          ].map(opt => (
             <TouchableOpacity
-              key={province}
+              key={`prov-${opt.value || 'all'}`}
               style={[
                 styles.filterChip,
-                selectedProvince === province && styles.filterChipActive
+                selectedProvince === opt.value && styles.filterChipActive,
               ]}
-              onPress={() => setSelectedProvince(province)}
+              onPress={() => setSelectedProvince(opt.value)}
             >
-              <Text style={[
-                styles.filterChipText,
-                selectedProvince === province && styles.filterChipTextActive
-              ]}>
-                {province}
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedProvince === opt.value && styles.filterChipTextActive,
+                ]}
+              >
+                {opt.label}
               </Text>
             </TouchableOpacity>
           ))}
-        </CSSScrollView>
+        </ScrollView>
       </View>
-      
+
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>{t('search.specialty')}</Text>
-        <CSSScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {specialties.map((specialty: string) => (
+        <Text style={styles.filterLabel}>
+          {t('search.specialty')} ({computedSpecialties.length})
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContainer}
+        >
+          {computedSpecialties.length === 0 && (
+            <Text style={styles.emptyText}>{t('search.no_results')}</Text>
+          )}
+          {[
+            { label: t('common.all'), value: '' },
+            ...computedSpecialties.map(s => ({ label: s, value: s })),
+          ].map(opt => (
             <TouchableOpacity
-              key={specialty}
+              key={`spec-${opt.value || 'all'}`}
               style={[
                 styles.filterChip,
-                selectedSpecialty === specialty && styles.filterChipActive
+                selectedSpecialty === opt.value && styles.filterChipActive,
               ]}
-              onPress={() => setSelectedSpecialty(specialty)}
+              onPress={() => setSelectedSpecialty(opt.value)}
             >
-              <Text style={[
-                styles.filterChipText,
-                selectedSpecialty === specialty && styles.filterChipTextActive
-              ]}>
-                {specialty}
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedSpecialty === opt.value &&
+                    styles.filterChipTextActive,
+                ]}
+              >
+                {opt.label}
               </Text>
             </TouchableOpacity>
           ))}
-        </CSSScrollView>
+        </ScrollView>
       </View>
-      
+
       <TouchableOpacity
         style={styles.applyFilterButton}
         onPress={() => handleFilter(selectedProvince, selectedSpecialty)}
       >
-        <Text style={styles.applyFilterButtonText}>{t('search.apply_filters')}</Text>
+        <Text style={styles.applyFilterButtonText}>
+          {t('search.apply_filters')}
+        </Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-      
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={theme.colors.primary}
+      />
+
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.primaryDark]}
         style={styles.header}
@@ -346,103 +806,166 @@ const UserHomeScreen = () => {
         <View style={styles.headerContent}>
           <View style={styles.userInfo}>
             <Text style={styles.welcomeText}>{t('user_home.welcome')}</Text>
-            <Text style={styles.userName}>{user?.name}</Text>
+            <Text style={styles.userName}>
+              {profile?.first_name || profile?.name || user?.name}
+            </Text>
           </View>
-          
+
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={styles.notificationButton} 
-              onPress={() => navigation.navigate('NotificationSettings' as never)}
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications' as never)}
             >
-              <Ionicons name="notifications" size={24} color={theme.colors.white} />
-              {notifications.length > 0 && (
+              <Ionicons
+                name="notifications"
+                size={24}
+                color={theme.colors.white}
+              />
+              {notifications.filter(n => !n.isRead).length > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>
-                    {notifications.length > 9 ? '9+' : notifications.length}
+                    {notifications.filter(n => !n.isRead).length > 9
+                      ? '9+'
+                      : notifications.filter(n => !n.isRead).length}
                   </Text>
                 </View>
               )}
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('UserProfile' as never)}>
+
+            <TouchableOpacity
+              style={styles.profileButton}
+              onPress={() => navigation.navigate('UserProfile' as never)}
+            >
               <Ionicons name="person" size={24} color={theme.colors.white} />
             </TouchableOpacity>
           </View>
         </View>
-        
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+
+        <View style={getResponsiveSearchBarStyles().searchContainer}>
+          <View style={[
+            getResponsiveSearchBarStyles().searchInputContainer,
+            isSearchFocused && { borderColor: theme.colors.primary, borderWidth: 1 }
+          ]}>
+            <Ionicons
+              name="search"
+              size={18}
+              color={theme.colors.textSecondary}
+              style={getResponsiveSearchBarStyles().searchIcon}
+            />
             <TextInput
-              style={styles.searchInput}
+              style={getResponsiveSearchBarStyles().searchInput}
               placeholder={t('search.find_doctor')}
               placeholderTextColor={theme.colors.textSecondary}
               value={searchQuery}
               onChangeText={handleSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
             />
           </View>
-          
+
           <TouchableOpacity
-            style={styles.filterButton}
+            style={getResponsiveSearchBarStyles().filterButton}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="filter" size={20} color={theme.colors.white} />
+            <Ionicons name="filter" size={18} color={theme.colors.white} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
       {showFilters && renderFilterModal()}
 
-      <CSSScrollView
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar" size={24} color={theme.colors.primary} />
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>{t('user_home.appointments')}</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Ionicons name="medical" size={24} color={theme.colors.primary} />
-            <Text style={styles.statNumber}>{scheduledNotifications.filter(n => n.content.data?.type === 'medicine').length}</Text>
-            <Text style={styles.statLabel}>{t('user_home.reminders')}</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Ionicons name="notifications" size={24} color={theme.colors.primary} />
-            <Text style={styles.statNumber}>{notifications.length}</Text>
-            <Text style={styles.statLabel}>{t('user_home.notifications')}</Text>
-          </View>
-        </View>
+        {/* إزالة عدادات المواعيد والإشعارات وتذكيرات الأدوية */}
+
+        {/* إعلانات للمستخدمين */}
+        <AdvertisementSlider target="users" style={styles.advertisementSlider} />
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('user_home.recommended_doctors')}</Text>
-          <TouchableOpacity>
+          <Text style={styles.sectionTitle}>
+            {t('user_home.recommended_doctors')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('AllDoctors')}
+          >
             <Text style={styles.seeAllText}>{t('common.see_all')}</Text>
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={filteredDoctors}
-          renderItem={renderDoctorCard}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.doctorsList}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyText}>
-                {loading ? 'جاري التحميل...' : 'لا يوجد أطباء متاحون'}
-              </Text>
-            </View>
-          }
-        />
+
+        {/* شبكة أفقية وعمودية: نعرض صف أفقي من المقترحين، وأسفله شبكة عمودية لباقي الأطباء. عند الضغط على عرض الكل نعرض الجميع في الشبكة */}
+        {true && (
+          <FlatList
+            data={filteredDoctors.slice(0, 6)}
+            renderItem={renderDoctorCard}
+            keyExtractor={item => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.doctorsList}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="search"
+                  size={64}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={styles.emptyText}>
+                  {loading ? t('common.loading') : t('user_home.no_doctors_available')}
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        {/* عرض باقي الأطباء في شبكة عمودية (إذا كان هناك أكثر من 6) */}
+        {filteredDoctors.length > 6 && (
+          <>
+            <FlatList
+              data={showAllRecommended ? filteredDoctors.slice(6) : filteredDoctors.slice(6, 10)}
+              renderItem={renderDoctorCard}
+              keyExtractor={item => item.id + '-grid'}
+              numColumns={2}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+              }}
+              scrollEnabled={false}
+              contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
+              ListEmptyComponent={null}
+            />
+            
+            {/* زر عرض الكل */}
+            {!showAllRecommended && filteredDoctors.length > 10 && (
+              <TouchableOpacity
+                style={styles.showAllButton}
+                onPress={() => setShowAllRecommended(true)}
+              >
+                <Text style={styles.showAllButtonText}>
+                  عرض جميع الأطباء ({filteredDoctors.length})
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            )}
+            
+            {/* زر إخفاء بعض الأطباء */}
+            {showAllRecommended && (
+              <TouchableOpacity
+                style={styles.showAllButton}
+                onPress={() => setShowAllRecommended(false)}
+              >
+                <Text style={styles.showAllButtonText}>
+                  إخفاء بعض الأطباء
+                </Text>
+                <Ionicons name="chevron-up" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
 
         <View style={styles.quickActions}>
           <TouchableOpacity
@@ -452,9 +975,11 @@ const UserHomeScreen = () => {
             <View style={styles.quickActionIcon}>
               <Ionicons name="calendar" size={24} color={theme.colors.white} />
             </View>
-            <Text style={styles.quickActionText}>{t('appointments.my_appointments')}</Text>
+            <Text style={styles.quickActionText}>
+              {t('appointments.my_appointments')} - {getTodayLocalizedDayName(t)}
+            </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.quickAction}
             onPress={() => navigation.navigate('MedicineReminder' as never)}
@@ -462,9 +987,11 @@ const UserHomeScreen = () => {
             <View style={styles.quickActionIcon}>
               <Ionicons name="medical" size={24} color={theme.colors.white} />
             </View>
-            <Text style={styles.quickActionText}>{t('medicine_reminder.title')}</Text>
+            <Text style={styles.quickActionText}>
+              {t('medicine_reminder.title')}
+            </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.quickAction}
             onPress={() => navigation.navigate('HealthCenters' as never)}
@@ -472,10 +999,12 @@ const UserHomeScreen = () => {
             <View style={styles.quickActionIcon}>
               <Ionicons name="business" size={24} color={theme.colors.white} />
             </View>
-            <Text style={styles.quickActionText}>{t('health_centers.title')}</Text>
+            <Text style={styles.quickActionText}>
+              {t('health_centers.title')}
+            </Text>
           </TouchableOpacity>
         </View>
-      </CSSScrollView>
+      </ScrollView>
     </View>
   );
 };
@@ -486,25 +1015,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingTop: 34,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   userInfo: {
     flex: 1,
   },
   welcomeText: {
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.white + 'CC',
   },
   userName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.white,
   },
@@ -555,24 +1084,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.textPrimary,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: theme.colors.white + '20',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  advertisementSlider: {
+    marginHorizontal: 16,
+    marginVertical: 10,
   },
   filterModal: {
     backgroundColor: theme.colors.white,
@@ -604,6 +1137,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.textPrimary,
     marginBottom: 12,
+    paddingHorizontal: 20,
   },
   filterChip: {
     paddingHorizontal: 16,
@@ -611,6 +1145,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: theme.colors.background,
     marginRight: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -624,6 +1159,10 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: theme.colors.white,
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   applyFilterButton: {
     backgroundColor: theme.colors.primary,
@@ -702,100 +1241,159 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   doctorCard: {
-    width: 280,
+    width: 214, // تكبير العرض بنسبة 7% (200 * 1.07 = 214)
     backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginRight: 16,
+    borderRadius: 12,
+    padding: 15, // تكبير الحشو بنسبة 7% (14 * 1.07 = 15)
+    marginRight: 12,
     shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   doctorImageContainer: {
     position: 'relative',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8, // تقليل المسافة
   },
   doctorImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64, // تكبير حجم الصورة بنسبة 7% (60 * 1.07 = 64)
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
   },
+
   availableBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -2,
+    right: -2,
     backgroundColor: theme.colors.success,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  featuredText: {
+    fontSize: 8,
+    color: theme.colors.white,
+    fontWeight: 'bold',
+    marginLeft: 2,
   },
   availableText: {
-    fontSize: 10,
+    fontSize: 8,
     color: theme.colors.white,
     fontWeight: 'bold',
   },
   doctorInfo: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   doctorName: {
-    fontSize: 16,
+    fontSize: 15, // تكبير النص بنسبة 7% (14 * 1.07 = 15)
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 3,
+    textAlign: 'center',
   },
   doctorSpecialty: {
-    fontSize: 14,
-    color: theme.colors.primary,
-    marginBottom: 8,
+    fontSize: 12, // تكبير النص بنسبة 7% (11 * 1.07 = 12)
+    color: theme.colors.textSecondary,
+    marginLeft: 3,
+    textAlign: 'center',
+    flex: 1,
   },
   specialtyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 8,
+    marginBottom: 3,
   },
   doctorLocation: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 3,
   },
   doctorLocationText: {
-    fontSize: 12,
+    fontSize: 11, // تكبير النص بنسبة 7% (10 * 1.07 = 11)
     color: theme.colors.textSecondary,
-    marginLeft: 4,
+    marginLeft: 3,
+    textAlign: 'center',
+    flex: 1,
   },
   doctorRating: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  doctorRatingText: {
-    fontSize: 14,
-    fontWeight: '600',
+  ratingText: {
+    fontSize: 12, // تكبير النص بنسبة 7% (11 * 1.07 = 12)
     color: theme.colors.textPrimary,
-    marginLeft: 4,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  ratingCount: {
+    fontSize: 9,
+    color: theme.colors.textSecondary,
+    marginLeft: 3,
   },
   doctorExperience: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     marginLeft: 8,
   },
+  workingDaysContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  workingDaysText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
+  },
+  cardActions: {
+    alignItems: 'center',
+  },
   bookButton: {
     backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 12, // تصغير نصف القطر
+    paddingVertical: 4, // تصغير الحشو العمودي
+    paddingHorizontal: 10, // تصغير الحشو الأفقي
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   bookButtonText: {
     color: theme.colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 11, // تصغير النص
+    fontWeight: '600',
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  detailsButtonText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   quickActions: {
     flexDirection: 'row',
@@ -822,6 +1420,32 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     textAlign: 'center',
   },
+  cardIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: theme.colors.background + '80',
+    borderRadius: 12,
+    padding: 4,
+  },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+    alignSelf: 'center',
+  },
+  showAllButtonText: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
 });
 
-export default UserHomeScreen; 
+export default UserHomeScreen;

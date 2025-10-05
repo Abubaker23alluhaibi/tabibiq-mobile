@@ -53,6 +53,8 @@ export const isFutureDate = (dateString: string): boolean => {
   return date > today;
 };
 
+
+
 /**
  * Format date for display in Arabic
  */
@@ -80,4 +82,50 @@ export const getTimezoneInfo = () => {
     timezoneOffset: now.getTimezoneOffset(),
     timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZone
   };
+};
+
+/**
+ * Get Arabic day name for a date
+ */
+export const getArabicDayName = (dateString: string): string => {
+  const date = new Date(dateString);
+  const dayNames = [
+    'الأحد',
+    'الاثنين', 
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت'
+  ];
+  return dayNames[date.getDay()];
+};
+
+/**
+ * Get today's Arabic day name
+ */
+export const getTodayArabicDayName = (): string => {
+  return getArabicDayName(getLocalDateString());
+};
+
+/**
+ * Get localized day name for a date
+ * This function should be used with the translation hook
+ */
+export const getLocalizedDayName = (dateString: string, t: any): string => {
+  const date = new Date(dateString);
+  const dayIndex = date.getDay();
+  
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayKey = dayKeys[dayIndex];
+  
+  return t(`day_names.${dayKey}`);
+};
+
+/**
+ * Get today's localized day name
+ * This function should be used with the translation hook
+ */
+export const getTodayLocalizedDayName = (t: any): string => {
+  return getLocalizedDayName(getLocalDateString(), t);
 };

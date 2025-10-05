@@ -99,6 +99,12 @@ export const colors = {
   buttonGray: '#f5f5f5', // رمادي للأزرار
   buttonGrayText: '#666', // نص الأزرار الرمادية
   
+  // Attendance colors
+  attendancePresent: '#009688', // أخضر للحضور
+  attendanceAbsent: '#F44336', // أحمر للغياب
+  attendanceLate: '#FF9800', // برتقالي للتأخير
+  attendanceNotMarked: '#9E9E9E', // رمادي للحالات غير المحددة
+  
   // Secondary colors
   secondary: '#FF9800', // برتقالي - للتوافق
   secondaryDark: '#F57C00',
@@ -489,6 +495,7 @@ export const theme = {
     buttonGradientEnd: '#00695C', // نهاية تدرج الأزرار
     
     // ألوان النص - مطابقة للواجهة الأمامية
+    text: '#333', // أسود داكن - مطابق للواجهة الأمامية
     textPrimary: '#333', // أسود داكن - مطابق للواجهة الأمامية
     textSecondary: '#666', // رمادي - مطابق للواجهة الأمامية
     textLight: '#BDBDBD', // رمادي فاتح
@@ -506,6 +513,10 @@ export const theme = {
     // ألوان إضافية - مطابقة للواجهة الأمامية
     border: '#e0e0e0', // رمادي فاتح للحدود - مطابق للواجهة الأمامية
     shadow: '#000000', // أسود للظلال
+    
+    // ألوان إضافية مطلوبة
+    primaryLight: '#B2DFDB', // أخضر فاتح
+    successLight: '#E8F5E8', // خلفية النجاح الفاتحة
     
     // ألوان إضافية من الواجهة الأمامية
     inputBackground: '#f8fafd', // خلفية حقول الإدخال - مطابق للواجهة الأمامية
@@ -528,6 +539,14 @@ export const theme = {
     buttonOrangeDark: '#ff5722', // برتقالي داكن للأزرار
     buttonGray: '#f5f5f5', // رمادي للأزرار
     buttonGrayText: '#666', // نص الأزرار الرمادية
+    
+    // Attendance colors
+    attendancePresent: '#009688', // أخضر للحضور
+    attendanceAbsent: '#F44336', // أحمر للغياب
+    attendanceLate: '#FF9800', // برتقالي للتأخير
+    attendanceNotMarked: '#9E9E9E', // رمادي للحالات غير المحددة
+    
+
   },
   
   // أحجام الخطوط
@@ -796,37 +815,37 @@ export const getStatusColor = (status: string) => {
     case 'success':
     case 'confirmed':
     case 'active':
-      return theme.colors.success;
+      return colors.success;
     case 'warning':
     case 'pending':
     case 'processing':
-      return theme.colors.warning;
+      return colors.warning;
     case 'error':
     case 'cancelled':
     case 'inactive':
-      return theme.colors.error;
+      return colors.error;
     case 'info':
     case 'default':
     default:
-      return theme.colors.info;
+      return colors.info;
   }
 };
 
 // دالة للحصول على نمط الحقل
 export const getInputStyle = (focused: boolean, hasError: boolean) => {
-  if (hasError) return theme.inputStyles.error;
-  if (focused) return theme.inputStyles.focused;
-  return theme.inputStyles.default;
+  if (hasError) return inputStyles.error;
+  if (focused) return inputStyles.focused;
+  return inputStyles.default;
 };
 
 // دالة للحصول على نمط الزر
 export const getButtonStyle = (variant: 'primary' | 'secondary' | 'outline' | 'ghost' = 'primary') => {
-  return theme.buttonStyles[variant];
+  return buttonStyles[variant];
 };
 
 // دالة للحصول على نمط التنبيه
 export const getAlertStyle = (type: 'success' | 'warning' | 'error' | 'info') => {
-  return theme.alertStyles[type];
+  return alertStyles[type];
 };
 
-export default theme; 
+export default { colors, inputStyles, buttonStyles, alertStyles }; 

@@ -13,6 +13,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
+import { mapSpecialtyToLocalized } from '../utils/specialtyMapper';
+import { changeLanguage } from '../locales/index';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Linking } from 'react-native';
@@ -69,7 +71,7 @@ const DoctorProfileScreen: React.FC = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('doctor.profile')}</Text>
+        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
       </View>
 
       <View style={styles.content}>
@@ -89,13 +91,13 @@ const DoctorProfileScreen: React.FC = () => {
 
         {/* معلومات الطبيب */}
         <View style={styles.infoContainer}>
-          <Text style={styles.doctorName}>{profile?.name || 'اسم الطبيب'}</Text>
-          <Text style={styles.doctorSpecialty}>{profile?.specialty || 'التخصص'}</Text>
-          <Text style={styles.doctorEmail}>{profile?.email || 'البريد الإلكتروني'}</Text>
-          <Text style={styles.doctorPhone}>{profile?.phone || 'رقم الهاتف'}</Text>
-          <Text style={styles.doctorProvince}>{profile?.province || 'المحافظة'}</Text>
-          <Text style={styles.doctorArea}>{profile?.area || 'المنطقة'}</Text>
-          <Text style={styles.doctorLocation}>{profile?.clinicLocation || 'موقع العيادة'}</Text>
+          <Text style={styles.doctorName}>{profile?.name || t('common.not_specified')}</Text>
+          <Text style={styles.doctorSpecialty}>{mapSpecialtyToLocalized(profile?.specialty) || t('specialties.cardiology')}</Text>
+          <Text style={styles.doctorEmail}>{profile?.email || t('common.not_specified')}</Text>
+          <Text style={styles.doctorPhone}>{profile?.phone || t('common.not_specified')}</Text>
+          <Text style={styles.doctorProvince}>{profile?.province || t('common.not_specified')}</Text>
+          <Text style={styles.doctorArea}>{profile?.area || t('common.not_specified')}</Text>
+          <Text style={styles.doctorLocation}>{profile?.clinicLocation || t('common.not_specified')}</Text>
           
           {profile?.phone && (
             <View style={styles.infoRow}>
@@ -137,10 +139,28 @@ const DoctorProfileScreen: React.FC = () => {
               <Text style={styles.infoText}>{profile.work_times}</Text>
             </View>
           )}
+
+          {profile?.appointment_duration && (
+            <View style={styles.infoRow}>
+              <Ionicons name="timer" size={20} color={theme.colors.primary} />
+              <Text style={styles.infoText}>
+                {t('doctor.appointment_duration')}: {profile.appointment_duration} {t('doctor.minutes')}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* خيارات الملف الشخصي */}
         <View style={styles.optionsContainer}>
+          {/* تغيير اللغة */}
+          <View style={styles.languageRow}>
+            <Text style={styles.optionText}>{t('profile.change_language')}</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ar')}><Text style={styles.langBtnText}>AR</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('en')}><Text style={styles.langBtnText}>EN</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ku')}><Text style={styles.langBtnText}>KU</Text></TouchableOpacity>
+            </View>
+          </View>
           <TouchableOpacity style={styles.optionButton} onPress={handleEditProfile}>
             <Ionicons name="create" size={24} color={theme.colors.primary} />
             <Text style={styles.optionText}>{t('profile.edit')}</Text>
@@ -149,30 +169,24 @@ const DoctorProfileScreen: React.FC = () => {
 
           <TouchableOpacity 
             style={styles.optionButton}
-            onPress={() => navigation.navigate('DoctorAppointments' as never)}
+            onPress={() => {
+              navigation.navigate('ChangePassword' as never);
+            }}
           >
-            <Ionicons name="calendar" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('appointments.title')}</Text>
+            <Ionicons name="lock-closed" size={24} color={theme.colors.primary} />
+            <Text style={styles.optionText}>{t('auth.change_password')}</Text>
             <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.optionButton}
-            onPress={() => navigation.navigate('DoctorCalendar' as never)}
+            onPress={() => navigation.navigate('AppointmentDurationEditor' as never)}
           >
-            <Ionicons name="calendar-number" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('doctor.calendar')}</Text>
+            <Ionicons name="timer" size={24} color={theme.colors.primary} />
+            <Text style={styles.optionText}>{t('doctor.appointment_duration_editor')}</Text>
             <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.optionButton}
-            onPress={() => navigation.navigate('DoctorAnalytics' as never)}
-          >
-            <Ionicons name="analytics" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('doctor.analytics')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
         </View>
 
         {/* زر تسجيل الخروج */}
@@ -307,6 +321,32 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     marginBottom: 32,
+  },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  langBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  langBtnText: {
+    color: theme.colors.white,
+    fontWeight: 'bold',
   },
   optionButton: {
     flexDirection: 'row',

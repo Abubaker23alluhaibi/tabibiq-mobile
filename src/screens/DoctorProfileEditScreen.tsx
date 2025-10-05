@@ -1,24 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
   ActivityIndicator,
   Image,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  Linking,
+  Modal,
 } from 'react-native';
+import { ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../utils/theme';
+import { colors } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../services/api';
-import * as ImagePicker from 'expo-image-picker';
-import { Linking } from 'react-native';
+import { doctorsAPI } from '../services/api';
+import { MEDICAL_SPECIALTIES, getSpecialtiesByCategory, SPECIALTY_CATEGORIES as NEW_SPECIALTY_CATEGORIES } from '../utils/medicalSpecialties';
 
 const DoctorProfileEditScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -34,28 +39,55 @@ const DoctorProfileEditScreen: React.FC = () => {
     specialty: '',
     experienceYears: '',
     about: '',
-    clinicLocation: '',
     mapLocation: '',
-    province: '',
-    area: '',
     profileImage: '',
-    licenseNumber: '',
-    education: '',
-    certifications: '',
-    languages: '',
-    consultationFee: '',
-    emergencyContact: '',
-    workingHours: '',
-    appointmentDuration: '30',
   });
-  const [workTimes, setWorkTimes] = useState([]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [privacySettings, setPrivacySettings] = useState({
     showPhone: true,
     showEmail: true,
     showAddress: true,
     showConsultationFee: true,
   });
+  
+  // حالة للفئات والتخصصات
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [isSelectionModalVisible, setIsSelectionModalVisible] = useState(false);
+  const [selectionType, setSelectionType] = useState<'category' | 'specialty'>('category');
+  const [selectionData, setSelectionData] = useState<string[]>([]);
+
+  // دوال للتعامل مع اختيار الفئات والتخصصات
+  const openSelectionModal = useCallback((type: 'category' | 'specialty') => {
+    setSelectionType(type);
+    if (type === 'category') {
+      setSelectionData(NEW_SPECIALTY_CATEGORIES);
+    } else {
+      if (selectedCategory) {
+        const categorySpecialties = getSpecialtiesByCategory(selectedCategory);
+        setSelectionData(categorySpecialties.map(s => s.ar));
+      } else {
+        setSelectionData([]);
+      }
+    }
+    setIsSelectionModalVisible(true);
+  }, [selectedCategory]);
+
+  const closeSelectionModal = useCallback(() => {
+    setIsSelectionModalVisible(false);
+  }, []);
+
+  const handleSelection = useCallback((value: string) => {
+    if (selectionType === 'category') {
+      setSelectedCategory(value);
+      closeSelectionModal();
+      // افتح قائمة التخصصات للفئة المختارة
+      setTimeout(() => {
+        openSelectionModal('specialty');
+      }, 100);
+    } else {
+      setForm(prev => ({ ...prev, specialty: value }));
+      closeSelectionModal();
+    }
+  }, [selectionType, openSelectionModal, closeSelectionModal]);
 
   useEffect(() => {
     if (profile) {
@@ -66,22 +98,9 @@ const DoctorProfileEditScreen: React.FC = () => {
         specialty: profile.specialty || '',
         experienceYears: profile.experienceYears?.toString() || '',
         about: profile.about || '',
-        clinicLocation: profile.clinicLocation || '',
         mapLocation: profile.mapLocation || '',
-        province: profile.province || '',
-        area: profile.area || '',
         profileImage: profile.profileImage || profile.image || '',
-        licenseNumber: profile.licenseNumber || profile.license_number || '',
-        education: profile.education || '',
-        certifications: profile.certifications || '',
-        languages: profile.languages || '',
-        consultationFee: profile.consultationFee?.toString() || profile.consultation_fee?.toString() || '',
-        emergencyContact: profile.emergencyContact || profile.emergency_contact || '',
-        workingHours: profile.workingHours || profile.working_hours || '',
-        appointmentDuration: profile.appointmentDuration?.toString() || '30',
       });
-      setWorkTimes(profile.workTimes || []);
-      setNotificationsEnabled(profile.notificationsEnabled !== false);
       setPrivacySettings({
         showPhone: profile.privacySettings?.showPhone !== false,
         showEmail: profile.privacySettings?.showEmail !== false,
@@ -95,37 +114,11 @@ const DoctorProfileEditScreen: React.FC = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const pickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        setForm(prev => ({ ...prev, profileImage: imageUri }));
-      }
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في اختيار الصورة');
-    }
+  const handlePickImage = async () => {
+    Alert.alert('تنبيه', 'لا يمكن رفع الصور من التطبيق. يرجى إضافة الصورة من موقع الويب.');
   };
 
-  const addWorkTime = () => {
-    setWorkTimes([...workTimes, { day: '', from: '09:00', to: '17:00' }]);
-  };
 
-  const removeWorkTime = (index: number) => {
-    setWorkTimes(workTimes.filter((_, i) => i !== index));
-  };
-
-  const updateWorkTime = (index: number, field: string, value: string) => {
-    const updated = [...workTimes];
-    updated[index] = { ...updated[index], [field]: value };
-    setWorkTimes(updated);
-  };
 
   const handleOpenMaps = () => {
     if (form.mapLocation) {
@@ -159,33 +152,59 @@ const DoctorProfileEditScreen: React.FC = () => {
 
     setSaving(true);
     try {
-      console.log('🔍 DoctorProfileEditScreen - Saving profile...');
-      console.log('🔍 DoctorProfileEditScreen - Profile ID:', profile._id);
+
+
       
-      const updatedData = {
+      let updatedData = {
         ...form,
-        workTimes,
-        notificationsEnabled,
         privacySettings,
-        appointmentDuration: Number(form.appointmentDuration),
-        consultationFee: Number(form.consultationFee) || 0,
-        experienceYears: Number(form.experienceYears) || 0,
       };
 
-      console.log('🔍 DoctorProfileEditScreen - Updated data:', updatedData);
+      // ✅ رفع الصورة إذا تم تغييرها
+      if (form.profileImage && form.profileImage !== profile.profileImage) {
+
+        try {
+          const imageResult = await doctorsAPI.uploadProfileImage(form.profileImage);
+          
+          if (imageResult && imageResult.success) {
+
+            
+            // تحديث البيانات بالصورة الجديدة
+            if (imageResult.data && imageResult.data.imageUrl) {
+              updatedData.profileImage = imageResult.data.imageUrl;
+            } else if (imageResult.data && imageResult.data.profileImage) {
+              updatedData.profileImage = imageResult.data.profileImage;
+            }
+          } else {
+
+            Alert.alert('تحذير', 'فشل في رفع الصورة: ' + imageResult.error);
+            // استمر مع الصورة المحلية
+          }
+        } catch (imageError) {
+          Alert.alert('تحذير', 'فشل في رفع الصورة. سيتم استخدام الصورة المحلية.');
+          // استمر مع الصورة المحلية
+        }
+      }
+
+
 
       const result = await updateProfile(updatedData);
       
       if (result.error) {
-        console.error('❌ DoctorProfileEditScreen - Error:', result.error);
         Alert.alert('خطأ', result.error);
       } else {
-        console.log('✅ DoctorProfileEditScreen - Success:', result.data);
-        Alert.alert('نجح', 'تم تحديث البيانات بنجاح');
-        navigation.goBack();
+
+        Alert.alert('نجح', 'تم تحديث البيانات بنجاح', [
+          {
+            text: 'حسناً',
+            onPress: () => {
+              // ✅ إصلاح: استخدام navigate بدلاً من goBack
+              navigation.navigate('DoctorProfile' as never);
+            }
+          }
+        ]);
       }
     } catch (error: any) {
-      console.error('❌ DoctorProfileEditScreen - Exception:', error);
       Alert.alert('خطأ', 'فشل في تحديث البيانات');
     } finally {
       setSaving(false);
@@ -204,118 +223,159 @@ const DoctorProfileEditScreen: React.FC = () => {
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
         style={styles.input}
-        value={form[field]}
+        value={form[field as keyof typeof form]}
         onChangeText={(value) => handleChange(field, value)}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         keyboardType={type === 'email' ? 'email-address' : type === 'phone' ? 'phone-pad' : type === 'number' ? 'numeric' : 'default'}
       />
     </View>
   );
 
-  const weekdays = [
-    'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'
-  ];
+
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+    <>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        enabled={true}
+      >
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      
+      <LinearGradient
+        colors={['rgba(0, 150, 136, 0.9)', 'rgba(0, 105, 92, 0.9)']}
+        style={styles.headerGradient}
+      >
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('profile.edit_profile')}</Text>
         <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving}>
           {saving ? (
-            <ActivityIndicator size="small" color={theme.colors.white} />
+            <ActivityIndicator size="small" color={colors.white} />
           ) : (
             <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled={true}
+        removeClippedSubviews={false}
+      >
         {/* صورة الملف الشخصي */}
         {renderSection(t('profile.profile_image'), (
           <View style={styles.imageSection}>
-            <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
+            <View style={styles.imageContainer}>
               {form.profileImage ? (
                 <Image source={{ uri: form.profileImage }} style={styles.profileImage} />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
+                  <Ionicons name="person" size={40} color={colors.textSecondary} />
                 </View>
               )}
               <View style={styles.imageOverlay}>
-                <Ionicons name="camera" size={20} color={theme.colors.white} />
+                <Ionicons name="information-circle" size={20} color={colors.white} />
               </View>
-            </TouchableOpacity>
-            <Text style={styles.imageHint}>{t('profile.tap_to_change')}</Text>
+            </View>
+            <Text style={styles.imageHint}>الصورة متاحة من موقع الويب فقط</Text>
           </View>
         ))}
 
         {/* المعلومات الأساسية */}
         {renderSection(t('profile.basic_info'), (
           <View>
-            {renderInput(t('profile.doctor_name'), 'name', t('profile.enter_name_profile'))}
-            {renderInput(t('profile.email'), 'email', t('profile.enter_email_profile'), 'email')}
-            {renderInput(t('profile.phone'), 'phone', t('profile.enter_phone_profile'), 'phone')}
-            {renderInput(t('profile.specialty'), 'specialty', t('profile.enter_specialty'))}
-            {renderInput(t('profile.experience_years'), 'experienceYears', t('profile.enter_experience'), 'number')}
-            {renderInput(t('profile.license_number'), 'licenseNumber', t('profile.enter_license'))}
+            {renderInput(t('auth.full_name') || 'الاسم الكامل', 'name', t('auth.enter_full_name') || 'أدخل اسمك الكامل')}
+            {renderInput(t('auth.email') || 'البريد الإلكتروني', 'email', t('auth.enter_email') || 'أدخل بريدك الإلكتروني', 'email')}
+            {renderInput(t('auth.phone') || 'رقم الهاتف', 'phone', t('auth.enter_phone') || 'أدخل رقم هاتفك', 'phone')}
+            {/* اختيار فئة التخصص */}
+            <TouchableOpacity
+              style={styles.inputContainer}
+              onPress={() => openSelectionModal('category')}
+            >
+              <Text style={styles.inputLabel}>فئة التخصص</Text>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.input, !selectedCategory && styles.placeholder]}>
+                  {selectedCategory || 'اختر فئة التخصص'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </View>
+            </TouchableOpacity>
+
+            {/* اختيار التخصص */}
+            <TouchableOpacity
+              style={styles.inputContainer}
+              onPress={() => {
+                if (selectedCategory) {
+                  openSelectionModal('specialty');
+                } else {
+                  Alert.alert('تنبيه', 'يرجى اختيار فئة التخصص أولاً');
+                }
+              }}
+            >
+              <Text style={styles.inputLabel}>{t('auth.specialty') || 'التخصص'}</Text>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.input, !form.specialty && styles.placeholder]}>
+                  {form.specialty || t('auth.select_specialty') || 'اختر التخصص'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </View>
+            </TouchableOpacity>
+            {renderInput(t('profile.experience_years') || 'سنوات الخبرة', 'experienceYears', t('profile.enter_experience') || 'أدخل سنوات الخبرة', 'number')}
           </View>
         ))}
 
-        {/* المعلومات المهنية */}
-        {renderSection(t('profile.professional_info'), (
+        {/* معلومات إضافية */}
+        {renderSection(t('profile.additional_info'), (
           <View>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>{t('profile.about')}</Text>
+              <Text style={styles.inputLabel}>{t('auth.about') || 'نبذة عنك'}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={form.about}
                 onChangeText={(value) => handleChange('about', value)}
-                placeholder={t('profile.enter_about')}
-                placeholderTextColor={theme.colors.textSecondary}
+                placeholder={t('auth.enter_about') || 'اكتب نبذة عن نفسك'}
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={4}
               />
             </View>
-            {renderInput(t('profile.education'), 'education', t('profile.enter_education'))}
-            {renderInput(t('profile.certifications'), 'certifications', t('profile.enter_certifications'))}
-            {renderInput(t('profile.languages'), 'languages', t('profile.enter_languages'))}
-          </View>
-        ))}
-
-        {/* معلومات العيادة */}
-        {renderSection(t('profile.clinic_info'), (
-          <View>
-            {renderInput(t('profile.clinic_location'), 'clinicLocation', t('profile.enter_clinic_location'))}
             
             {/* موقع الخريطة */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>{t('auth.map_location')}</Text>
+              <Text style={styles.inputLabel}>{t('auth.map_location') || 'موقع الخريطة'}</Text>
               <View style={styles.mapLocationContainer}>
                 <TextInput
                   style={[styles.input, styles.mapLocationInput]}
                   value={form.mapLocation}
                   onChangeText={(value) => handleChange('mapLocation', value)}
-                  placeholder={t('auth.enter_map_location')}
-                  placeholderTextColor={theme.colors.textSecondary}
+                  placeholder={t('auth.enter_map_location') || 'أدخل موقعك على الخريطة'}
+                  placeholderTextColor={colors.textSecondary}
                 />
                 <TouchableOpacity 
                   style={styles.mapLocationButton}
                   onPress={() => handleOpenMaps()}
                 >
-                  <Ionicons name="location" size={20} color={theme.colors.white} />
+                  <Ionicons name="location" size={20} color={colors.white} />
                 </TouchableOpacity>
               </View>
               {form.mapLocation ? (
@@ -323,183 +383,122 @@ const DoctorProfileEditScreen: React.FC = () => {
                   style={styles.openMapsButton}
                   onPress={() => handleOpenMaps()}
                 >
-                  <Ionicons name="map" size={16} color={theme.colors.primary} />
-                  <Text style={styles.openMapsText}>{t('auth.open_in_maps')}</Text>
+                  <Ionicons name="map" size={16} color={colors.primary} />
+                  <Text style={styles.openMapsText}>{t('auth.open_in_maps') || 'فتح في الخرائط'}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
-
-            {renderInput(t('profile.province'), 'province', t('profile.enter_province'))}
-            {renderInput(t('profile.area'), 'area', t('profile.enter_area'))}
-            {renderInput(t('profile.consultation_fee'), 'consultationFee', t('profile.enter_consultation_fee'), 'number')}
-            {renderInput(t('profile.emergency_contact'), 'emergencyContact', t('profile.enter_emergency_contact'), 'phone')}
-          </View>
-        ))}
-
-        {/* أوقات العمل */}
-        {renderSection(t('profile.work_times'), (
-          <View>
-            {workTimes.map((time, index) => (
-              <View key={index} style={styles.workTimeRow}>
-                <View style={styles.workTimeInputs}>
-                  <View style={styles.workTimeInput}>
-                    <Text style={styles.inputLabel}>{t('profile.day')}</Text>
-                    <View style={styles.pickerContainer}>
-                      <Text style={styles.pickerText}>{time.day || t('profile.select_day')}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.workTimeInput}>
-                    <Text style={styles.inputLabel}>{t('profile.from')}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={time.from}
-                      onChangeText={(value) => updateWorkTime(index, 'from', value)}
-                      placeholder="09:00"
-                    />
-                  </View>
-                  <View style={styles.workTimeInput}>
-                    <Text style={styles.inputLabel}>{t('profile.to')}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={time.to}
-                      onChangeText={(value) => updateWorkTime(index, 'to', value)}
-                      placeholder="17:00"
-                    />
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeWorkTime(index)}
-                >
-                  <Ionicons name="trash" size={20} color={theme.colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addWorkTimeButton} onPress={addWorkTime}>
-              <Ionicons name="add" size={20} color={theme.colors.primary} />
-              <Text style={styles.addWorkTimeText}>{t('profile.add_work_time')}</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        {/* مدة الموعد */}
-        {renderSection(t('profile.appointment_duration'), (
-          <View>
-            <Text style={styles.inputLabel}>{t('profile.appointment_duration')}</Text>
-            <View style={styles.durationOptions}>
-              {['15', '30', '45', '60'].map((duration) => (
-                <TouchableOpacity
-                  key={duration}
-                  style={[
-                    styles.durationOption,
-                    form.appointmentDuration === duration && styles.durationOptionActive
-                  ]}
-                  onPress={() => handleChange('appointmentDuration', duration)}
-                >
-                  <Text style={[
-                    styles.durationOptionText,
-                    form.appointmentDuration === duration && styles.durationOptionTextActive
-                  ]}>
-                    {duration} {t('common.minutes')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        ))}
-
-        {/* إعدادات الإشعارات */}
-        {renderSection(t('profile.notifications'), (
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>{t('profile.enable_notifications')}</Text>
-              <Text style={styles.settingDescription}>{t('profile.notifications_description')}</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-              thumbColor={theme.colors.white}
-            />
-          </View>
-        ))}
+                      </View>
+          ))}
 
         {/* إعدادات الخصوصية */}
-        {renderSection(t('profile.privacy_settings'), (
+        {renderSection(t('profile.privacy_settings') || 'إعدادات الخصوصية', (
           <View>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_phone')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_phone_description')}</Text>
+                <Text style={styles.settingTitle}>{t('profile.show_phone') || 'إظهار رقم الهاتف'}</Text>
+                <Text style={styles.settingDescription}>{t('profile.show_phone_description') || 'السماح للمرضى برؤية رقم هاتفك'}</Text>
               </View>
               <Switch
                 value={privacySettings.showPhone}
                 onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showPhone: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_email')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_email_description')}</Text>
+                <Text style={styles.settingTitle}>{t('profile.show_email') || 'إظهار البريد الإلكتروني'}</Text>
+                <Text style={styles.settingDescription}>{t('profile.show_email_description') || 'السماح للمرضى برؤية بريدك الإلكتروني'}</Text>
               </View>
               <Switch
                 value={privacySettings.showEmail}
                 onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showEmail: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_address')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_address_description')}</Text>
+                <Text style={styles.settingTitle}>{t('profile.show_address') || 'إظهار العنوان'}</Text>
+                <Text style={styles.settingDescription}>{t('profile.show_address_description') || 'السماح للمرضى برؤية عنوانك'}</Text>
               </View>
               <Switch
                 value={privacySettings.showAddress}
                 onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showAddress: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_consultation_fee')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_consultation_fee_description')}</Text>
+                <Text style={styles.settingTitle}>{t('profile.show_consultation_fee') || 'إظهار رسوم الاستشارة'}</Text>
+                <Text style={styles.settingDescription}>{t('profile.show_consultation_fee_description') || 'السماح للمرضى برؤية رسوم الاستشارة'}</Text>
               </View>
               <Switch
                 value={privacySettings.showConsultationFee}
                 onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showConsultationFee: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             </View>
           </View>
         ))}
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={isSelectionModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeSelectionModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectionType === 'category' ? 'فئة التخصص' : t('auth.specialty') || 'التخصص'}
+              </Text>
+              <TouchableOpacity onPress={closeSelectionModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalList}>
+              {selectionData.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.modalItem}
+                  onPress={() => handleSelection(item)}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
-};
+  };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
-  header: {
-    backgroundColor: theme.colors.primary,
+  headerGradient: {
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -511,38 +510,45 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.white + '20',
+    backgroundColor: colors.white + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.white,
+    color: colors.white,
+    flex: 1,
+    textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: theme.colors.white + '20',
+    backgroundColor: colors.white + '20',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   saveButtonText: {
-    color: theme.colors.white,
+    color: colors.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
   content: {
     flex: 1,
-    padding: 20,
+    paddingBottom: 100,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    marginBottom: 16,
+    color: colors.textPrimary,
+    marginBottom: 20,
+    textAlign: 'right',
   },
   imageSection: {
     alignItems: 'center',
@@ -560,11 +566,11 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   imageOverlay: {
     position: 'absolute',
@@ -573,32 +579,34 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   imageHint: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.textPrimary,
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginBottom: 10,
+    textAlign: 'right',
   },
   input: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
+    textAlign: 'right',
   },
   textArea: {
     height: 100,
@@ -621,7 +629,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.error + '20',
+    backgroundColor: colors.error + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -631,15 +639,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   addWorkTimeText: {
     marginLeft: 8,
     fontSize: 16,
-    color: theme.colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   durationOptions: {
@@ -651,29 +659,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   durationOptionActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   durationOptionText: {
     fontSize: 14,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   durationOptionTextActive: {
-    color: theme.colors.white,
+    color: colors.white,
     fontWeight: '600',
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   settingInfo: {
     flex: 1,
@@ -682,24 +700,26 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.textPrimary,
-    marginBottom: 4,
+    color: colors.textPrimary,
+    marginBottom: 6,
+    textAlign: 'right',
   },
   settingDescription: {
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
+    textAlign: 'right',
   },
   pickerContainer: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   pickerText: {
     fontSize: 16,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   mapLocationContainer: {
     flexDirection: 'row',
@@ -710,7 +730,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   mapLocationButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     padding: 12,
     borderRadius: 8,
     justifyContent: 'center',
@@ -723,15 +743,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     padding: 8,
-    backgroundColor: theme.colors.primary + '10',
+    backgroundColor: colors.primary + '10',
     borderRadius: 6,
     alignSelf: 'flex-start',
   },
   openMapsText: {
     marginLeft: 6,
-    color: theme.colors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalList: {
+    maxHeight: 400,
+  },
+  modalItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  placeholder: {
+    color: colors.textSecondary,
   },
 });
 

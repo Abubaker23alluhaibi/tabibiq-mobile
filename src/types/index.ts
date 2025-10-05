@@ -3,37 +3,45 @@ export type RootStackParamList = {
   Landing: undefined;
   Login: undefined;
   UserSignUp: undefined;
-  DoctorSignUp: undefined;
-  UserHome: undefined;
+  UserHomeStack: undefined;
   DoctorDashboard: undefined;
-  DoctorDetails: { doctor: Doctor };
+  DoctorDetails: { doctorId: string };
   MyAppointments: undefined;
   UserProfile: undefined;
   DoctorProfile: undefined;
   DoctorAppointments: undefined;
-  AdminDashboard: undefined;
-  AdminLogin: undefined;
   MedicineReminder: undefined;
   HealthCenters: undefined;
   CenterLogin: undefined;
   CenterHome: undefined;
   DoctorCalendar: undefined;
   DoctorAnalytics: undefined;
-  WorkTimesEditor: undefined;
   AppointmentDurationEditor: undefined;
   NotificationSettings: undefined;
+  Notifications: undefined;
   DoctorProfileEdit: undefined;
   UserProfileEdit: undefined;
+  AllDoctors: undefined;
+  ChangePassword: undefined;
+  TopRatedDoctors: undefined;
+  DoctorReviews: { doctorId: string };
 };
 
 // نوع المستخدم
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  first_name?: string;
   email: string;
   phone: string;
   user_type: 'user' | 'doctor' | 'admin' | 'center';
+  disabled?: boolean; // حقل تعطيل الحساب الموقت
   image?: string;
+  profileImage?: string;
+  profile_image?: string;
+  rating?: number;
+  reviews_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -50,23 +58,50 @@ export interface Doctor extends User {
   appointment_duration: number;
   rating?: number;
   reviews_count?: number;
+  averageRating?: number;
+  totalRatings?: number;
   is_verified: boolean;
   is_available: boolean;
   work_times: WorkTime[];
+  disabled?: boolean; // حقل تعطيل الحساب الموقت
 }
 
-// نوع الموعد
+// نوع الموعد - محدث ليتطابق مع قاعدة البيانات
 export interface Appointment {
   id: string;
-  patient_id: string;
-  doctor_id: string;
-  date: string;
-  time: string;
+  userId: string; // معرف المستخدم (مريض)
+  doctorId: string; // معرف الطبيب
+  userName: string; // اسم المريض
+  doctorName: string; // اسم الطبيب
+  centerName?: string; // اسم المركز الصحي
+  date: string; // التاريخ
+  time: string; // الوقت
+  reason?: string; // سبب الزيارة
+  patientAge: number; // عمر المريض - إجباري
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  type: 'consultation' | 'follow_up' | 'emergency' | 'examination';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+  price?: number; // السعر
+  notes?: string; // ملاحظات
+  type: 'normal' | 'special_appointment'; // نوع الموعد
+  patientPhone?: string; // رقم هاتف المريض
+  duration: number; // مدة الموعد (دقائق)
+  attendance: 'present' | 'absent'; // حالة الحضور
+  attendanceTime?: string; // وقت تسجيل الحضور
+  createdAt: string; // تاريخ الإنشاء
+  updatedAt: string; // تاريخ التحديث
+  
+  // الحقول الجديدة للحجز لشخص آخر
+  isBookingForOther?: boolean; // هل الحجز لشخص آخر؟
+  patientName?: string; // اسم المريض الفعلي (عند الحجز لشخص آخر)
+  bookerName?: string; // اسم الشخص الذي قام بالحجز
+  
+  // حقول احتياطية للتوافق مع الكود الحالي
+  patient_id?: string; // معرف المريض (احتياطي)
+  doctor_id?: string; // معرف الطبيب (احتياطي)
+  age?: number; // العمر (احتياطي)
+  created_at?: string; // تاريخ الإنشاء (احتياطي)
+  updated_at?: string; // تاريخ التحديث (احتياطي)
+  
+  // علاقات (للتوافق مع الكود الحالي)
   patient?: User;
   doctor?: Doctor;
 }
@@ -79,6 +114,49 @@ export interface WorkTime {
   start_time: string;
   end_time: string;
   is_available: boolean;
+}
+
+// نوع يوم عدم التواجد (الإجازة)
+export interface UnavailableDay {
+  id?: string;
+  doctor_id: string;
+  date: string; // YYYY-MM-DD
+  type: 'full_day' | 'partial_day';
+  start_time?: string; // HH:MM (للأيام الجزئية فقط)
+  end_time?: string; // HH:MM (للأيام الجزئية فقط)
+  reason?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// نوع التقويم الشهري
+export interface MonthCalendar {
+  year: number;
+  month: number;
+  weeks: CalendarWeek[];
+}
+
+// نوع أسبوع التقويم
+export interface CalendarWeek {
+  weekNumber: number;
+  days: CalendarDay[];
+}
+
+// نوع يوم التقويم
+export interface CalendarDay {
+  date: string; // YYYY-MM-DD
+  dayOfMonth: number;
+  dayOfWeek: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isPast: boolean;
+  isSelected: boolean;
+  isUnavailable: boolean;
+  unavailableType?: 'full_day' | 'partial_day';
+  unavailableTimes?: {
+    start: string;
+    end: string;
+  };
 }
 
 // نوع التقييم
@@ -98,7 +176,12 @@ export interface Reminder {
   user_id: string;
   medicine_name: string;
   dosage: string;
-  frequency: 'daily' | 'twice_daily' | 'three_times_daily' | 'weekly' | 'monthly';
+  frequency:
+    | 'daily'
+    | 'twice_daily'
+    | 'three_times_daily'
+    | 'weekly'
+    | 'monthly';
   time: string;
   notes?: string;
   is_active: boolean;
@@ -106,24 +189,6 @@ export interface Reminder {
   updated_at: string;
 }
 
-// نوع المركز الصحي
-export interface HealthCenter {
-  id: string;
-  name: string;
-  type: 'hospital' | 'clinic' | 'laboratory' | 'pharmacy';
-  province: string;
-  area: string;
-  address: string;
-  phone: string;
-  email?: string;
-  website?: string;
-  rating?: number;
-  reviews_count?: number;
-  services: string[];
-  working_hours: WorkTime[];
-  image?: string;
-  is_verified: boolean;
-}
 
 // نوع الإشعار
 export interface Notification {
@@ -144,9 +209,13 @@ export interface Statistics {
   pending_appointments: number;
   cancelled_appointments: number;
   completed_appointments: number;
+  // إحصائيات الحضور
+  total_attended: number;
+  total_absent: number;
+  total_not_marked: number;
+  attendance_rate: number; // نسبة الحضور
   total_revenue: number;
   average_rating: number;
-  total_reviews: number;
 }
 
 // نوع البحث
@@ -203,7 +272,7 @@ export interface Settings {
 export interface Profile {
   id: string;
   user_id: string;
-  birth_date?: string;
+
   gender?: 'male' | 'female';
   blood_type?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
   height?: number; // بالسم
@@ -351,4 +420,4 @@ export interface AppSettings {
     max_reviews_per_user: number;
     max_file_size: number;
   };
-} 
+}

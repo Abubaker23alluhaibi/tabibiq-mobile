@@ -8,26 +8,30 @@ import {
   Dimensions,
   StatusBar,
   ImageBackground,
+  ScrollView,
 } from 'react-native';
-import CSSScrollView from '../components/web/CSSScrollView';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
-import { isRTL } from '../locales';
+import { isRTL, changeLanguage } from '../locales';
+import { useApp } from '../contexts/AppContext';
 
 const { width, height } = Dimensions.get('window');
 
 const LandingScreen = () => {
   const navigation = useNavigation();
   const { t, i18n } = useTranslation();
+  const { markAppAsLaunched } = useApp();
 
-  const navigateToLogin = () => {
+  const navigateToLogin = async () => {
+    await markAppAsLaunched();
     navigation.navigate('Login' as never);
   };
 
-  const navigateToSignUp = () => {
+  const navigateToSignUp = async () => {
+    await markAppAsLaunched();
     navigation.navigate('UserSignUp' as never);
   };
 
@@ -52,12 +56,15 @@ const LandingScreen = () => {
               resizeMode="contain"
             />
             <View style={styles.logoText}>
-              <Text style={styles.logoTitle}>TabibiQ</Text>
-              <Text style={styles.logoSubtitle}>منصة طبيب العراق</Text>
+              <Text style={styles.logoTitle}>{t('landing.platform_title')}</Text>
+              <Text style={styles.logoSubtitle}>{t('landing.platform_subtitle')}</Text>
             </View>
           </View>
           
-          <TouchableOpacity style={styles.languageButton}>
+          <TouchableOpacity style={styles.languageButton} onPress={() => {
+            const next = i18n.language === 'ar' ? 'en' : i18n.language === 'en' ? 'ku' : 'ar';
+            changeLanguage(next);
+          }}>
             <Ionicons name="language" size={20} color={theme.colors.primary} />
             <Text style={styles.languageText}>
               {i18n.language === 'ar' ? 'العربية' : i18n.language === 'en' ? 'English' : 'کوردی'}
@@ -67,41 +74,41 @@ const LandingScreen = () => {
       </LinearGradient>
 
       {/* Main Content */}
-      <CSSScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Hero Section - مطابق للواجهة الأمامية */}
         <View style={styles.heroSection}>
           <View style={styles.heroContainer}>
             <View style={styles.heroContent}>
               <Text style={styles.heroTitle}>
-                منصة طبيب العراق <Text style={styles.highlight}>الرائدة</Text>
+                {t('landing.hero_title')} <Text style={styles.highlight}>{t('landing.highlight')}</Text>
               </Text>
               <Text style={styles.heroSubtitle}>
-                منصة طبية متكاملة تصل المرضى بأفضل الأطباء في العراق
+                {t('landing.hero_subtitle')}
               </Text>
               
               {/* Stats - مطابق للواجهة الأمامية */}
               <View style={styles.heroStats}>
                 <View style={styles.stat}>
                   <Text style={styles.statNumber}>500+</Text>
-                  <Text style={styles.statLabel}>طبيب</Text>
+                  <Text style={styles.statLabel}>{t('landing.stats.doctors')}</Text>
                 </View>
                 <View style={styles.stat}>
                   <Text style={styles.statNumber}>10K+</Text>
-                  <Text style={styles.statLabel}>مريض</Text>
+                  <Text style={styles.statLabel}>{t('landing.stats.patients')}</Text>
                 </View>
                 <View style={styles.stat}>
                   <Text style={styles.statNumber}>50K+</Text>
-                  <Text style={styles.statLabel}>موعد</Text>
+                  <Text style={styles.statLabel}>{t('landing.stats.appointments')}</Text>
                 </View>
               </View>
               
               {/* Buttons - مطابق للواجهة الأمامية */}
               <View style={styles.heroButtons}>
                 <TouchableOpacity style={styles.ctaBtnPrimary} onPress={navigateToSignUp}>
-                  <Text style={styles.ctaBtnText}>ابدأ الآن</Text>
+                  <Text style={styles.ctaBtnText}>{t('landing.start_now')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.ctaBtnSecondary} onPress={navigateToLogin}>
-                  <Text style={styles.ctaBtnSecondaryText}>تسجيل الدخول</Text>
+                  <Text style={styles.ctaBtnSecondaryText}>{t('landing.login')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -119,50 +126,49 @@ const LandingScreen = () => {
         <View style={styles.aboutSection}>
           <View style={styles.container}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>من نحن</Text>
+              <Text style={styles.sectionTitle}>{t('landing.about_us')}</Text>
               <Text style={styles.sectionSubtitle}>
-                منصة طبية رائدة تهدف إلى تسهيل الوصول للرعاية الصحية
+                {t('landing.about_subtitle')}
               </Text>
             </View>
             
             <View style={styles.aboutContent}>
-              <Text style={styles.aboutMainTitle}>منصة طبيب العراق</Text>
+              <Text style={styles.aboutMainTitle}>{t('landing.about_main_title')}</Text>
               <Text style={styles.aboutDescription}>
-                منصة طبية متكاملة تصل المرضى بأفضل الأطباء في العراق، 
-                توفر خدمات الحجز الإلكتروني والاستشارات الطبية بسهولة وأمان.
+                {t('landing.about_description')}
               </Text>
               
               {/* Features Grid - مطابق للواجهة الأمامية */}
               <View style={styles.featuresGrid}>
                 <View style={styles.feature}>
                   <Text style={styles.featureIcon}>🔒</Text>
-                  <Text style={styles.featureTitle}>أمان تام</Text>
+                  <Text style={styles.featureTitle}>{t('landing.features.security')}</Text>
                   <Text style={styles.featureDescription}>
-                    بياناتك محمية ومشفرة بأحدث التقنيات
+                    {t('landing.features.security_desc')}
                   </Text>
                 </View>
                 
                 <View style={styles.feature}>
                   <Text style={styles.featureIcon}>⚡</Text>
-                  <Text style={styles.featureTitle}>سرعة في الحجز</Text>
+                  <Text style={styles.featureTitle}>{t('landing.features.speed')}</Text>
                   <Text style={styles.featureDescription}>
-                    احجز موعدك في أقل من دقيقة
+                    {t('landing.features.speed_desc')}
                   </Text>
                 </View>
                 
                 <View style={styles.feature}>
                   <Text style={styles.featureIcon}>👨‍⚕️</Text>
-                  <Text style={styles.featureTitle}>أطباء معتمدون</Text>
+                  <Text style={styles.featureTitle}>{t('landing.features.doctors')}</Text>
                   <Text style={styles.featureDescription}>
-                    جميع الأطباء مراجعون ومعتمدون
+                    {t('landing.features.doctors_desc')}
                   </Text>
                 </View>
                 
                 <View style={styles.feature}>
                   <Text style={styles.featureIcon}>📱</Text>
-                  <Text style={styles.featureTitle}>سهولة الاستخدام</Text>
+                  <Text style={styles.featureTitle}>{t('landing.features.ease')}</Text>
                   <Text style={styles.featureDescription}>
-                    واجهة بسيطة وسهلة للجميع
+                    {t('landing.features.ease_desc')}
                   </Text>
                 </View>
               </View>
@@ -174,9 +180,9 @@ const LandingScreen = () => {
         <View style={styles.howToUseSection}>
           <View style={styles.container}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>كيفية الاستخدام</Text>
+              <Text style={styles.sectionTitle}>{t('landing.how_to_use')}</Text>
               <Text style={styles.sectionSubtitle}>
-                خطوات بسيطة للحصول على الرعاية الصحية
+                {t('landing.how_to_use_subtitle')}
               </Text>
             </View>
             
@@ -184,27 +190,27 @@ const LandingScreen = () => {
               <View style={styles.step}>
                 <View style={styles.stepNumber}>1</View>
                 <Text style={styles.stepIcon}>🔍</Text>
-                <Text style={styles.stepTitle}>ابحث عن طبيب</Text>
+                <Text style={styles.stepTitle}>{t('landing.steps.step1')}</Text>
                 <Text style={styles.stepDescription}>
-                  ابحث عن أفضل الأطباء في منطقتك حسب التخصص
+                  {t('landing.steps.step1_desc')}
                 </Text>
               </View>
               
               <View style={styles.step}>
                 <View style={styles.stepNumber}>2</View>
                 <Text style={styles.stepIcon}>📅</Text>
-                <Text style={styles.stepTitle}>احجز موعدك</Text>
+                <Text style={styles.stepTitle}>{t('landing.steps.step2')}</Text>
                 <Text style={styles.stepDescription}>
-                  اختر الوقت المناسب واحجز موعدك بسهولة
+                  {t('landing.steps.step2_desc')}
                 </Text>
               </View>
               
               <View style={styles.step}>
                 <View style={styles.stepNumber}>3</View>
                 <Text style={styles.stepIcon}>✅</Text>
-                <Text style={styles.stepTitle}>تأكيد الموعد</Text>
+                <Text style={styles.stepTitle}>{t('landing.steps.step3')}</Text>
                 <Text style={styles.stepDescription}>
-                  احصل على تأكيد فوري وذكريات للموعد
+                  {t('landing.steps.step3_desc')}
                 </Text>
               </View>
             </View>
@@ -214,18 +220,18 @@ const LandingScreen = () => {
         {/* CTA Section */}
         <View style={styles.ctaSection}>
           <View style={styles.container}>
-            <Text style={styles.ctaTitle}>ابدأ رحلتك الصحية اليوم</Text>
+            <Text style={styles.ctaTitle}>{t('landing.cta_title')}</Text>
             <Text style={styles.ctaSubtitle}>
-              انضم إلى آلاف المرضى والأطباء الذين يثقون بنا
+              {t('landing.cta_subtitle')}
             </Text>
             
             <View style={styles.ctaButtons}>
               <TouchableOpacity style={styles.ctaBtnPrimary} onPress={navigateToSignUp}>
-                <Text style={styles.ctaBtnText}>ابدأ الآن</Text>
+                <Text style={styles.ctaBtnText}>{t('landing.start_now')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.ctaBtnSecondary} onPress={navigateToLogin}>
-                <Text style={styles.ctaBtnSecondaryText}>تسجيل الدخول</Text>
+                <Text style={styles.ctaBtnSecondaryText}>{t('landing.login')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -234,33 +240,33 @@ const LandingScreen = () => {
         {/* Additional Content for Scrolling */}
         <View style={styles.additionalSection}>
           <View style={styles.container}>
-            <Text style={styles.sectionTitle}>مميزات إضافية</Text>
+            <Text style={styles.sectionTitle}>{t('landing.additional_features')}</Text>
             <Text style={styles.sectionSubtitle}>
-              اكتشف المزيد من الخدمات المتاحة
+              {t('landing.additional_features_subtitle')}
             </Text>
             
             <View style={styles.additionalFeatures}>
               <View style={styles.additionalFeature}>
                 <Text style={styles.featureIcon}>💊</Text>
-                <Text style={styles.featureTitle}>تذكير الأدوية</Text>
+                <Text style={styles.featureTitle}>{t('landing.medicine_reminder')}</Text>
                 <Text style={styles.featureDescription}>
-                  احصل على تذكيرات منتظمة لأدويتك
+                  {t('landing.medicine_reminder_desc')}
                 </Text>
               </View>
               
               <View style={styles.additionalFeature}>
                 <Text style={styles.featureIcon}>📋</Text>
-                <Text style={styles.featureTitle}>السجل الطبي</Text>
+                <Text style={styles.featureTitle}>{t('landing.medical_record')}</Text>
                 <Text style={styles.featureDescription}>
-                  احتفظ بسجل طبي شامل وآمن
+                  {t('landing.medical_record_desc')}
                 </Text>
               </View>
               
               <View style={styles.additionalFeature}>
                 <Text style={styles.featureIcon}>🏥</Text>
-                <Text style={styles.featureTitle}>المراكز الصحية</Text>
+                <Text style={styles.featureTitle}>{t('landing.health_centers')}</Text>
                 <Text style={styles.featureDescription}>
-                  اكتشف أفضل المراكز الصحية القريبة
+                  {t('landing.health_centers_desc')}
                 </Text>
               </View>
             </View>
@@ -270,13 +276,13 @@ const LandingScreen = () => {
         {/* Footer Section */}
         <View style={styles.footerSection}>
           <View style={styles.container}>
-            <Text style={styles.footerTitle}>TabibiQ - منصة طبيب العراق</Text>
+            <Text style={styles.footerTitle}>{t('landing.footer_title')}</Text>
             <Text style={styles.footerSubtitle}>
-              نحن هنا لخدمتك وضمان صحتك
+              {t('landing.footer_subtitle')}
             </Text>
           </View>
         </View>
-              </CSSScrollView>
+              </ScrollView>
     </ImageBackground>
   );
 };

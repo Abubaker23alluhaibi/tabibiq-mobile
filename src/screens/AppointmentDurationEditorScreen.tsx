@@ -21,13 +21,13 @@ const AppointmentDurationEditorScreen: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   const durationOptions = [
-    { value: '5', label: '5 دقائق' },
-    { value: '10', label: '10 دقائق' },
-    { value: '15', label: '15 دقيقة' },
-    { value: '20', label: '20 دقيقة' },
-    { value: '30', label: '30 دقيقة' },
-    { value: '45', label: '45 دقيقة' },
-    { value: '60', label: '60 دقيقة' },
+    { value: '5', label: t('appointment_duration.options.5') },
+    { value: '10', label: t('appointment_duration.options.10') },
+    { value: '15', label: t('appointment_duration.options.15') },
+    { value: '20', label: t('appointment_duration.options.20') },
+    { value: '30', label: t('appointment_duration.options.30') },
+    { value: '45', label: t('appointment_duration.options.45') },
+    { value: '60', label: t('appointment_duration.options.60') },
   ];
 
   useEffect(() => {
@@ -38,28 +38,21 @@ const AppointmentDurationEditorScreen: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!profile?._id) {
-      Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
+      Alert.alert(t('common.error'), t('appointment_duration.login_required'));
       return;
     }
 
     setSaving(true);
     try {
-      console.log('🔍 AppointmentDurationEditorScreen - Saving duration...');
-      console.log('🔍 AppointmentDurationEditorScreen - Profile ID:', profile._id);
-      console.log('🔍 AppointmentDurationEditorScreen - Duration:', duration);
-
       const result = await updateProfile({ appointmentDuration: Number(duration) });
 
       if (result.error) {
-        console.error('❌ AppointmentDurationEditorScreen - Error:', result.error);
-        Alert.alert('خطأ', result.error);
+        Alert.alert(t('common.error'), result.error);
       } else {
-        console.log('✅ AppointmentDurationEditorScreen - Success:', result.data);
-        Alert.alert('نجح', 'تم تحديث مدة الموعد الافتراضية بنجاح!');
+        Alert.alert(t('common.success'), t('appointment_duration.success_message'));
       }
     } catch (error) {
-      console.error('❌ AppointmentDurationEditorScreen - Exception:', error);
-      Alert.alert('خطأ', 'حدث خطأ في الاتصال');
+      Alert.alert(t('common.error'), t('appointment_duration.connection_error'));
     } finally {
       setSaving(false);
     }
@@ -80,20 +73,20 @@ const AppointmentDurationEditorScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>مدة الموعد الافتراضية</Text>
-        <Text style={styles.headerSubtitle}>تحديد مدة كل موعد</Text>
+        <Text style={styles.headerTitle}>{t('appointment_duration.title')}</Text>
+        <Text style={styles.headerSubtitle}>{t('appointment_duration.subtitle')}</Text>
       </View>
 
       <ScrollView style={styles.content}>
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={24} color={theme.colors.primary} />
           <Text style={styles.infoText}>
-            هذه المدة ستُستخدم لتقسيم الأوقات المتاحة في صفحة تفاصيل الطبيب
+            {t('appointment_duration.help')}
           </Text>
         </View>
 
         <View style={styles.durationCard}>
-          <Text style={styles.durationTitle}>اختر مدة الموعد:</Text>
+          <Text style={styles.durationTitle}>{t('appointment_duration.choose_duration')}</Text>
           
           {durationOptions.map((option) => (
             <TouchableOpacity
@@ -120,9 +113,9 @@ const AppointmentDurationEditorScreen: React.FC = () => {
         </View>
 
         <View style={styles.exampleCard}>
-          <Text style={styles.exampleTitle}>مثال على الأوقات المتاحة:</Text>
+          <Text style={styles.exampleTitle}>{t('appointment_duration.example')}</Text>
           <Text style={styles.exampleSubtitle}>
-            إذا كان الدوام من 09:00 إلى 17:00، ستظهر المواعيد كل {duration} دقيقة
+            {t('appointment_duration.example_text').replace('{duration}', duration)}
           </Text>
           
           <View style={styles.timeSlotsContainer}>
@@ -131,7 +124,7 @@ const AppointmentDurationEditorScreen: React.FC = () => {
                 <Text style={styles.timeSlotText}>{time}</Text>
               </View>
             ))}
-            <Text style={styles.moreText}>... والمزيد</Text>
+            <Text style={styles.moreText}>{t('appointment_duration.more_text')}</Text>
           </View>
         </View>
 
@@ -146,7 +139,7 @@ const AppointmentDurationEditorScreen: React.FC = () => {
             <Ionicons name="save" size={24} color={theme.colors.white} />
           )}
           <Text style={styles.saveButtonText}>
-            {saving ? 'جاري الحفظ...' : 'حفظ مدة الموعد'}
+            {saving ? t('appointment_duration.saving') : t('appointment_duration.save_duration')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -1,31 +1,70 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types';
-import { API_CONFIG, buildApiUrl, testServerConnection } from '../config/api';
+import { API_CONFIG } from '../config/api';
+import { User, Doctor } from '../types';
+import { doctorsAPI } from '../services/api';
+// Remove circular dependency - we'll handle notifications differently
+// import { useNotifications } from './NotificationContext';
 
 interface AuthContextType {
   user: User | null;
   profile: any | null; // البيانات الشخصية الكاملة
   loading: boolean;
-  signIn: (email: string, password: string, loginType?: 'user' | 'doctor') => Promise<{ error?: string }>;
+  signIn: (
+    email: string,
+    password: string,
+    loginType?: 'user' | 'doctor' | 'admin' | 'center'
+  ) => Promise<{ error?: string }>;
+  login: (
+    email: string,
+    password: string,
+    loginType?: 'user' | 'doctor' | 'admin' | 'center'
+  ) => Promise<{ error?: string }>;
   signUp: (userData: any) => Promise<any>;
   signOut: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   updateProfile: (updates: any) => Promise<{ data?: any; error?: string }>;
   refreshUser: () => Promise<void>;
-  testConnection: () => Promise<{ success: boolean; error?: string }>;
+  setProfile: (profile: any) => void; // إضافة setProfile
+  reloadFromStorage: () => Promise<void>; // دالة جديدة
+  checkStorageStatus: () => Promise<{ userData: boolean; profileData: boolean; token: boolean }>; // دالة جديدة
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
+
+// دالة للتحقق من صحة البريد الإلكتروني
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+// دالة للتحقق من صحة كلمة المرور
+const validatePassword = (password: string): boolean => {
+  return Boolean(password && password.length >= 6);
+};
+
+// دالة للتحقق من صحة رقم الهاتف
+const validatePhone = (phone: string): boolean => {
+  const phoneRegex = /^[\+]?[0-9\s\-\(\)]{8,}$/;
+  return Boolean(phone && phoneRegex.test(phone));
+};
+
+// دالة للتحقق من صحة الاسم
+const validateName = (name: string): boolean => {
+  return Boolean(name && name.trim().length >= 2 && /^[a-zA-Z\u0600-\u06FF\s]+$/.test(name));
+};
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Remove notifications context usage to avoid circular dependency
+  // We'll handle notifications through a different approach
 
   useEffect(() => {
     loadUserFromStorage();
@@ -35,102 +74,107 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AsyncStorage.getItem('user');
       const profileData = await AsyncStorage.getItem('profile');
-      
+
       if (userData) {
-        const parsedUser = JSON.parse(userData);
+        let parsedUser;
+        try {
+          parsedUser = JSON.parse(userData);
+        } catch (parseError) {
+          parsedUser = null;
+        }
+
         if (parsedUser && typeof parsedUser === 'object') {
-          setUser(parsedUser);
+          // تحويل البيانات إلى التنسيق الصحيح إذا كانت تحتوي على _id
+          if (parsedUser._id && !parsedUser.id) {
+            const convertedUser: User = {
+              id: parsedUser._id,
+              name: parsedUser.first_name || parsedUser.name || '',
+              email: parsedUser.email || '',
+              phone: parsedUser.phone || '',
+              user_type: parsedUser.user_type || 'user',
+              image: parsedUser.profile_image || parsedUser.image || '',
+              created_at: parsedUser.created_at || parsedUser.createdAt || '',
+              updated_at: parsedUser.updated_at || parsedUser.updatedAt || '',
+            };
+            setUser(convertedUser);
+          } else {
+            setUser(parsedUser);
+          }
         }
       }
-      
+
       if (profileData) {
-        const parsedProfile = JSON.parse(profileData);
+        let parsedProfile;
+        try {
+          parsedProfile = JSON.parse(profileData);
+        } catch (parseError) {
+          parsedProfile = null;
+        }
+
         if (parsedProfile && typeof parsedProfile === 'object') {
           setProfile(parsedProfile);
         }
       }
     } catch (error) {
-      console.error('Error loading user from storage:', error);
+      // معالجة الأخطاء بهدوء
     } finally {
       setLoading(false);
     }
   };
 
-  const saveUserToStorage = async (userData: User | null, profileData?: any) => {
+  const saveUserToStorage = async (userData: User, profileData: any) => {
     try {
-      if (userData && typeof userData === 'object') {
-        await AsyncStorage.setItem('user', JSON.stringify(userData));
-      } else {
-        await AsyncStorage.removeItem('user');
-      }
-      
-      if (profileData && typeof profileData === 'object') {
-        await AsyncStorage.setItem('profile', JSON.stringify(profileData));
-      } else {
-        await AsyncStorage.removeItem('profile');
-      }
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      await AsyncStorage.setItem('profile', JSON.stringify(profileData));
     } catch (error) {
-      console.error('Error saving user to storage:', error);
+      // معالجة الأخطاء بهدوء
     }
   };
 
-  const testConnection = async (): Promise<{ success: boolean; error?: string }> => {
-    return await testServerConnection();
-  };
-
-  const signIn = async (email: string, password: string, loginType?: 'user' | 'doctor') => {
+  const signIn = async (
+    email: string,
+    password: string,
+    loginType: 'user' | 'doctor' | 'admin' | 'center' = 'user'
+  ): Promise<{ error?: string }> => {
     try {
       setLoading(true);
-      
-      // التحقق من صحة البيانات
-      if (!email || !password) {
-        return { error: 'البريد الإلكتروني وكلمة المرور مطلوبان' };
+
+      // التحقق من صحة المدخلات
+      if (!validateEmail(email)) {
+        return { error: 'البريد الإلكتروني غير صحيح' };
       }
-      
-      console.log('🔄 محاولة تسجيل الدخول...');
-      console.log('📡 عنوان الخادم:', API_CONFIG.AUTH_LOGIN);
-      console.log('👤 نوع المستخدم:', loginType || 'user');
-      
-      // اختبار الاتصال بالخادم أولاً
-      const connectionTest = await testServerConnection();
-      if (!connectionTest.success) {
-        console.error('❌ فشل في الاتصال بالخادم:', connectionTest.error);
-        return { 
-          error: `لا يمكن الاتصال بالخادم. تأكد من أن الخادم يعمل على العنوان: ${API_CONFIG.BASE_URL}` 
-        };
+
+      if (!validatePassword(password)) {
+        return { error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' };
       }
-      
-      // إرسال طلب تسجيل الدخول
+
+      // تنظيف المدخلات
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = password.trim();
+
       const response = await fetch(API_CONFIG.AUTH_LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          email: email.trim(), 
-          password, 
-          loginType: loginType || 'user' 
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: cleanPassword,
+          loginType,
         }),
       });
 
-      console.log('📥 استجابة الخادم:', response.status, response.statusText);
-
-      // التحقق من نوع المحتوى
-      const contentType = response.headers.get('content-type');
-      console.log('📄 نوع المحتوى:', contentType);
-
       if (!response.ok) {
-        // محاولة قراءة النص أولاً
         const responseText = await response.text();
-        console.log('📄 نص الاستجابة:', responseText.substring(0, 200) + '...');
-        
-        // محاولة تحليل JSON إذا كان ذلك ممكناً
         let errorMessage = 'فشل تسجيل الدخول';
+        
         try {
           const errorData = JSON.parse(responseText);
-          errorMessage = errorData.message || errorData.error || `خطأ في الخادم (${response.status})`;
+          errorMessage =
+            errorData.message ||
+            errorData.error ||
+            `خطأ في الخادم (${response.status})`;
         } catch (parseError) {
-          // إذا لم يكن JSON، استخدم رسالة خطأ عامة
           if (response.status === 404) {
             errorMessage = 'نقطة الاتصال غير موجودة. تحقق من إعدادات الخادم.';
           } else if (response.status >= 500) {
@@ -139,28 +183,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             errorMessage = `خطأ في الخادم (${response.status})`;
           }
         }
-        
-        console.error('❌ خطأ في تسجيل الدخول:', errorMessage);
+
         return { error: errorMessage };
       }
 
-      // محاولة قراءة JSON
       let data;
       try {
         const responseText = await response.text();
-        console.log('📄 نص الاستجابة:', responseText.substring(0, 200) + '...');
+        
+        if (!responseText || responseText.trim() === '') {
+          return { error: 'استجابة الخادم فارغة' };
+        }
+
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('❌ خطأ في تحليل JSON:', parseError);
         return { error: 'استجابة الخادم غير صحيحة' };
       }
-
-      console.log('📄 بيانات الاستجابة:', data);
 
       // التحقق من صحة البيانات المستلمة
       const userDataFromResponse = data.user || data.doctor;
       if (!userDataFromResponse || typeof userDataFromResponse !== 'object') {
-        console.error('❌ بيانات المستخدم غير صحيحة:', data);
         return { error: 'بيانات المستخدم غير صحيحة' };
       }
 
@@ -169,29 +211,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: userDataFromResponse.name || '',
         email: userDataFromResponse.email || '',
         phone: userDataFromResponse.phone || '',
-        user_type: data.userType || userDataFromResponse.user_type || (data.doctor ? 'doctor' : 'user'),
-        image: userDataFromResponse.profile_image || userDataFromResponse.image || '',
-        created_at: userDataFromResponse.created_at || userDataFromResponse.createdAt || '',
-        updated_at: userDataFromResponse.updated_at || userDataFromResponse.updatedAt || '',
+        user_type:
+          data.userType ||
+          userDataFromResponse.user_type ||
+          (data.doctor ? 'doctor' : 'user'),
+        image:
+          userDataFromResponse.profile_image ||
+          userDataFromResponse.image ||
+          '',
+        created_at:
+          userDataFromResponse.created_at ||
+          userDataFromResponse.createdAt ||
+          '',
+        updated_at:
+          userDataFromResponse.updated_at ||
+          userDataFromResponse.updatedAt ||
+          '',
       };
 
-      console.log('✅ تم تسجيل الدخول بنجاح:', userData);
       setUser(userData);
-      
+
       // حفظ البيانات الشخصية الكاملة
       const fullProfileData = userDataFromResponse;
       setProfile(fullProfileData);
       await saveUserToStorage(userData, fullProfileData);
-      
+
       // حفظ التوكن إذا كان موجوداً
       if (data.token) {
         await AsyncStorage.setItem('token', data.token);
       }
-      
+
       return {};
     } catch (error) {
-      console.error('❌ خطأ في تسجيل الدخول:', error);
-      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ أثناء تسجيل الدخول';
+      const errorMessage =
+        error instanceof Error ? error.message : 'حدث خطأ أثناء تسجيل الدخول';
       return { error: errorMessage };
     } finally {
       setLoading(false);
@@ -201,153 +254,91 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signUp = async (userData: any) => {
     try {
       setLoading(true);
-      
-      // تحديد نوع التسجيل
-      const isDoctor = userData.user_type === 'doctor';
-      const endpoint = isDoctor ? API_CONFIG.AUTH_REGISTER_DOCTOR : API_CONFIG.AUTH_REGISTER;
-      
-      console.log('🔄 محاولة التسجيل...');
-      console.log('📡 عنوان التسجيل:', endpoint);
-      console.log('👤 نوع المستخدم:', isDoctor ? 'طبيب' : 'مستخدم');
-      
-      // اختبار الاتصال بالخادم أولاً
-      const connectionTest = await testServerConnection();
-      if (!connectionTest.success) {
-        throw new Error(`لا يمكن الاتصال بالخادم: ${connectionTest.error}`);
+
+      // التحقق من صحة البيانات
+      if (!validateEmail(userData.email)) {
+        throw new Error('البريد الإلكتروني غير صحيح');
       }
-      
-      // إعداد البيانات حسب نوع التسجيل
-      let requestData = { ...userData };
-      
-      if (isDoctor) {
-        // إزالة الحقول غير المطلوبة لتسجيل الطبيب
-        delete requestData.user_type;
-        delete requestData.confirmPassword;
-        
-        // إعداد FormData لرفع الصورة
-        const formData = new FormData();
-        
-        // إضافة البيانات النصية
-        formData.append('email', userData.email);
-        formData.append('password', userData.password);
-        formData.append('name', userData.name);
-        formData.append('phone', userData.phone);
-        formData.append('specialty', userData.specialty);
-        formData.append('province', userData.province);
-        formData.append('area', userData.area);
-        formData.append('clinicLocation', userData.clinicLocation);
-        formData.append('mapLocation', userData.mapLocation || '');
-        formData.append('about', userData.about || '');
-        formData.append('experienceYears', userData.experienceYears || '0');
-        formData.append('appointmentDuration', userData.appointmentDuration || '30');
-        formData.append('workTimes', JSON.stringify(userData.workTimes || []));
-        
-        // إضافة الصورة إذا كانت موجودة
-        if (userData.image) {
-          const imageUri = userData.image;
-          const imageName = imageUri.split('/').pop() || 'profile.jpg';
-          const imageType = 'image/jpeg';
-          
-          formData.append('image', {
-            uri: imageUri,
-            type: imageType,
-            name: imageName,
-          } as any);
-        }
-        
-        requestData = formData;
-      } else {
-        // إعداد البيانات للمستخدم العادي
-        requestData = {
-          email: userData.email,
-          password: userData.password,
-          first_name: userData.name,
-          phone: userData.phone
-        };
+
+      if (!validatePassword(userData.password)) {
+        throw new Error('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
       }
-      
-      console.log('📤 البيانات المرسلة:', requestData);
-      
+
+      if (userData.password !== userData.confirmPassword) {
+        throw new Error('كلمة المرور غير متطابقة');
+      }
+
+      if (!validateName(userData.name)) {
+        throw new Error('الاسم غير صحيح');
+      }
+
+      if (!validatePhone(userData.phone)) {
+        throw new Error('رقم الهاتف غير صحيح');
+      }
+
+      // تسجيل المستخدم العادي فقط
+      const endpoint = API_CONFIG.AUTH_REGISTER;
+
+      // إعداد البيانات للمستخدم العادي
+      const requestData = {
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        first_name: userData.name.trim(),
+        phone: userData.phone.trim(),
+      };
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: isDoctor ? {} : {
+        headers: {
           'Content-Type': 'application/json',
         },
-        body: isDoctor ? requestData : JSON.stringify(requestData),
+        body: JSON.stringify(requestData),
       });
 
       const data = await response.json();
-      
-      console.log('📥 استجابة التسجيل من الخادم:', data);
 
       if (!response.ok) {
         throw new Error(data.message || data.error || 'فشل التسجيل');
       }
 
-      // معالجة الاستجابة حسب نوع التسجيل
-      if (isDoctor) {
-        // تسجيل الطبيب
+      // تسجيل المستخدم العادي
+      if (data.user || data.token) {
         const newUser: User = {
-          id: data.doctor?._id || data.user?._id,
-          name: data.doctor?.name || data.user?.name,
-          email: data.doctor?.email || data.user?.email,
-          phone: data.doctor?.phone || data.user?.phone,
-          user_type: 'doctor',
-          image: data.doctor?.image || data.doctor?.profileImage || data.user?.profile_image,
-          created_at: data.doctor?.created_at || data.doctor?.createdAt || data.user?.created_at,
-          updated_at: data.doctor?.updated_at || data.doctor?.updatedAt || data.user?.updated_at,
+          id: data.user?._id || data.user?.id || '',
+          name: data.user?.first_name || data.user?.name || '',
+          email: data.user?.email || '',
+          phone: data.user?.phone || '',
+          user_type: 'user',
+          image: data.user?.profile_image || data.user?.image || '',
+          created_at: data.user?.created_at || data.user?.createdAt || '',
+          updated_at: data.user?.updated_at || data.user?.updatedAt || '',
         };
 
-        setUser(newUser);
-        await saveUserToStorage(newUser);
-        
-        // حفظ التوكن إذا كان موجوداً
-        if (data.token) {
-          await AsyncStorage.setItem('token', data.token);
-        }
-        
-        // إرجاع معلومات إضافية للطبيب
+        // لا نقوم بتسجيل الدخول التلقائي - نطلب من المستخدم تسجيل الدخول يدوياً
+
         return {
-          whatsappLink: data.whatsappLink,
-          whatsappNumber: data.whatsappNumber,
-          doctorInfo: data.doctorInfo,
-          requiredDocuments: data.requiredDocuments
+          success: true,
+          message: 'تم التسجيل بنجاح، يرجى تسجيل الدخول الآن',
+          requiresManualLogin: true,
         };
       } else {
-        // تسجيل المستخدم العادي
-        console.log('🔍 معالجة بيانات المستخدم العادي...');
+        // إذا لم يتم إرجاع بيانات المستخدم، نطلب من المستخدم تسجيل الدخول يدوياً
         
-        // البحث عن بيانات المستخدم في الاستجابة
-        const userData = data.user || data || {};
-        console.log('👤 بيانات المستخدم المستخرجة:', userData);
-        
-        if (!userData) {
-          throw new Error('لم يتم استلام بيانات المستخدم من الخادم');
-        }
-        
-        const newUser: User = {
-          id: userData._id || userData.id || `user_${Date.now()}`,
-          name: userData.name || userData.first_name || userData.firstName || 'مستخدم جديد',
-          email: userData.email || '',
-          phone: userData.phone || '',
-          user_type: 'user',
-          image: userData.profile_image || userData.profileImage || '',
-          created_at: userData.created_at || userData.createdAt || new Date().toISOString(),
-          updated_at: userData.updated_at || userData.updatedAt || new Date().toISOString(),
+        return {
+          success: true,
+          message: 'تم التسجيل بنجاح، يرجى تسجيل الدخول الآن',
+          requiresManualLogin: true,
         };
-
-        console.log('✅ المستخدم الجديد:', newUser);
-        setUser(newUser);
-        await saveUserToStorage(newUser);
-        
-        // حفظ التوكن إذا كان موجوداً
-        if (data.token) {
-          await AsyncStorage.setItem('token', data.token);
-        }
       }
+
+      return {
+        success: true,
+        message: 'تم التسجيل بنجاح',
+      };
     } catch (error) {
-      console.error('Sign up error:', error);
-      throw error;
+      const errorMessage =
+        error instanceof Error ? error.message : 'حدث خطأ أثناء التسجيل';
+      return { error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -355,54 +346,84 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      console.log('🔄 بدء عملية تسجيل الخروج...');
       setLoading(true);
-      
+
       // إرسال طلب تسجيل الخروج إلى الخادم
       if (user) {
         try {
           const token = await AsyncStorage.getItem('token');
-          console.log('🔑 التوكن الحالي:', token ? 'موجود' : 'غير موجود');
-          
+
+
           const response = await fetch(API_CONFIG.AUTH_LOGOUT, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : '',
+              Authorization: token ? `Bearer ${token}` : '',
             },
           });
-          
-          console.log('📥 استجابة تسجيل الخروج:', response.status, response.statusText);
-          
+
+          // User profile data processed
+          //   '📥 استجابة تسجيل الخروج:',
+          //   response.status,
+          //   response.statusText
+          // );
+
           if (response.ok) {
-            console.log('✅ تم تسجيل الخروج من الخادم بنجاح');
+
           } else {
-            console.log('⚠️ الخادم لم يستجب بشكل صحيح لتسجيل الخروج');
+
           }
         } catch (error) {
-          console.error('❌ خطأ في تسجيل الخروج من الخادم:', error);
+          // خطأ في تسجيل الخروج من الخادم
         }
       }
 
       // تنظيف البيانات المحلية
-      console.log('🧹 تنظيف البيانات المحلية...');
-      setUser(null);
-      await saveUserToStorage(null);
-      await AsyncStorage.removeItem('token');
-      
-      // تنظيف أي بيانات إضافية
+
+
+      // تنظيف الإشعارات
+      // We'll handle this through a different approach to avoid circular dependency
       try {
-        await AsyncStorage.removeItem('user');
-        await AsyncStorage.removeItem('profile');
-        await AsyncStorage.removeItem('appointments');
-        await AsyncStorage.removeItem('reminders');
+        // Clear notifications from AsyncStorage directly
+        const keys = await AsyncStorage.getAllKeys();
+        const notificationKeys = keys.filter(key =>
+          key.startsWith('notifications_')
+        );
+        await AsyncStorage.multiRemove(notificationKeys);
+
       } catch (error) {
-        console.error('❌ خطأ في تنظيف البيانات الإضافية:', error);
+        // خطأ في تنظيف الإشعارات
       }
-      
-      console.log('✅ تم تسجيل الخروج بنجاح');
+
+      // إعادة تعيين حالة المستخدم أولاً
+      setUser(null);
+      setProfile(null);
+
+      // تنظيف جميع البيانات من التخزين المحلي
+      try {
+        await AsyncStorage.multiRemove([
+          'user',
+          'profile',
+          'token',
+          'appointments',
+          'reminders',
+          'notifications',
+          'settings',
+          'lastLogin',
+          'userPreferences',
+        ]);
+        // تم تنظيف جميع البيانات من التخزين المحلي
+      } catch (error) {
+        // معالجة الأخطاء بهدوء
+      }
+
+      // التأكد من حفظ حالة المستخدم كـ null
+      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('profile');
+
+      // تم تسجيل الخروج بنجاح
     } catch (error) {
-      console.error('❌ خطأ في تسجيل الخروج:', error);
+      // معالجة الأخطاء بهدوء
     } finally {
       setLoading(false);
     }
@@ -411,88 +432,136 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateUser = async (updates: Partial<User>) => {
     try {
       if (!user) return;
-
+      
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      await saveUserToStorage(updatedUser);
+      await saveUserToStorage(updatedUser, profile || {});
 
       // إرسال طلب تحديث البيانات إلى الخادم
-      const response = await fetch(buildApiUrl(API_CONFIG.USERS_BY_ID, user.id), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`,
-        },
-        body: JSON.stringify(updates),
-      });
+      if (profile?._id) {
+        const response = await fetch(
+          `${API_CONFIG.USERS_PROFILE}/${profile._id}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error('فشل في تحديث البيانات');
+        if (response.ok) {
+          const data = await response.json();
+          const updatedUser = { ...user, ...data };
+          setUser(updatedUser);
+          await saveUserToStorage(updatedUser, profile || {});
+        }
       }
-
-      const data = await response.json();
-      return data;
     } catch (error) {
-      console.error('Update user error:', error);
-      throw error;
+      // معالجة الأخطاء بهدوء
     }
   };
 
   const updateProfile = async (updates: any) => {
     try {
       const currentUser = profile || user;
-      
+
       if (!currentUser?._id) {
         return { error: 'لا يمكن العثور على معرف المستخدم' };
       }
-      
-      let url = '';
-      let key = '';
-      
+
+      let result;
+
+      // ✅ استخدام API مخصص للأطباء إذا كان المستخدم طبيب
       if (currentUser.user_type === 'doctor') {
-        url = `${API_CONFIG.BASE_URL}/doctor/${currentUser._id}`;
-        key = 'doctor';
+        result = await doctorsAPI.updateDoctor(currentUser._id, updates);
       } else {
-        url = `${API_CONFIG.BASE_URL}/user/${currentUser._id}`;
-        key = 'user';
+        // استخدام الطريقة القديمة للمستخدمين العاديين
+        const url = `${API_CONFIG.BASE_URL}/user/${currentUser._id}`;
+        const token = await AsyncStorage.getItem('token');
+        
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          return { error: data.error || `فشل في تحديث البيانات (${response.status})` };
+        }
+
+        const data = await response.json();
+        result = { success: true, data: data.user || data };
       }
-      
-      console.log('🔍 updateProfile - URL:', url);
-      console.log('🔍 updateProfile - Updates:', updates);
-      
-      const token = await AsyncStorage.getItem('token');
-      console.log('🔍 updateProfile - Token:', token ? 'موجود' : 'غير موجود');
-      
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify(updates),
-      });
-      
-      console.log('🔍 updateProfile - Response status:', response.status);
-      
-      const data = await response.json();
-      console.log('🔍 updateProfile - Response data:', data);
-      
-      if (!response.ok) {
-        console.error('❌ updateProfile - Response not ok:', response.status, data);
-        return { error: data.error || `فشل في تحديث البيانات (${response.status})` };
+
+      if (result && result.success) {
+        const updated = result.data;
+        
+        // ✅ إصلاح: معالجة البيانات التي تأتي من الخادم
+        let updatedWithTimestamp;
+        if (updated.doctor) {
+          // البيانات تأتي في شكل { doctor: {...} }
+          updatedWithTimestamp = {
+            ...updated.doctor,
+            lastProfileUpdate: new Date().toISOString(),
+          };
+        } else if (updated.user) {
+          // البيانات تأتي في شكل { user: {...} }
+          updatedWithTimestamp = {
+            ...updated.user,
+            lastProfileUpdate: new Date().toISOString(),
+          };
+        } else {
+          // البيانات تأتي مباشرة
+          updatedWithTimestamp = {
+            ...updated,
+            lastProfileUpdate: new Date().toISOString(),
+          };
+        }
+        
+
+
+        
+        // تحويل البيانات إلى التنسيق الصحيح
+        const userData: User = {
+          id: updatedWithTimestamp._id || updatedWithTimestamp.id || '',
+          name: updatedWithTimestamp.first_name || updatedWithTimestamp.name || updatedWithTimestamp.doctor?.name || '',
+          email: updatedWithTimestamp.email || updatedWithTimestamp.doctor?.email || '',
+          phone: updatedWithTimestamp.phone || updatedWithTimestamp.doctor?.phone || '',
+          user_type: updatedWithTimestamp.user_type || updatedWithTimestamp.doctor?.user_type || 'user',
+          image: updatedWithTimestamp.profile_image || updatedWithTimestamp.image || updatedWithTimestamp.doctor?.profileImage || updatedWithTimestamp.doctor?.image || '',
+          created_at: updatedWithTimestamp.created_at || updatedWithTimestamp.createdAt || updatedWithTimestamp.doctor?.createdAt || '',
+          updated_at: updatedWithTimestamp.updated_at || updatedWithTimestamp.updatedAt || updatedWithTimestamp.doctor?.updatedAt || '',
+        };
+        
+        // تحديث الحالة
+        setProfile(updatedWithTimestamp);
+        setUser(userData);
+        
+        // حفظ في التخزين المحلي - دمج البيانات المحدثة مع البيانات الأصلية
+        const mergedProfileData = {
+          ...updatedWithTimestamp,
+        };
+        
+        await saveUserToStorage(userData, mergedProfileData);
+        
+
+
+
+
+
+        return { data: updated, error: undefined };
+      } else {
+        return { error: result?.error || 'فشل في تحديث البيانات' };
       }
-      
-      const updated = data[key] || data.user || data.doctor;
-      if (updated) {
-        setProfile(updated);
-        setUser(updated);
-        await saveUserToStorage(updated, updated);
-      }
-      
-      return { data: updated, error: undefined };
     } catch (error) {
-      console.error('Update profile error:', error);
-      return { error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع' };
+      return {
+        error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
+      };
     }
   };
 
@@ -500,11 +569,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (!user) return;
 
-      const response = await fetch(buildApiUrl(API_CONFIG.USERS_BY_ID, user.id), {
-        headers: {
-          'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`,
-        },
-      });
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/users/${user.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -514,16 +586,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email: data.user.email,
           phone: data.user.phone,
           user_type: data.user.user_type,
+
           image: data.user.profile_image,
           created_at: data.user.created_at,
           updated_at: data.user.updated_at,
         };
 
         setUser(updatedUser);
-        await saveUserToStorage(updatedUser);
+        await saveUserToStorage(updatedUser, profile || {}); // Assuming profile is available here
       }
     } catch (error) {
-      console.error('Refresh user error:', error);
+      // خطأ في تحديث المستخدم
+    }
+  };
+
+  // دالة جديدة لإعادة تحميل البيانات من التخزين المحلي
+  const reloadFromStorage = async () => {
+
+    await loadUserFromStorage();
+  };
+
+  // دالة جديدة للتحقق من حالة التخزين المحلي
+  const checkStorageStatus = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const profileData = await AsyncStorage.getItem('profile');
+      const token = await AsyncStorage.getItem('token');
+      
+
+
+
+
+      
+      if (userData) {
+        const parsed = JSON.parse(userData);
+
+      }
+      
+      if (profileData) {
+        const parsed = JSON.parse(profileData);
+
+      }
+      
+      return { userData: !!userData, profileData: !!profileData, token: !!token };
+    } catch (error) {
+      return { userData: false, profileData: false, token: false };
     }
   };
 
@@ -532,19 +639,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     profile,
     loading,
     signIn,
+    login: signIn, // إضافة alias للدالة
     signUp,
     signOut,
     updateUser,
     updateProfile,
     refreshUser,
-    testConnection,
+    setProfile, // إضافة setProfile
+    reloadFromStorage, // إضافة reloadFromStorage
+    checkStorageStatus, // إضافة checkStorageStatus
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
@@ -553,4 +659,4 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}; 
+};

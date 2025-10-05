@@ -1,23 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
   ActivityIndicator,
   Image,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
-import * as ImagePicker from 'expo-image-picker';
 
 const UserProfileEditScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -27,51 +31,21 @@ const UserProfileEditScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
     phone: '',
-    dateOfBirth: '',
-    gender: '',
-    address: '',
-    emergencyContact: '',
-    medicalHistory: '',
-    allergies: '',
-    currentMedications: '',
-    insuranceProvider: '',
-    insuranceNumber: '',
     profileImage: '',
   });
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [privacySettings, setPrivacySettings] = useState({
-    showPhone: true,
-    showEmail: true,
-    showAddress: false,
-  });
+
+
 
   useEffect(() => {
     if (user) {
       setForm({
-        firstName: user.firstName || user.first_name || '',
-        lastName: user.lastName || user.last_name || '',
+        name: user.name || user.firstName || user.first_name || '',
         email: user.email || '',
         phone: user.phone || '',
-        dateOfBirth: user.dateOfBirth || user.date_of_birth || '',
-        gender: user.gender || '',
-        address: user.address || '',
-        emergencyContact: user.emergencyContact || user.emergency_contact || '',
-        medicalHistory: user.medicalHistory || user.medical_history || '',
-        allergies: user.allergies || '',
-        currentMedications: user.currentMedications || user.current_medications || '',
-        insuranceProvider: user.insuranceProvider || user.insurance_provider || '',
-        insuranceNumber: user.insuranceNumber || user.insurance_number || '',
         profileImage: user.profileImage || user.profile_image || '',
-      });
-      setNotificationsEnabled(user.notificationsEnabled !== false);
-      setPrivacySettings({
-        showPhone: user.privacySettings?.showPhone !== false,
-        showEmail: user.privacySettings?.showEmail !== false,
-        showAddress: user.privacySettings?.showAddress === true,
       });
     }
   }, [user]);
@@ -80,22 +54,12 @@ const UserProfileEditScreen: React.FC = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const pickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
 
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        setForm(prev => ({ ...prev, profileImage: imageUri }));
-      }
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في اختيار الصورة');
-    }
+
+
+
+  const handlePickImage = async () => {
+    Alert.alert('تنبيه', 'لا يمكن رفع الصور من التطبيق. يرجى إضافة الصورة من موقع الويب.');
   };
 
   const handleSave = async () => {
@@ -106,29 +70,19 @@ const UserProfileEditScreen: React.FC = () => {
 
     setSaving(true);
     try {
-      console.log('🔍 UserProfileEditScreen - Saving profile...');
-      console.log('🔍 UserProfileEditScreen - User ID:', user.id);
-      
       const updatedData = {
         ...form,
-        notificationsEnabled,
-        privacySettings,
       };
-
-      console.log('🔍 UserProfileEditScreen - Updated data:', updatedData);
 
       const result = await updateProfile(updatedData);
       
       if (result.error) {
-        console.error('❌ UserProfileEditScreen - Error:', result.error);
         Alert.alert('خطأ', result.error);
       } else {
-        console.log('✅ UserProfileEditScreen - Success:', result.data);
         Alert.alert('نجح', 'تم تحديث البيانات بنجاح');
         navigation.goBack();
       }
     } catch (error: any) {
-      console.error('❌ UserProfileEditScreen - Exception:', error);
       Alert.alert('خطأ', 'فشل في تحديث البيانات');
     } finally {
       setSaving(false);
@@ -142,19 +96,64 @@ const UserProfileEditScreen: React.FC = () => {
     </View>
   );
 
-  const renderInput = (label: string, field: string, placeholder: string, type: 'text' | 'email' | 'phone' = 'text') => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={form[field]}
-        onChangeText={(value) => handleChange(field, value)}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textSecondary}
-        keyboardType={type === 'email' ? 'email-address' : type === 'phone' ? 'phone-pad' : 'default'}
-      />
-    </View>
-  );
+  const InputField = useMemo(() => React.memo(({ 
+    label, 
+    field, 
+    value, 
+    placeholder, 
+    keyboardType = 'default',
+    icon,
+    multiline = false,
+    numberOfLines = 1,
+    returnKeyType = 'next',
+    onSubmitEditing 
+  }: {
+    label: string;
+    field: string;
+    value: string;
+    placeholder: string;
+    keyboardType?: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    multiline?: boolean;
+    numberOfLines?: number;
+    returnKeyType?: 'next' | 'done' | 'go' | 'search' | 'send';
+    onSubmitEditing?: () => void;
+  }) => {
+    const handleTextChange = useCallback((text: string) => {
+      handleChange(field, text);
+    }, [field]);
+
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons name={icon} size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
+          <TextInput
+            style={[styles.input, multiline && styles.textArea]}
+            value={value}
+            onChangeText={handleTextChange}
+            placeholder={placeholder}
+            placeholderTextColor={theme.colors.textSecondary}
+            keyboardType={keyboardType as any}
+            returnKeyType={returnKeyType}
+            blurOnSubmit={false}
+            autoCorrect={false}
+            autoCapitalize="none"
+            textAlign="right"
+            multiline={multiline}
+            numberOfLines={numberOfLines}
+            onSubmitEditing={onSubmitEditing}
+            editable={!saving}
+            contextMenuHidden={true}
+            textContentType="none"
+            autoComplete="off"
+            spellCheck={false}
+            importantForAutofill="no"
+          />
+        </View>
+      </View>
+    );
+  }), [handleChange, saving]);
 
   if (loading) {
     return (
@@ -166,9 +165,22 @@ const UserProfileEditScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      enabled={true}
+    >
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+      
+      <LinearGradient
+        colors={['rgba(0, 150, 136, 0.9)', 'rgba(0, 105, 92, 0.9)']}
+        style={styles.headerGradient}
+      >
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('profile.edit_profile')}</Text>
@@ -179,135 +191,72 @@ const UserProfileEditScreen: React.FC = () => {
             <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled={true}
+        removeClippedSubviews={false}
+      >
         {/* صورة الملف الشخصي */}
         {renderSection(t('profile.profile_image'), (
           <View style={styles.imageSection}>
-            <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
+            <View style={styles.imageContainer}>
               {form.profileImage ? (
                 <Image source={{ uri: form.profileImage }} style={styles.profileImage} />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
+                  <Ionicons name="person" size={50} color={theme.colors.textSecondary} />
                 </View>
               )}
               <View style={styles.imageOverlay}>
-                <Ionicons name="camera" size={20} color={theme.colors.white} />
+                <Ionicons name="information-circle" size={24} color={theme.colors.white} />
               </View>
-            </TouchableOpacity>
-            <Text style={styles.imageHint}>{t('profile.tap_to_change')}</Text>
+            </View>
+            <Text style={styles.imageHint}>الصورة متاحة من موقع الويب فقط</Text>
           </View>
         ))}
 
         {/* المعلومات الأساسية */}
         {renderSection(t('profile.basic_info'), (
           <View>
-            {renderInput(t('profile.first_name'), 'firstName', t('profile.enter_first_name'))}
-            {renderInput(t('profile.last_name'), 'lastName', t('profile.enter_last_name'))}
-            {renderInput(t('profile.email'), 'email', t('profile.enter_email'), 'email')}
-            {renderInput(t('profile.phone'), 'phone', t('profile.enter_phone'), 'phone')}
-            {renderInput(t('profile.date_of_birth'), 'dateOfBirth', t('profile.enter_dob'))}
-            {renderInput(t('profile.gender'), 'gender', t('profile.enter_gender'))}
-            {renderInput(t('profile.address'), 'address', t('profile.enter_address'))}
-          </View>
-        ))}
-
-        {/* معلومات الطوارئ */}
-        {renderSection(t('profile.emergency_contact'), (
-          <View>
-            {renderInput(t('profile.emergency_contact'), 'emergencyContact', t('profile.enter_emergency_contact'), 'phone')}
-          </View>
-        ))}
-
-        {/* التاريخ الطبي */}
-        {renderSection(t('profile.medical_history'), (
-          <View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>{t('profile.medical_history')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={form.medicalHistory}
-                onChangeText={(value) => handleChange('medicalHistory', value)}
-                placeholder={t('profile.enter_medical_history')}
-                placeholderTextColor={theme.colors.textSecondary}
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-            {renderInput(t('profile.allergies'), 'allergies', t('profile.enter_allergies'))}
-            {renderInput(t('profile.current_medications'), 'currentMedications', t('profile.enter_medications'))}
-          </View>
-        ))}
-
-        {/* معلومات التأمين */}
-        {renderSection(t('profile.insurance_info'), (
-          <View>
-            {renderInput(t('profile.insurance_provider'), 'insuranceProvider', t('profile.enter_insurance_provider'))}
-            {renderInput(t('profile.insurance_number'), 'insuranceNumber', t('profile.enter_insurance_number'))}
-          </View>
-        ))}
-
-        {/* إعدادات الإشعارات */}
-        {renderSection(t('profile.notifications'), (
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>{t('profile.enable_notifications')}</Text>
-              <Text style={styles.settingDescription}>{t('profile.notifications_description')}</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-              thumbColor={theme.colors.white}
+            <InputField
+              label={t('auth.full_name') || 'الاسم الكامل'}
+              field="name"
+              value={form.name}
+              placeholder={t('auth.enter_full_name') || 'أدخل اسمك الكامل'}
+              icon="person"
+              returnKeyType="next"
             />
-          </View>
-        ))}
+            <InputField
+              label={t('auth.email') || 'البريد الإلكتروني'}
+              field="email"
+              value={form.email}
+              placeholder={t('auth.enter_email') || 'أدخل بريدك الإلكتروني'}
+              icon="mail"
+              keyboardType="email-address"
+              returnKeyType="next"
+            />
+            <InputField
+              label={t('auth.phone') || 'رقم الهاتف'}
+              field="phone"
+              value={form.phone}
+              placeholder={t('auth.enter_phone') || 'أدخل رقم هاتفك'}
+              icon="call"
+              keyboardType="phone-pad"
+              returnKeyType="next"
+            />
 
-        {/* إعدادات الخصوصية */}
-        {renderSection(t('profile.privacy_settings'), (
-          <View>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_phone')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_phone_description')}</Text>
-              </View>
-              <Switch
-                value={privacySettings.showPhone}
-                onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showPhone: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_email')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_email_description')}</Text>
-              </View>
-              <Switch
-                value={privacySettings.showEmail}
-                onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showEmail: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>{t('profile.show_address')}</Text>
-                <Text style={styles.settingDescription}>{t('profile.show_address_description')}</Text>
-              </View>
-              <Switch
-                value={privacySettings.showAddress}
-                onValueChange={(value) => setPrivacySettings(prev => ({ ...prev, showAddress: value }))}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.white}
-              />
-            </View>
           </View>
         ))}
       </ScrollView>
-    </View>
+
+
+    </KeyboardAvoidingView>
   );
 };
 
@@ -327,8 +276,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.textSecondary,
   },
-  header: {
-    backgroundColor: theme.colors.primary,
+  headerGradient: {
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -345,9 +293,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: theme.colors.white,
+    flex: 1,
+    textAlign: 'center',
   },
   saveButton: {
     backgroundColor: theme.colors.white + '20',
@@ -362,84 +312,138 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    paddingBottom: 100,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 20,
+    textAlign: 'right',
   },
   imageSection: {
     alignItems: 'center',
+    marginBottom: 20,
   },
   imageContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: theme.colors.primary,
   },
   imagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderWidth: 4,
+    borderColor: theme.colors.primary,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   imageOverlay: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   imageHint: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 10,
+    textAlign: 'right',
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: theme.colors.textPrimary,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    textAlign: 'right',
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+    minHeight: 80,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   settingInfo: {
     flex: 1,
@@ -449,11 +453,138 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'right',
   },
   settingDescription: {
     fontSize: 14,
     color: theme.colors.textSecondary,
+    textAlign: 'right',
+  },
+  // DatePicker styles
+  datePickerContainer: {
+    marginBottom: 20,
+  },
+  datePickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    marginBottom: 10,
+    textAlign: 'right',
+  },
+  datePickerInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  datePickerIcon: {
+    marginRight: 12,
+  },
+  datePickerText: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    textAlign: 'right',
+  },
+  datePickerPlaceholder: {
+    color: theme.colors.textSecondary,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: theme.colors.primary,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.white,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  datePickerContent: {
+    padding: 20,
+  },
+  pickerRow: {
+    marginBottom: 20,
+  },
+  pickerLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    marginBottom: 10,
+    textAlign: 'right',
+  },
+  pickerScrollView: {
+    height: 50,
+  },
+  pickerItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: theme.colors.background,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerItemSelected: {
+    backgroundColor: theme.colors.primary,
+  },
+  pickerItemText: {
+    fontSize: 14,
+    color: theme.colors.textPrimary,
+  },
+  pickerItemTextSelected: {
+    color: theme.colors.white,
+    fontWeight: 'bold',
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  confirmButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

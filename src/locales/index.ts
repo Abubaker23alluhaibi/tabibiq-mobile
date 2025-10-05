@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import ar from './ar';
 import en from './en';
@@ -27,42 +28,63 @@ const resources = {
 };
 
 // تهيئة i18n مع معالجة أفضل للأخطاء
-try {
-  i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: 'ar', // استخدام العربية كلغة افتراضية
-      fallbackLng: 'ar', // اللغة الافتراضية
-      interpolation: {
-        escapeValue: false, // لا نحتاج إلى escape للقيم
-      },
-      react: {
-        useSuspense: false, // تعطيل Suspense لتجنب المشاكل
-      },
-      // إعدادات إضافية لتحسين الاستقرار
-      debug: __DEV__, // تفعيل التصحيح في وضع التطوير فقط
-      keySeparator: '.',
-      nsSeparator: ':',
-      returnNull: false,
-      returnEmptyString: false,
-      returnObjects: false,
-    });
-} catch (error) {
-  console.error('Error initializing i18n:', error);
-  // تهيئة بسيطة في حالة الخطأ
-  i18n.init({
-    resources,
-    lng: 'ar',
-    fallbackLng: 'ar',
-    interpolation: {
-      escapeValue: false,
-    },
-    react: {
-      useSuspense: false,
-    },
-  });
-}
+const initI18n = async () => {
+  try {
+    await i18n
+      .use(initReactI18next)
+      .init({
+        resources,
+        lng: 'ar', // استخدام العربية كلغة افتراضية
+        fallbackLng: 'ar', // اللغة الافتراضية
+        interpolation: {
+          escapeValue: false, // لا نحتاج إلى escape للقيم
+        },
+        react: {
+          useSuspense: false, // تعطيل Suspense لتجنب المشاكل
+        },
+        // إعدادات إضافية لتحسين الاستقرار
+        debug: false, // Debug disabled for production
+        keySeparator: '.',
+        nsSeparator: ':',
+        returnNull: false,
+        returnEmptyString: false,
+        returnObjects: true, // تمكين إرجاع المصفوفات
+        compatibilityJSON: 'v3', // إضافة توافق مع React Native
+      });
+    
+    // محاولة تطبيق اللغة المخزّنة إن وجدت
+    try {
+      const saved = await AsyncStorage.getItem('app_language');
+      if (saved && ['ar','en','ku'].includes(saved)) {
+        await i18n.changeLanguage(saved);
+      }
+    } catch (error) {
+      // Language loading error handled silently
+    }
+  } catch (error) {
+    // i18n initialization error handled silently
+    // تهيئة بسيطة في حالة الخطأ
+    try {
+      await i18n.init({
+        resources,
+        lng: 'ar',
+        fallbackLng: 'ar',
+        interpolation: {
+          escapeValue: false,
+        },
+        react: {
+          useSuspense: false,
+        },
+        compatibilityJSON: 'v3',
+      });
+    } catch (fallbackError) {
+      // Fallback i18n initialization failed
+    }
+  }
+};
+
+// تهيئة i18n عند استيراد الملف
+initI18n();
 
 export default i18n;
 
@@ -72,7 +94,7 @@ export const isRTL = (locale?: string) => {
     const currentLocale = locale || i18n.language;
     return ['ar', 'ku'].includes(currentLocale);
   } catch (error) {
-    console.error('Error in isRTL:', error);
+    // RTL check error handled silently
     return true; // افتراضي للعربية
   }
 };
@@ -81,8 +103,10 @@ export const isRTL = (locale?: string) => {
 export const changeLanguage = (language: string) => {
   try {
     i18n.changeLanguage(language);
+    // حفظ الاختيار
+    AsyncStorage.setItem('app_language', language).catch(() => {});
   } catch (error) {
-    console.error('Error changing language:', error);
+    // Language change error handled silently
   }
 };
 
@@ -91,7 +115,7 @@ export const getCurrentLanguage = () => {
   try {
     return i18n.language;
   } catch (error) {
-    console.error('Error getting current language:', error);
+    // Current language retrieval error handled silently
     return 'ar';
   }
 };
@@ -101,7 +125,7 @@ export const getCurrentTextDirection = () => {
   try {
     return isRTL() ? 'rtl' : 'ltr';
   } catch (error) {
-    console.error('Error getting text direction:', error);
+    // Text direction retrieval error handled silently
     return 'rtl';
   }
 }; 

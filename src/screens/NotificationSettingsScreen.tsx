@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useNotifications } from '../contexts/NotificationContext';
+import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
 
 const NotificationSettingsScreen = () => {
   const navigation = useNavigation();
@@ -52,34 +53,34 @@ const NotificationSettingsScreen = () => {
     try {
       await registerForNotifications();
       Alert.alert(
-        'تم التفعيل',
-        'تم تفعيل الإشعارات بنجاح',
-        [{ text: 'حسناً' }]
+        t('common.success'),
+        t('notifications.notification_settings.enable_success'),
+        [{ text: t('notifications.notification_settings.ok_button') }]
       );
     } catch (error) {
       Alert.alert(
-        'خطأ',
-        'فشل في تفعيل الإشعارات. تأكد من منح الأذونات المطلوبة.',
-        [{ text: 'حسناً' }]
+        t('common.error'),
+        t('notifications.notification_settings.enable_error'),
+        [{ text: t('notifications.notification_settings.ok_button') }]
       );
     }
   };
 
   const handleClearAllNotifications = () => {
     Alert.alert(
-      'مسح جميع الإشعارات',
-      'هل أنت متأكد من رغبتك في مسح جميع الإشعارات؟',
+      t('notifications.notification_settings.clear_confirm_title'),
+      t('notifications.notification_settings.clear_confirm_message'),
       [
-        { text: 'إلغاء', style: 'cancel' },
+        { text: t('notifications.notification_settings.cancel_button'), style: 'cancel' },
         {
-          text: 'مسح',
+          text: t('notifications.notification_settings.clear_button'),
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelAllNotifications();
-              Alert.alert('تم المسح', 'تم مسح جميع الإشعارات بنجاح');
+              Alert.alert(t('common.success'), t('notifications.notification_settings.clear_success'));
             } catch (error) {
-              Alert.alert('خطأ', 'فشل في مسح الإشعارات');
+              Alert.alert(t('common.error'), t('notifications.notification_settings.clear_error'));
             }
           },
         },
@@ -160,7 +161,7 @@ const NotificationSettingsScreen = () => {
             <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
           </TouchableOpacity>
           
-          <Text style={styles.headerTitle}>إعدادات الإشعارات</Text>
+          <Text style={styles.headerTitle}>{t('notifications.notification_settings.title')}</Text>
           
           <View style={styles.headerSpacer} />
         </View>
@@ -169,7 +170,7 @@ const NotificationSettingsScreen = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* حالة الإشعارات */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>حالة الإشعارات</Text>
+          <Text style={styles.sectionTitle}>{t('notifications.notification_settings.status')}</Text>
           
           <View style={styles.statusCard}>
             <View style={styles.statusIcon}>
@@ -182,12 +183,15 @@ const NotificationSettingsScreen = () => {
             
             <View style={styles.statusContent}>
               <Text style={styles.statusTitle}>
-                {isNotificationEnabled ? 'الإشعارات مفعلة' : 'الإشعارات معطلة'}
+                {isNotificationEnabled 
+                  ? t('notifications.notification_settings.notifications_enabled_status')
+                  : t('notifications.notification_settings.notifications_disabled_status')
+                }
               </Text>
               <Text style={styles.statusDescription}>
                 {isNotificationEnabled 
-                  ? 'ستتلقى إشعارات حول المواعيد والأدوية والرسائل من الأطباء'
-                  : 'قم بتفعيل الإشعارات لتلقي التحديثات المهمة'
+                  ? t('notifications.enable_description')
+                  : t('notifications.disable_description')
                 }
               </Text>
             </View>
@@ -198,85 +202,85 @@ const NotificationSettingsScreen = () => {
               style={styles.enableButton}
               onPress={handleEnableNotifications}
             >
-              <Text style={styles.enableButtonText}>تفعيل الإشعارات</Text>
+              <Text style={styles.enableButtonText}>{t('notifications.notification_settings.enable_notifications')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* إعدادات الإشعارات */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>أنواع الإشعارات</Text>
+          <Text style={styles.sectionTitle}>{t('notifications.notification_settings.notification_types')}</Text>
           
           {renderSettingItem(
             'person',
-            'إشعارات الأطباء',
-            'رسائل وتحديثات من الأطباء',
+            t('notifications.notification_settings.doctor_notifications'),
+            t('notifications.notification_settings.doctor_notifications_desc'),
             'doctorNotifications'
           )}
           
           {renderSettingItem(
             'calendar',
-            'تذكير المواعيد',
-            'تذكير قبل ساعة من الموعد',
+            t('notifications.notification_settings.appointment_reminders_settings'),
+            t('notifications.notification_settings.appointment_reminders_desc'),
             'appointmentReminders'
           )}
           
           {renderSettingItem(
             'medical',
-            'تذكير الأدوية',
-            'تذكير بمواعيد تناول الأدوية',
+            t('notifications.notification_settings.medicine_reminders_settings'),
+            t('notifications.notification_settings.medicine_reminders_desc'),
             'medicineReminders'
           )}
           
           {renderSettingItem(
             'notifications',
-            'الإشعارات العامة',
-            'إشعارات النظام والتحديثات',
+            t('notifications.notification_settings.general_notifications'),
+            t('notifications.notification_settings.general_notifications_desc'),
             'generalNotifications'
           )}
         </View>
 
         {/* إعدادات الصوت والاهتزاز */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>الصوت والاهتزاز</Text>
+          <Text style={styles.sectionTitle}>{t('notifications.notification_settings.sound_vibration')}</Text>
           
           {renderSettingItem(
             'volume-high',
-            'صوت الإشعارات',
-            'تشغيل صوت عند استلام الإشعارات',
+            t('notifications.notification_settings.sound_enabled'),
+            t('notifications.notification_settings.sound_enabled_desc'),
             'soundEnabled'
           )}
           
           {renderSettingItem(
             'phone-portrait',
-            'اهتزاز الجهاز',
-            'اهتزاز الجهاز عند استلام الإشعارات',
+            t('notifications.notification_settings.vibration_enabled'),
+            t('notifications.notification_settings.vibration_enabled_desc'),
             'vibrationEnabled'
           )}
         </View>
 
         {/* الإحصائيات */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>إحصائيات الإشعارات</Text>
+          <Text style={styles.sectionTitle}>{t('notifications.notification_settings.statistics')}</Text>
           
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{notifications.length}</Text>
-              <Text style={styles.statLabel}>الإشعارات المستلمة</Text>
+              <Text style={styles.statLabel}>{t('notifications.notification_settings.received_notifications')}</Text>
             </View>
             
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
                 {scheduledNotifications.filter(n => n.content.data?.type === 'medicine').length}
               </Text>
-              <Text style={styles.statLabel}>تذكيرات الأدوية</Text>
+              <Text style={styles.statLabel}>{t('notifications.notification_settings.medicine_reminders_count')}</Text>
             </View>
             
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
                 {scheduledNotifications.filter(n => n.content.data?.type === 'appointment').length}
               </Text>
-              <Text style={styles.statLabel}>تذكيرات المواعيد</Text>
+              <Text style={styles.statLabel}>{t('notifications.notification_settings.appointment_reminders_count')}</Text>
             </View>
           </View>
         </View>
@@ -285,15 +289,32 @@ const NotificationSettingsScreen = () => {
         {scheduledNotifications.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>الإشعارات المجدولة</Text>
+              <Text style={styles.sectionTitle}>{t('notifications.notification_settings.scheduled_notifications')}</Text>
               <TouchableOpacity onPress={handleClearAllNotifications}>
-                <Text style={styles.clearButton}>مسح الكل</Text>
+                <Text style={styles.clearButton}>{t('notifications.notification_settings.clear_all_button')}</Text>
               </TouchableOpacity>
             </View>
             
             {scheduledNotifications.map(renderNotificationItem)}
           </View>
         )}
+
+        {/* سياسة الخصوصية */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('common.privacy_policy')}</Text>
+          </View>
+          <View style={styles.privacySection}>
+            <PrivacyPolicyButton 
+              variant="secondary" 
+              size="medium"
+              style={styles.privacyButton}
+            />
+            <Text style={styles.privacyDescription}>
+              {t('notifications.notification_settings.privacy_description') || 'اقرأ سياسة الخصوصية الخاصة بنا لفهم كيفية استخدام بياناتك'}
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -485,6 +506,26 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontSize: 14,
     fontWeight: '600',
+  },
+  privacySection: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  privacyButton: {
+    marginBottom: 12,
+  },
+  privacyDescription: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

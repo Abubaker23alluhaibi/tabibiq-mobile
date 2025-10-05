@@ -11,14 +11,18 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  ScrollView,
 } from 'react-native';
-import CSSScrollView from '../components/web/CSSScrollView';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +42,7 @@ const UserSignUpScreen = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { signUp } = useAuth();
+  const { markAppAsLaunched } = useApp();
   
   const [form, setForm] = useState<FormData>({
     name: '',
@@ -49,6 +54,7 @@ const UserSignUpScreen = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
+
   // استخدام useRef لمنع إعادة الرندر
   const formRef = useRef<FormData>(form);
   formRef.current = form;
@@ -56,6 +62,20 @@ const UserSignUpScreen = () => {
   const handleChange = useCallback((field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   }, []);
+
+
+
+  const formatDateForDisplay = useCallback((dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ar-EG', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
+
+
 
   const validateForm = useCallback(() => {
     const newErrors: FormErrors = {};
@@ -73,6 +93,8 @@ const UserSignUpScreen = () => {
     if (!form.phone.trim()) {
       newErrors.phone = t('validation.phone_required');
     }
+
+
 
     if (!form.password) {
       newErrors.password = t('validation.password_required');
@@ -93,15 +115,74 @@ const UserSignUpScreen = () => {
 
     setLoading(true);
     try {
-      await signUp({
+      const result = await signUp({
         ...form,
         user_type: 'user',
       });
-      Alert.alert(
-        t('auth.signup_success') || 'تم التسجيل بنجاح',
-        t('auth.signup_success_message') || 'تم إنشاء حسابك بنجاح',
-        [{ text: t('common.ok') || 'حسناً', onPress: () => navigation.navigate('UserHome' as never) }]
-      );
+      
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      if (result.success) {
+        await markAppAsLaunched();
+        
+        if (result.autoLogin) {
+          // تم تسجيل الدخول تلقائياً - توجيه إلى صفحة الدخول
+          Alert.alert(
+            t('auth.signup_success') || 'تم التسجيل بنجاح',
+            t('auth.signup_auto_login_success') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
+            [{ 
+              text: t('common.ok') || 'حسناً', 
+              onPress: () => {
+                // تمرير بيانات المستخدم إلى صفحة الدخول
+                (navigation as any).navigate('Login', {
+                  prefilledEmail: form.email,
+                  prefilledPassword: form.password,
+                  prefilledLoginType: 'user'
+                });
+              }
+            }]
+          );
+        } else if (result.requiresManualLogin) {
+          // يحتاج لتسجيل دخول يدوي - توجيه إلى صفحة الدخول مع حفظ البيانات
+          Alert.alert(
+            t('auth.signup_success') || 'تم التسجيل بنجاح',
+            t('auth.signup_manual_login_required') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
+            [{ 
+              text: t('common.ok') || 'حسناً', 
+              onPress: () => {
+                // تمرير بيانات المستخدم إلى صفحة الدخول
+                (navigation as any).navigate('Login', {
+                  prefilledEmail: form.email,
+                  prefilledPassword: form.password,
+                  prefilledLoginType: 'user'
+                });
+              }
+            }]
+          );
+        } else {
+          // الحالة العادية - توجيه إلى صفحة الدخول مع حفظ البيانات
+          Alert.alert(
+            t('auth.signup_success') || 'تم التسجيل بنجاح',
+            t('auth.signup_success_message') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
+            [{ 
+              text: t('common.ok') || 'حسناً', 
+              onPress: () => {
+                // تمرير بيانات المستخدم إلى صفحة الدخول
+                (navigation as any).navigate('Login', {
+                  prefilledEmail: form.email,
+                  prefilledPassword: form.password,
+                  prefilledLoginType: 'user'
+                });
+              }
+            }]
+          );
+        }
+      } else {
+        throw new Error('فشل في إنشاء الحساب');
+      }
     } catch (error: any) {
       Alert.alert(
         t('auth.signup_error') || 'خطأ في التسجيل', 
@@ -110,7 +191,7 @@ const UserSignUpScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [form, validateForm, signUp, t, navigation]);
+  }, [form, t, signUp, markAppAsLaunched, navigation]);
 
   const InputField = useMemo(() => React.memo(({ 
     label, 
@@ -182,7 +263,7 @@ const UserSignUpScreen = () => {
     <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
       enabled={true}
     >
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
@@ -200,7 +281,7 @@ const UserSignUpScreen = () => {
         <Text style={styles.headerTitle}>{t('auth.signup')}</Text>
       </LinearGradient>
 
-      <CSSScrollView 
+      <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
@@ -249,6 +330,8 @@ const UserSignUpScreen = () => {
             returnKeyType="next"
           />
 
+
+
           <InputField
             label={t('auth.password') || 'كلمة المرور'}
             field="password"
@@ -287,7 +370,8 @@ const UserSignUpScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </CSSScrollView>
+      </ScrollView>
+
     </KeyboardAvoidingView>
   );
 };
@@ -317,7 +401,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: 100, // إضافة مساحة في الأسفل للتمرير
+    paddingBottom: 150, // إضافة مساحة أكبر في الأسفل للتمرير
   },
   scrollContent: {
     flexGrow: 1,

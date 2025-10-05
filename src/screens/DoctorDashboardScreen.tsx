@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,12 @@ import {
   Dimensions,
   StatusBar,
   RefreshControl,
+  Alert,
+  TextInput,
+  ScrollView,
+  Platform,
 } from 'react-native';
-import CSSScrollView from '../components/web/CSSScrollView';
+import * as Notifications from 'expo-notifications';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,7 +22,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
-import { api } from '../services/api';
+import { api, appointmentsAPI } from '../services/api';
+import StarRating from '../components/StarRating';
+import { getLocalDateString, getTodayLocalizedDayName, getLocalizedDayName } from '../utils/dateUtils';
+import AdvertisementSlider from '../components/AdvertisementSlider';
+import { logger, logError, logWarn, logInfo, logDebug, logUserAction, logApiCall, logApiResponse } from '../utils/logger';
+import { API_CONFIG } from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,6 +37,109 @@ const DoctorDashboardScreen = () => {
   const { user, profile } = useAuth();
   const { notifications, isNotificationEnabled, registerForDoctorNotifications } = useNotifications();
   
+  // تم حذف الإشعارات الفورية
+  const testImmediateNotification = async () => {
+    logInfo('تم تعطيل الإشعارات الفورية');
+    Alert.alert('معلومات', 'تم تعطيل الإشعارات الفورية');
+  };
+  
+  // إضافة متغير البحث
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // دالة مساعدة لمسار صورة الطبيب
+  const getImageUrl = (img: string | null | undefined) => {
+    if (!img) {
+      return null;
+    }
+    
+    // إذا كانت الصورة من Cloudinary (تبدأ بـ https://res.cloudinary.com)
+    if (img.startsWith('https://res.cloudinary.com')) {
+      return img;
+    }
+    
+    // إذا كانت الصورة محلية (تبدأ بـ /uploads/)
+    if (img.startsWith('/uploads/')) {
+      const fullUrl = API_CONFIG.BASE_URL + img;
+      return fullUrl;
+    }
+    
+    // إذا كانت الصورة رابط كامل
+    if (img.startsWith('http')) {
+      return img;
+    }
+    
+    // إذا كانت الصورة مسار نسبي (بدون /uploads/)
+    if (img && !img.startsWith('http') && !img.startsWith('/uploads/')) {
+      const fullUrl = API_CONFIG.BASE_URL + '/' + img;
+      return fullUrl;
+    }
+    
+    return null;
+  };
+
+  // دالة للحصول على صورة الطبيب من جميع المصادر المحتملة
+  const getDoctorImage = () => {
+    // أولاً: جرب بيانات الطبيب من API
+    if (doctorData) {
+      const apiImage = doctorData.imageUrl || doctorData.profile_image || doctorData.profileImage || doctorData.image;
+      if (apiImage) {
+        const imageUrl = getImageUrl(apiImage);
+        if (imageUrl) {
+          return imageUrl;
+        }
+      }
+    }
+    
+    // ثانياً: جرب بيانات المستخدم الحالي
+    const userImage = user?.image || profile?.image;
+    if (userImage) {
+      const imageUrl = getImageUrl(userImage);
+      if (imageUrl) {
+        return imageUrl;
+      }
+    }
+    
+    return null;
+  };
+
+  // دالة تحويل الصورة المحلية المفقودة إلى Cloudinary
+  const migrateMissingImage = async (imagePath: string) => {
+    if (!imagePath || !imagePath.startsWith('/uploads/')) {
+      return null;
+    }
+
+    
+    try {
+      // محاولة استخدام endpoint الجديد
+      const response = await fetch(`${API_CONFIG.BASE_URL}/migrate-single-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imagePath,
+          userId: (profile as any)?._id || (user as any)?._id,
+          userType: 'doctor'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        logInfo('تم تحويل الصورة المفقودة بنجاح', { cloudinaryUrl: data.cloudinaryUrl });
+        return data.cloudinaryUrl;
+      } else if (response.status === 404) {
+        logWarn('endpoint migrate-single-image غير متوفر');
+        return null;
+      } else {
+        logError('فشل تحويل الصورة المفقودة');
+        return null;
+      }
+    } catch (error) {
+      logError('خطأ في تحويل الصورة المفقودة', error);
+      return null;
+    }
+  };
+  
   // دالة للحصول على التاريخ المحلي بصيغة YYYY-MM-DD
   const getLocalDateString = () => {
     const now = new Date();
@@ -35,6 +147,23 @@ const DoctorDashboardScreen = () => {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  // دالة لتنسيق التاريخ مع اسم اليوم
+  const formatDateWithDay = (dateString: string) => {
+    const dayName = getLocalizedDayName(dateString, t);
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    
+    return `${dayName} ${day}/${month}/${year}`;
+  };
+
+  // دالة لتنسيق الوقت
+  const formatTime = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':');
+    return `${hours}:${minutes}`;
   };
   
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -47,91 +176,211 @@ const DoctorDashboardScreen = () => {
   });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [doctorData, setDoctorData] = useState<any>(null);
+  const appointmentsRef = useRef(appointments);
 
   useEffect(() => {
-    if (profile?._id) {
+    const doctorId = profile?._id || (user as any)?._id;
+    if (doctorId) {
       fetchDashboardData();
       // تسجيل إشعارات الطبيب إذا لم تكن مفعلة
       if (!isNotificationEnabled) {
-        registerForDoctorNotifications();
+        registerForDoctorNotifications(doctorId);
       }
     }
-  }, [profile]);
+  }, [profile, user]);
+
+  // فحص الصور المحلية المفقودة
+  useEffect(() => {
+    const checkMissingImages = async () => {
+      const imagePath = user?.image || profile?.image;
+      
+      if (imagePath && imagePath.startsWith('/uploads/')) {
+        logDebug('فحص الصورة المحلية', { imagePath });
+        // فحص إذا كانت الصورة موجودة
+        try {
+          const response = await fetch(API_CONFIG.BASE_URL + imagePath);
+          if (!response.ok) {
+            logWarn('الصورة المحلية مفقودة، محاولة التحويل');
+            const cloudinaryUrl = await migrateMissingImage(imagePath);
+            if (cloudinaryUrl) {
+              logInfo('تم تحويل الصورة المفقودة تلقائياً');
+              // يمكن إضافة رسالة للمستخدم هنا
+            }
+          } else {
+            logInfo('الصورة المحلية موجودة');
+          }
+        } catch (error) {
+          logError('خطأ في فحص الصورة المحلية', error);
+        }
+      }
+    };
+
+    checkMissingImages();
+  }, [user, profile]);
+
+  // جلب بيانات الطبيب من API
+  useEffect(() => {
+    const fetchDoctorData = async () => {
+      const doctorId = profile?._id || (user as any)?._id;
+      if (!doctorId) {
+        logWarn('لا يوجد معرف للطبيب', { profileId: profile?._id, userId: (user as any)?._id });
+        return;
+      }
+      
+      try {
+        logApiCall('/doctors', 'GET', { doctorId });
+        const response = await fetch(`${API_CONFIG.BASE_URL}/doctors/${doctorId}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          logApiResponse('/doctors', response.status);
+          setDoctorData(data);
+        } else {
+          logWarn('لم يتم العثور على بيانات الطبيب في API');
+        }
+      } catch (error) {
+        logError('خطأ في جلب بيانات الطبيب من API', error);
+      }
+    };
+
+    fetchDoctorData();
+  }, [profile?._id, (user as any)?._id]);
 
   // تحديث البيانات كل 30 ثانية
   useEffect(() => {
     const interval = setInterval(() => {
-      if (profile?._id) {
+      const doctorId = profile?._id || (user as any)?._id;
+      if (doctorId) {
         fetchDashboardData();
       }
     }, 30000); // 30 ثانية
 
     return () => clearInterval(interval);
-  }, [profile]);
+  }, [profile, user]);
 
   // إعادة تحميل البيانات عند العودة للصفحة
   useFocusEffect(
     useCallback(() => {
-      if (profile?._id) {
-        console.log('🔄 الصفحة أصبحت مركزة - إعادة تحميل البيانات');
+      const doctorId = profile?._id || (user as any)?._id;
+      if (doctorId) {
+        logDebug('الصفحة أصبحت مركزة - إعادة تحميل البيانات');
         fetchDashboardData();
       }
-    }, [profile])
+    }, [profile, user])
   );
 
+  // تحديث appointmentsRef عند تغيير appointments
+  useEffect(() => {
+    appointmentsRef.current = [...appointments];
+  }, [appointments]);
+
   const fetchDashboardData = async () => {
-    if (!profile?._id) return;
+    const doctorId = profile?._id || (user as any)?._id;
+    if (!doctorId) {
+      logWarn('لا يوجد معرف للطبيب في fetchDashboardData', { profileId: profile?._id, userId: (user as any)?._id });
+      return;
+    }
     
     setLoading(true);
     try {
-      console.log('🔄 جلب بيانات المواعيد للطبيب:', profile._id);
-      // جلب المواعيد الحقيقية من قاعدة البيانات
-      const response = await api.get(`/doctor-appointments/${profile._id}`);
+      logApiCall('/appointments/doctor', 'GET', { doctorId });
+      // استخدام API المحسن لجلب المواعيد
+      const response = await appointmentsAPI.getDoctorAppointmentsById(doctorId);
       
-      console.log('📥 استجابة المواعيد:', response);
+      logApiResponse('/appointments/doctor', 200);
       
       if (response && Array.isArray(response)) {
-        // تحويل البيانات إلى التنسيق المطلوب
-        const formattedAppointments = response.map(appointment => {
+        // عرض كل المواعيد ما عدا الملغاة
+        const activeAppointments = response.filter(appointment => 
+          appointment.status !== 'cancelled'
+        );
+        
+        // تحويل البيانات إلى التنسيق المطلوب - عرض كروت الأطباء مع معلومات المرضى
+        const formattedAppointments = activeAppointments.map(appointment => {
           // تنسيق التاريخ بشكل صحيح
           let formattedDate = appointment.date;
           if (formattedDate && formattedDate.includes('T')) {
             formattedDate = formattedDate.split('T')[0];
           }
           
+
+          
           return {
             id: appointment._id,
-            patientName: appointment.userName || appointment.userId?.first_name || 'مريض غير محدد',
-            patientImage: 'https://via.placeholder.com/50',
+            // معلومات الطبيب (الطبيب الحالي)
+            doctorName: profile?.first_name || profile?.name || user?.name || 'طبيب',
+            doctorSpecialty: profile?.specialty || 'تخصص عام',
+            doctorImage: getDoctorImage() || 'https://via.placeholder.com/50',
+            // معلومات المريض - محدث ليتعامل مع الحجز لشخص آخر
+            patientName: appointment.patientName || appointment.userName || appointment.userId?.first_name || 'مريض غير محدد',
+            userName: appointment.userName || appointment.userId?.first_name || 'مريض غير محدد',
+            patientPhone: appointment.isBookingForOther 
+              ? (appointment.patientPhone || '')
+              : (appointment.userId?.phone || appointment.patientPhone || ''),
+            patientId: appointment.userId?._id || appointment.userId,
+            // معلومات الحجز لشخص آخر
+            isBookingForOther: appointment.isBookingForOther || false,
+            bookerName: appointment.bookerName,
+            // معلومات الموعد
             date: formattedDate,
             time: appointment.time,
             status: appointment.status,
             type: appointment.reason || 'استشارة',
+            formattedDateWithDay: formatDateWithDay(formattedDate),
+            duration: appointment.duration || 30, // إضافة عرض مدة الموعد
+            attendance: appointment.attendance || 'not_marked', // إضافة حالة الحضور
+            notes: appointment.notes || '', // إضافة أي ملاحظات
+            phone: appointment.patientPhone || appointment.userId?.phone || '', // إضافة رقم المريض
+            // إضافة العمر - محدث ليتطابق مع قاعدة البيانات
+            age: appointment.patientAge || appointment.age, // استخدام patientAge من قاعدة البيانات أو age كاحتياطي
+            patientAge: appointment.patientAge, // الحقل الأصلي من قاعدة البيانات
           };
         });
         
-        setAllAppointments(formattedAppointments); // حفظ جميع المواعيد
-        setAppointments(formattedAppointments.slice(0, 5)); // عرض أول 5 فقط
+
+        
+        setAllAppointments(formattedAppointments); // حفظ جميع المواعيد النشطة (غير الملغاة)
+        setAppointments(formattedAppointments); // عرض جميع المواعيد
         
         // حساب الإحصائيات - استخدام التوقيت المحلي
         const today = getLocalDateString(); // التاريخ المحلي الصحيح
         const utcToday = new Date().toISOString().split('T')[0]; // UTC date
-        console.log('🔍 Today date (local):', today);
-        console.log('🔍 Today date (UTC):', utcToday);
-        console.log('🔍 Current timezone offset (minutes):', new Date().getTimezoneOffset());
-        console.log('🔍 All appointments dates:', response.map(apt => ({ date: apt.date, formattedDate: apt.date?.split('T')[0] })));
+
         
-        const todayAppointments = response.filter(apt => {
-          const aptDate = apt.date?.split('T')[0];
-          return aptDate === today;
+        const todayAppointments = activeAppointments.filter(apt => {
+          // معالجة تنسيقات التواريخ المختلفة
+          if (!apt.date) return false;
+          
+          // إذا كان التاريخ في تنسيق ISO string
+          if (apt.date.includes('T')) {
+            const aptDate = apt.date.split('T')[0];
+            return aptDate === today;
+          }
+          
+          // إذا كان التاريخ في تنسيق YYYY-MM-DD
+          if (apt.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return apt.date === today;
+          }
+          
+          // إذا كان التاريخ في تنسيق آخر، نحاول تحويله
+          try {
+            const aptDate = new Date(apt.date);
+            const aptDateString = aptDate.toISOString().split('T')[0];
+            return aptDateString === today;
+          } catch (error) {
+            logError('خطأ في تحليل التاريخ', { date: apt.date, error });
+            return false;
+          }
         }).length;
-        const weekAppointments = response.filter(apt => {
+        
+        const weekAppointments = activeAppointments.filter(apt => {
           const aptDate = new Date(apt.date);
           const weekAgo = new Date();
           weekAgo.setDate(weekAgo.getDate() - 7);
           return aptDate >= weekAgo;
         }).length;
-        const monthAppointments = response.filter(apt => {
+        const monthAppointments = activeAppointments.filter(apt => {
           const aptDate = new Date(apt.date);
           const monthAgo = new Date();
           monthAgo.setMonth(monthAgo.getMonth() - 1);
@@ -142,34 +391,42 @@ const DoctorDashboardScreen = () => {
           today: todayAppointments,
           week: weekAppointments,
           month: monthAppointments,
-          total: response.length,
+          total: activeAppointments.length,
         });
         
-        console.log('🔍 إحصائيات المواعيد:', {
-          today: todayAppointments,
-          week: weekAppointments,
-          month: monthAppointments,
-          total: response.length,
-          todayDate: today
-        });
+
         
         // تفاصيل إضافية للتشخيص
-        const todayAppointmentsList = response.filter(apt => {
-          const aptDate = apt.date?.split('T')[0];
-          return aptDate === today;
+        const todayAppointmentsList = activeAppointments.filter(apt => {
+          // معالجة تنسيقات التواريخ المختلفة
+          if (!apt.date) return false;
+          
+          // إذا كان التاريخ في تنسيق ISO string
+          if (apt.date.includes('T')) {
+            const aptDate = apt.date.split('T')[0];
+            return aptDate === today;
+          }
+          
+          // إذا كان التاريخ في تنسيق YYYY-MM-DD
+          if (apt.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return apt.date === today;
+          }
+          
+          // إذا كان التاريخ في تنسيق آخر، نحاول تحويله
+          try {
+            const aptDate = new Date(apt.date);
+            const aptDateString = aptDate.toISOString().split('T')[0];
+            return aptDateString === today;
+          } catch (error) {
+            logError('خطأ في تحليل التاريخ', { date: apt.date, error });
+            return false;
+          }
         });
-        console.log('📋 قائمة مواعيد اليوم (local time):', todayAppointmentsList);
+
         
-        // مقارنة مع UTC للتشخيص
-        const utcTodayAppointmentsList = response.filter(apt => {
-          const aptDate = apt.date?.split('T')[0];
-          return aptDate === utcToday;
-        });
-        console.log('📋 قائمة مواعيد اليوم (UTC time):', utcTodayAppointmentsList);
-        
-        console.log('✅ تم جلب بيانات لوحة التحكم بنجاح:', response.length, 'موعد');
+
       } else {
-        console.log('⚠️ لا توجد مواعيد للوحة التحكم:', response);
+
         setAppointments([]);
         setAllAppointments([]);
         setStats({
@@ -180,7 +437,7 @@ const DoctorDashboardScreen = () => {
         });
       }
     } catch (error) {
-      console.error('❌ خطأ في جلب بيانات لوحة التحكم:', error);
+      logError('خطأ في جلب بيانات لوحة التحكم', error);
       setAppointments([]);
       setAllAppointments([]);
       setStats({
@@ -239,93 +496,542 @@ const DoctorDashboardScreen = () => {
     }
   };
 
+  const handleCancelFromDashboard = async (appointmentId: string) => {
+    try {
+      // توحيد الإلغاء بالحذف الكامل كما في الويب
+      await appointmentsAPI.cancelAppointment(appointmentId);
+      await fetchDashboardData();
+    } catch (e) {
+      logError('فشل إلغاء الموعد من لوحة التحكم', e);
+    }
+  };
+
+  // دالة إرسال إشعار موعد جديد للدكتور - إضافة الإشعارات الفورية
+  const sendNewAppointmentNotification = async (appointmentData: any) => {
+    try {
+      logInfo('إرسال إشعار موعد جديد للدكتور', { appointmentData });
+      
+      // استيراد خدمة الإشعارات
+      const NotificationService = require('../services/NotificationService').default;
+      
+      // إرسال إشعار فوري للدكتور
+      await NotificationService.sendNewAppointmentNotificationToDoctor(
+        profile?._id || '',
+        appointmentData.patientName || 'مريض',
+        appointmentData.date || new Date().toISOString(),
+        appointmentData.time || '',
+        appointmentData._id || ''
+      );
+      
+      logInfo('تم إرسال إشعار الموعد الجديد فوراً للدكتور');
+    } catch (notificationError) {
+      logError('فشل في إرسال إشعار الموعد الجديد', notificationError);
+    }
+  };
+
+  // دالة إلغاء الموعد مع التأكيد
+  const handleCancelAppointment = async (appointmentId: string, patientName: string) => {
+    Alert.alert(
+      t('appointment.cancellation'),
+      `${t('appointment.cancellation_confirm', { patientName })}`,
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              logUserAction('إلغاء الموعد', { appointmentId, patientName });
+              
+              // إلغاء الموعد عبر API
+              const result = await appointmentsAPI.cancelAppointment(appointmentId);
+              
+              if (result && result.success) {
+                logInfo('تم إلغاء الموعد بنجاح');
+                
+                // إرسال إشعار للمريض - إصلاح الإشعارات الفورية
+                try {
+                  // إرسال إشعار فوري مباشرة
+                  const NotificationService = require('../services/NotificationService').default;
+                  
+                  // البحث عن معرف المستخدم من الموعد
+                  const appointment = appointments.find((apt: any) => apt._id === appointmentId);
+                  const userId = appointment?.userId?._id || appointment?.patient_id || 
+                                (typeof appointment?.userId === 'string' ? appointment.userId : '');
+                  
+                  if (userId) {
+                    logInfo('إرسال إشعار إلغاء الموعد فوراً للمريض', { userId, patientName, appointmentId });
+                    
+                    
+                    // إرسال إشعار فوري مباشرة
+                    try {
+                      const NotificationService = require('../services/NotificationService').default;
+                      
+                      // إرسال إشعار محلي فوري مع صوت واهتزاز قوي
+                      await NotificationService.sendAppointmentCancellationLocalNotification(
+                        'تم إلغاء الموعد',
+                        `تم إلغاء موعدك مع ${appointment?.doctorName} في ${appointment?.date} الساعة ${appointment?.time}`,
+                        {
+                          type: 'appointment_cancelled',
+                          appointmentId,
+                          doctorName: appointment?.doctorName,
+                          date: appointment?.date,
+                          time: appointment?.time
+                        }
+                      );
+                      
+                      logInfo('تم إرسال إشعار إلغاء الموعد الفوري');
+                    } catch (localNotificationError) {
+                      logError('فشل في إرسال الإشعار الفوري', localNotificationError);
+                    }
+                  } else {
+                    logWarn('لم يتم العثور على معرف المستخدم للموعد', { appointmentId });
+                  }
+                  
+                } catch (notificationError) {
+                  logError('فشل إرسال إشعار إلغاء الموعد', notificationError);
+                }
+                
+                // فحص فوري للإشعارات الجديدة بعد إلغاء الموعد
+                try {
+                  logDebug('فحص فوري للإشعارات بعد إلغاء الموعد');
+                  const { syncNotificationsWithServer } = require('../contexts/NotificationContext');
+                  // البحث عن الموعد في القائمة المحلية
+                  const appointment = appointments.find((apt: any) => apt.id === appointmentId);
+                  // استخدام معرف المستخدم من الموعد أو معرف الطبيب الحالي
+                  const targetUserId = appointment?.patientId || appointment?.userId?._id || 
+                                    (typeof appointment?.userId === 'string' ? appointment.userId : '') ||
+                                    (profile?._id || (user as any)?._id);
+                  await syncNotificationsWithServer(targetUserId, false);
+                } catch (syncError) {
+                  // Silent error handling
+                }
+                
+                // تحديث البيانات
+                await fetchDashboardData();
+                
+                Alert.alert(
+                  t('common.success'),
+                  t('appointment.cancel_success'),
+                  [{ text: t('common.ok'), style: 'default' }]
+                );
+              } else {
+                Alert.alert(
+                  t('common.error'),
+                  t('appointment.cancel_error'),
+                  [{ text: t('common.ok'), style: 'default' }]
+                );
+              }
+            } catch (error) {
+              Alert.alert(
+                t('common.error'),
+                t('appointment.cancel_error'),
+                [{ text: t('common.ok'), style: 'default' }]
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderAppointmentCard = ({ item }: any) => (
     <View style={styles.appointmentCard}>
+      {/* عرض شارة الحجز لشخص آخر */}
+      {item.isBookingForOther && (
+        <View style={styles.bookingForOtherBadge}>
+          <Ionicons name="people" size={16} color={theme.colors.success} />
+          <Text style={styles.bookingForOtherText}>
+            {t('booking_for_other.info.booking_for_other')}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.appointmentHeader}>
         <View style={styles.patientInfo}>
-          <Image source={{ uri: item.patientImage }} style={styles.patientImage} />
+          <View style={styles.patientAvatar}>
+            <Ionicons name="person" size={24} color={theme.colors.white} />
+          </View>
           <View>
-            <Text style={styles.patientName}>{item.patientName}</Text>
-            <Text style={styles.appointmentType}>{getTypeText(item.type)}</Text>
+            {/* عرض اسم المريض: عند الحجز لشخص آخر، اعرض patientName (اسم المريض الفعلي) */}
+            {/* عند الحجز للنفس، اعرض userName (اسم المستخدم) */}
+            <Text style={styles.patientName}>
+              {item.isBookingForOther 
+                ? (item.patientName || item.userName || 'مريض غير محدد')
+                : (item.userName || item.patientName || item.userId?.first_name || 'مريض غير محدد')
+              }
+            </Text>
+            <Text style={styles.appointmentType}>
+              {item.type || item.reason || 'استشارة'}
+            </Text>
+            {/* إضافة رقم المريض */}
+            <Text style={styles.patientPhone}>
+              📞 {item.patientPhone || item.userId?.phone || item.phone || 'رقم غير متوفر'}
+            </Text>
+            
+            {/* إضافة العمر - محدث ليتعامل مع البيانات الجديدة */}
+            {(item.patientAge || item.age) && (
+              <Text style={styles.patientAge}>
+                🎂 {t('validation.patient_age')}: {item.patientAge || item.age} {t('validation.years')}
+              </Text>
+            )}
+
+            {/* عرض معلومات الحاجز إذا كان الحجز لشخص آخر */}
+            {item.isBookingForOther && item.bookerName && (
+              <Text style={styles.bookerInfo}>
+                👤 {t('booking_for_other.booker_name')}: {item.bookerName}
+              </Text>
+            )}
+
           </View>
         </View>
-        
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
-        </View>
+
+        {/* إزالة عرض حالة pending */}
+        {item.status !== 'pending' && (
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusColor(item.status) },
+            ]}
+          >
+            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+          </View>
+        )}
       </View>
-      
+
       <View style={styles.appointmentDetails}>
         <View style={styles.appointmentTime}>
           <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.timeText}>{item.time}</Text>
+          <Text style={styles.timeText}>{formatTime(item.time)}</Text>
         </View>
-        
+
+        <View style={styles.appointmentDuration}>
+          <Ionicons name="timer" size={16} color={theme.colors.textSecondary} />
+          <Text style={styles.durationText}>{item.duration || 30} دقيقة</Text>
+        </View>
+
+        {/* إضافة التاريخ مع يوم الأسبوع */}
         <View style={styles.appointmentDate}>
-          <Ionicons name="calendar" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.dateText}>{item.date}</Text>
+          <Ionicons
+            name="calendar"
+            size={16}
+            color={theme.colors.textSecondary}
+          />
+          <Text style={styles.dateText}>{formatDateWithDay(item.date)}</Text>
         </View>
       </View>
-      
+
       <View style={styles.appointmentActions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="call" size={16} color={theme.colors.primary} />
-          <Text style={styles.actionText}>{t('appointment.call')}</Text>
+        {/* زر تحديد الحضور */}
+        <TouchableOpacity 
+          style={[
+            styles.attendanceButton,
+            item.attendance === 'present' ? styles.attendanceButtonPresent : styles.attendanceButtonDefault
+          ]}
+          onPress={() => markAttendance(item.id, 'present')}
+          disabled={item.attendance === 'present'}
+        >
+          <Ionicons 
+            name={item.attendance === 'present' ? "checkmark-circle" : "checkmark-circle-outline"} 
+            size={16} 
+            color={item.attendance === 'present' ? theme.colors.white : theme.colors.success} 
+          />
+          <Text style={[
+            styles.attendanceButtonText,
+            item.attendance === 'present' ? styles.attendanceButtonTextPresent : styles.attendanceButtonTextDefault
+          ]}>
+            {item.attendance === 'present' ? t('doctor.attendance_marked') : t('doctor.present')}
+          </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble" size={16} color={theme.colors.primary} />
-          <Text style={styles.actionText}>{t('appointment.message')}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="document-text" size={16} color={theme.colors.primary} />
+          <Ionicons
+            name="document-text"
+            size={16}
+            color={theme.colors.primary}
+          />
           <Text style={styles.actionText}>{t('appointment.notes')}</Text>
         </TouchableOpacity>
+
+        {/* زر إلغاء الموعد */}
+        <TouchableOpacity 
+          style={styles.cancelButton}
+          onPress={() => handleCancelAppointment(item.id, item.patientName || item.userName)}
+        >
+          <Ionicons
+            name="close-circle"
+            size={16}
+            color={theme.colors.error}
+          />
+          <Text style={styles.cancelButtonText}>{t('appointment.appointment_cancellation')}</Text>
+        </TouchableOpacity>
+        
+        {/* زر اختبار الإشعارات - للاختبار فقط */}
+        <TouchableOpacity
+          style={[styles.cancelButton, { backgroundColor: '#FF6B6B', marginTop: 5 }]}
+          onPress={testImmediateNotification}
+        >
+          <Text style={styles.cancelButtonText}>اختبار الإشعار</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 
-  const renderStatCard = ({ title, value, icon, color }: any) => (
+
+  const renderAttendanceStatCard = (title: string, value: number | string, icon: string, color: string) => (
     <View style={styles.statCard}>
       <View style={[styles.statIcon, { backgroundColor: color }]}>
-        <Ionicons name={icon} size={24} color={theme.colors.white} />
+        <Ionicons name={icon as any} size={24} color={theme.colors.white} />
       </View>
-      <View style={styles.statContent}>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statTitle}>{title}</Text>
-      </View>
+      <Text style={styles.statNumber}>{value}</Text>
+      <Text style={styles.statLabel}>{title}</Text>
     </View>
   );
 
 
+  const getTodayAttendanceCount = () => {
+    const today = getLocalDateString();
+    const todayAppointments = allAppointments.filter(apt => {
+      // معالجة تنسيقات التواريخ المختلفة
+      if (!apt.date) return false;
+      
+      // إذا كان التاريخ في تنسيق ISO string
+      if (apt.date.includes('T')) {
+        const aptDate = apt.date.split('T')[0];
+        return aptDate === today;
+      }
+      
+      // إذا كان التاريخ في تنسيق YYYY-MM-DD
+      if (apt.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return apt.date === today;
+      }
+      
+      // إذا كان التاريخ في تنسيق آخر، نحاول تحويله
+      try {
+        const aptDate = new Date(apt.date);
+        const aptDateString = aptDate.toISOString().split('T')[0];
+        return aptDateString === today;
+      } catch (error) {
+        return false;
+      }
+    });
+    return todayAppointments.filter(apt => apt.attendance === 'present').length;
+  };
+
+
+  // دالة لتحديد الحضور
+  const markAttendance = useCallback(async (appointmentId: string, attendance: 'present' | 'absent') => {
+    if (!profile?._id) {
+      Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
+      return;
+    }
+
+    try {
+      
+      // تحديث الواجهة فوراً
+      setAppointments(prev => {
+        const updated = prev.map(apt => 
+          apt.id === appointmentId
+            ? { 
+                ...apt, 
+                attendance, 
+                attendance_time: new Date().toISOString() 
+              }
+            : apt
+        );
+        
+        return updated;
+      });
+
+      // حفظ البيانات الحالية
+      appointmentsRef.current = [...appointments];
+
+      // تحديث الحضور عبر API
+      const result = await appointmentsAPI.markAttendance(appointmentId, attendance);
+      
+      if (result && result.success) {
+        
+        // تأكيد التحديث في الواجهة
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === appointmentId
+              ? { 
+                  ...apt, 
+                  attendance, 
+                  attendance_time: new Date().toISOString() 
+                }
+              : apt
+          )
+        );
+
+        // إعادة جلب البيانات بعد تأخير قصير
+        setTimeout(async () => {
+          try {
+            await fetchDashboardData();
+          } catch (error) {
+            // استعادة البيانات المحفوظة في حالة الفشل
+            setAppointments(appointmentsRef.current);
+          }
+        }, 500);
+        
+        Alert.alert(
+          'نجح', 
+          `تم تحديث حالة الحضور إلى: ${attendance === 'present' ? 'حاضر' : 'غائب'}`,
+          [{ text: 'حسناً', style: 'default' }]
+        );
+      } else {
+        Alert.alert('خطأ', 'فشل في تحديث حالة الحضور');
+        
+        // استعادة البيانات الأصلية
+        setAppointments(appointmentsRef.current);
+      }
+    } catch (error) {
+      Alert.alert('خطأ', 'حدث خطأ أثناء تحديث حالة الحضور');
+      
+      // استعادة البيانات الأصلية
+      setAppointments(appointmentsRef.current);
+    }
+  }, [profile?._id, appointments]);
+
+  // دالة البحث في مواعيد اليوم فقط
+  const getFilteredTodayAppointments = () => {
+    const today = getLocalDateString();
+    
+    // استخدام allAppointments بدلاً من appointments للبحث
+    const appointmentsToSearch = allAppointments.length > 0 ? allAppointments : appointments;
+    
+    // أولاً: فلترة مواعيد اليوم فقط
+    let todayAppointments = appointmentsToSearch.filter(apt => {
+      // معالجة تنسيقات التواريخ المختلفة
+      if (!apt.date) return false;
+      
+      // إذا كان التاريخ في تنسيق ISO string
+      if (apt.date.includes('T')) {
+        const aptDate = apt.date.split('T')[0];
+        return aptDate === today;
+      }
+      
+      // إذا كان التاريخ في تنسيق YYYY-MM-DD
+      if (apt.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return apt.date === today;
+      }
+      
+      // إذا كان التاريخ في تنسيق آخر، نحاول تحويله
+      try {
+        const aptDate = new Date(apt.date);
+        const aptDateString = aptDate.toISOString().split('T')[0];
+        return aptDateString === today;
+      } catch (error) {
+        return false;
+      }
+    });
+
+    // إذا كان هناك نص بحث، ابحث في مواعيد اليوم فقط
+    if (searchTerm.trim()) {
+      let filteredTodayAppointments = todayAppointments.filter(apt => 
+        apt.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.time?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.date?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.type?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+      return filteredTodayAppointments;
+    }
+
+    // إذا لم يكن هناك بحث، اعرض جميع مواعيد اليوم
+    return todayAppointments;
+  };
+
+  // دالة مساعدة لتحديد ما إذا كان الموعد اليوم
+  const isTodayAppointment = (dateString: string) => {
+    if (!dateString) return false;
+    const today = getLocalDateString();
+    
+    // إذا كان التاريخ في تنسيق ISO string
+    if (dateString.includes('T')) {
+      const aptDate = dateString.split('T')[0];
+      return aptDate === today;
+    }
+    
+    // إذا كان التاريخ في تنسيق YYYY-MM-DD
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateString === today;
+    }
+    
+    // إذا كان التاريخ في تنسيق آخر، نحاول تحويله
+    try {
+      const aptDate = new Date(dateString);
+      const aptDateString = aptDate.toISOString().split('T')[0];
+      return aptDateString === today;
+    } catch (error) {
+      return false;
+    }
+  };
 
   const renderTodayAppointments = () => {
-    const today = getLocalDateString(); // استخدام التوقيت المحلي الصحيح
-    const todayAppointments = allAppointments.filter(apt => apt.date === today);
+    const todayAppointments = getFilteredTodayAppointments();
+    const todayDayName = getTodayLocalizedDayName(t); // الحصول على اسم اليوم باللغة المحددة
 
-    console.log('🔍 renderTodayAppointments - Today:', today);
-    console.log('🔍 renderTodayAppointments - All appointments:', allAppointments.length);
-    console.log('🔍 renderTodayAppointments - Today appointments:', todayAppointments.length);
-    console.log('🔍 Current time info:', {
-      localTime: new Date().toString(),
-      utcTime: new Date().toISOString(),
-      localDate: getLocalDateString(),
-      timezoneOffset: new Date().getTimezoneOffset()
-    });
+    
+    // إضافة تشخيص مفصل لمواعيد اليوم
+    if (todayAppointments.length > 0) {
+    }
 
     if (todayAppointments.length === 0) {
       return (
         <View style={styles.todayAppointmentsList}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>مواعيد اليوم ({today})</Text>
-            <Text style={styles.sectionCount}>لا توجد مواعيد</Text>
+            <Text style={styles.sectionTitle}>
+              {searchTerm.trim() ? 'نتائج البحث' : `${t('doctor.today_appointments')} - ${todayDayName}`}
+            </Text>
+            <Text style={styles.sectionCount}>
+              {searchTerm.trim() ? 'لا توجد نتائج للبحث' : t('doctor.no_confirmed_appointments_for_day')}
+            </Text>
           </View>
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color={theme.colors.textSecondary} />
-            <Text style={styles.emptyText}>لا توجد مواعيد محجوزة لهذا اليوم</Text>
-            <Text style={styles.emptySubtext}>آخر تحديث: {new Date().toLocaleTimeString('ar-IQ')}</Text>
+          
+          {/* مربع البحث */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="البحث في المواعيد..."
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              placeholderTextColor={theme.colors.textSecondary}
+            />
+            {searchTerm.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchTerm('')}>
+                <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
+
+          {searchTerm.trim() ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={48} color={theme.colors.textSecondary} />
+              <Text style={styles.emptyText}>لا توجد نتائج للبحث: "{searchTerm}"</Text>
+              <Text style={styles.emptySubtext}>
+                جرب البحث بكلمات أخرى أو تأكد من وجود مواعيد
+              </Text>
+              <Text style={styles.emptySubtext}>
+                عدد المواعيد المتاحة: {allAppointments.length}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color={theme.colors.textSecondary} />
+              <Text style={styles.emptyText}>{t('doctor.no_confirmed_appointments_for_day')}</Text>
+              <Text style={styles.emptySubtext}>آخر تحديث: {new Date().toLocaleTimeString('ar-IQ')}</Text>
+            </View>
+          )}
         </View>
       );
     }
@@ -333,8 +1039,30 @@ const DoctorDashboardScreen = () => {
     return (
       <View style={styles.todayAppointmentsList}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>مواعيد اليوم ({today})</Text>
-          <Text style={styles.sectionCount}>{todayAppointments.length} موعد</Text>
+          <Text style={styles.sectionTitle}>
+            {searchTerm.trim() ? 'نتائج البحث' : `${t('doctor.today_appointments')} - ${todayDayName}`}
+          </Text>
+          <Text style={styles.sectionCount}>
+            {todayAppointments.length} {todayAppointments.length === 1 ? t('doctor.appointments_count') : t('doctor.appointments_count_plural')}
+            {searchTerm.trim() && ` (نتائج البحث)`}
+          </Text>
+        </View>
+        
+        {/* مربع البحث */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="البحث في المواعيد..."
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            placeholderTextColor={theme.colors.textSecondary}
+          />
+          {searchTerm.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTerm('')}>
+              <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
         
         <FlatList
@@ -348,6 +1076,7 @@ const DoctorDashboardScreen = () => {
     );
   };
 
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
@@ -358,9 +1087,27 @@ const DoctorDashboardScreen = () => {
       >
         <View style={styles.headerContent}>
           <View style={styles.doctorInfo}>
-            <Image source={{ uri: user?.image || 'https://via.placeholder.com/60' }} style={styles.doctorImage} />
+            {(() => {
+              const imageUrl = getDoctorImage();
+              return imageUrl ? (
+                <Image 
+                  source={{ uri: imageUrl }} 
+                  style={styles.doctorImage}
+                  resizeMode="cover"
+                  defaultSource={require('../../assets/icon.png')}
+                  onError={(e) => {
+                  }}
+                  onLoad={() => {
+                  }}
+                />
+              ) : (
+                <View style={[styles.doctorImage, { backgroundColor: theme.colors.white + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="person" size={30} color={theme.colors.white} />
+                </View>
+              );
+            })()}
             <View>
-              <Text style={styles.doctorName}>{user?.name}</Text>
+              <Text style={styles.doctorName}>{profile?.first_name || profile?.name || user?.name}</Text>
               <Text style={styles.doctorSpecialty}>{profile?.specialty || 'طبيب'}</Text>
             </View>
           </View>
@@ -380,13 +1127,13 @@ const DoctorDashboardScreen = () => {
             
             <TouchableOpacity 
               style={styles.notificationButton}
-              onPress={() => navigation.navigate('NotificationSettings' as never)}
+              onPress={() => navigation.navigate('Notifications' as never)}
             >
               <Ionicons name="notifications" size={24} color={theme.colors.white} />
-              {notifications.length > 0 && (
+              {notifications.filter(n => !n.isRead).length > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationCount}>
-                    {notifications.length > 9 ? '9+' : notifications.length}
+                    {notifications.filter(n => !n.isRead).length > 9 ? '9+' : notifications.filter(n => !n.isRead).length}
                   </Text>
                 </View>
               )}
@@ -395,40 +1142,26 @@ const DoctorDashboardScreen = () => {
         </View>
       </LinearGradient>
 
-      <CSSScrollView
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.statsContainer}>
-          <FlatList
-            data={[
-              { title: t('doctor.today'), value: stats.today, icon: 'today', color: theme.colors.primary },
-              { title: t('doctor.this_week'), value: stats.week, icon: 'calendar', color: theme.colors.secondary },
-              { title: t('doctor.this_month'), value: stats.month, icon: 'calendar-number', color: theme.colors.accent },
-              { title: t('doctor.total'), value: stats.total, icon: 'people', color: theme.colors.success },
-            ]}
-            renderItem={({ item }) => renderStatCard(item)}
-            keyExtractor={(item) => item.title}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.statsList}
-          />
+        {/* إعلانات للأطباء */}
+        <AdvertisementSlider target="both" style={styles.advertisementSlider} />
+
+        {/* إحصائيات اليوم - الحضور والمواعيد */}
+        <View style={styles.attendanceStatsContainer}>
+          <Text style={styles.attendanceStatsTitle}>{t('doctor.today_stats')}</Text>
+          <View style={styles.attendanceStatsGrid}>
+            {renderAttendanceStatCard(t('doctor.attendance_today'), getTodayAttendanceCount(), 'checkmark-circle', theme.colors.success)}
+            {renderAttendanceStatCard(t('doctor.today_appointments'), getFilteredTodayAppointments().length, 'calendar', theme.colors.primary)}
+          </View>
         </View>
 
         <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('DoctorCalendar' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="calendar" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>{t('doctor.calendar')}</Text>
-          </TouchableOpacity>
-          
           <TouchableOpacity
             style={styles.quickAction}
             onPress={() => navigation.navigate('DoctorAnalytics' as never)}
@@ -441,26 +1174,6 @@ const DoctorDashboardScreen = () => {
           
           <TouchableOpacity
             style={styles.quickAction}
-            onPress={() => navigation.navigate('WorkTimesEditor' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="time" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>أوقات الدوام</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('AppointmentDurationEditor' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="timer" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>مدة الموعد</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
             onPress={() => navigation.navigate('DoctorProfile' as never)}
           >
             <View style={styles.quickActionIcon}>
@@ -468,88 +1181,45 @@ const DoctorDashboardScreen = () => {
             </View>
             <Text style={styles.quickActionText}>{t('profile.title')}</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* مواعيد اليوم - أيقونة سريعة */}
-        <View style={styles.todayAppointmentsSection}>
-          <TouchableOpacity
-            style={styles.todayAppointmentsButton}
-            onPress={() => navigation.navigate('DoctorAppointments' as never)}
-          >
-            <View style={styles.todayAppointmentsIcon}>
-              <Ionicons name="today" size={28} color={theme.colors.white} />
-              {stats.today > 0 && (
-                <View style={styles.todayAppointmentsBadge}>
-                  <Text style={styles.todayAppointmentsCount}>{stats.today}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.todayAppointmentsContent}>
-              <Text style={styles.todayAppointmentsTitle}>{t('doctor.today_appointments')}</Text>
-              <Text style={styles.todayAppointmentsSubtitle}>
-                {stats.today > 0 ? `${stats.today} موعد اليوم` : 'لا توجد مواعيد اليوم'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('DoctorCalendar' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="calendar" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>{t('doctor.calendar')}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('DoctorAnalytics' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="analytics" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>{t('doctor.analytics')}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('WorkTimesEditor' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="time" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>أوقات الدوام</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('AppointmentDurationEditor' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="timer" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>مدة الموعد</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('DoctorProfile' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="person" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>{t('profile.title')}</Text>
-          </TouchableOpacity>
         </View>
 
         {/* عرض مواعيد اليوم */}
         {renderTodayAppointments()}
 
-      </CSSScrollView>
+        {/* قسم التعليقات والتقييمات */}
+        <View style={styles.reviewsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('rating.reviews')}</Text>
+            <TouchableOpacity
+              onPress={() => (navigation as any).navigate('DoctorReviews', { doctorId: user?.id })}
+            >
+              <Text style={styles.seeAllText}>{t('common.see_all')}</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.ratingSummary}>
+            {(user?.rating && user.rating > 0) ? (
+              <>
+                <StarRating
+                  rating={user.rating}
+                  size="large"
+                  showText={true}
+                  interactive={false}
+                />
+                <Text style={styles.ratingText}>
+                  {t('rating.based_on')} {user?.reviews_count || 0} {t('rating.reviews')}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.noRatingText}>
+                {t('rating.no_ratings_yet')}
+              </Text>
+            )}
+          </View>
+        </View>
+
+      </ScrollView>
     </View>
   );
 };
@@ -588,6 +1258,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.white + 'CC',
   },
+  appointmentDay: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   notificationButton: {
     position: 'relative',
   },
@@ -610,6 +1286,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingBottom: 100, // إضافة مساحة في الأسفل للتمرير
+  },
+  advertisementSlider: {
+    marginHorizontal: 20,
+    marginVertical: 10,
   },
   statsContainer: {
     paddingVertical: 20,
@@ -651,6 +1331,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  attendanceStatsContainer: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  attendanceStatsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  attendanceStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+  },
+
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -667,6 +1379,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.primary,
     fontWeight: '600',
+  },
+  reviewsSection: {
+    backgroundColor: theme.colors.white,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  ratingSummary: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginTop: 8,
+  },
+  noRatingText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   appointmentsList: {
     paddingHorizontal: 20,
@@ -691,21 +1430,36 @@ const styles = StyleSheet.create({
   patientInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  patientImage: {
+  patientAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   patientName: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.textPrimary,
+    marginBottom: 4,
   },
   appointmentType: {
     fontSize: 14,
     color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  patientPhone: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+  },
+  patientAge: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -731,6 +1485,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginLeft: 4,
   },
+  appointmentDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  durationText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
+  },
   appointmentDate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -740,6 +1504,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginLeft: 4,
   },
+
   appointmentActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -877,6 +1642,114 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  periodStatsContainer: {
+    marginTop: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  periodStatsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  periodStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+  },
+  attendanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: theme.colors.success + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.success,
+  },
+  attendanceButtonPresent: {
+    backgroundColor: theme.colors.success,
+    borderColor: theme.colors.success,
+  },
+  attendanceButtonDefault: {
+    backgroundColor: 'transparent',
+    borderColor: theme.colors.success,
+  },
+  attendanceButtonText: {
+    fontSize: 12,
+    color: theme.colors.success,
+    marginLeft: 4,
+  },
+  attendanceButtonTextPresent: {
+    color: theme.colors.white,
+  },
+  attendanceButtonTextDefault: {
+    color: theme.colors.success,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    marginLeft: 8,
+  },
+  bookingForOtherBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.success + '10',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  bookingForOtherText: {
+    fontSize: 12,
+    color: theme.colors.success,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  bookerInfo: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: theme.colors.error + '10',
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    color: theme.colors.error,
+    marginLeft: 4,
   },
 });
 

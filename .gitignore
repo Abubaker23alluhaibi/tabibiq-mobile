@@ -7,7 +7,6 @@ yarn-error.log*
 # Expo
 .expo/
 dist/
-web-build/
 
 # Native
 *.orig.*
@@ -46,47 +45,29 @@ yarn-error.*
 # Logs
 *.log
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
+# Environment files - NEVER commit these!
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
 
-# IDE files
-*.swp
-*.swo
+# Security files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+keystore.jks
+debug.keystore
+release.keystore
 
-# OS generated files
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Android signing files - NEVER commit these!
+android/app/*.keystore
+android/app/keystore.properties
+android/gradle.properties.production
+android/app/debug.keystore
 
 # Test files
 __tests__/
@@ -94,13 +75,36 @@ __tests__/
 *.test.ts
 *.test.tsx
 
-# Documentation
-*.md
-!README.md
-
 # Source maps
 *.map
 
+# Build directories
+android/build/
+ios/build/
+dist/
+
+# Documentation files (keep only essential ones)
+*_FIX.md
+*_UPDATE.md
+*_GUIDE.md
+*_CHECKLIST.md
+*_FEATURE.md
+SOLUTION_*.md
+WORK_TIMES_*.md
+
+# Scripts
+*.ps1
+*.sh
+*.bat
+
 # Temporary files
-.tmp/
-.temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

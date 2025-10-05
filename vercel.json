@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "outputDirectory": "public",
-  "installCommand": "echo 'Static site - no dependencies needed'",
-  "buildCommand": "echo 'Static site - no build needed'",
-  "framework": null
-}

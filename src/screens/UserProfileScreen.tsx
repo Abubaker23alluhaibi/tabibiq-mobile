@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/theme';
+import { changeLanguage, getCurrentLanguage } from '../locales/index';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -76,7 +77,6 @@ const UserProfileScreen: React.FC = () => {
       setEdit(false);
       Alert.alert('نجح', 'تم حفظ البيانات بنجاح');
     } catch (error) {
-      console.error('Error saving profile:', error);
       Alert.alert('خطأ', 'فشل في حفظ البيانات');
     } finally {
       setLoading(false);
@@ -108,7 +108,7 @@ const UserProfileScreen: React.FC = () => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>العودة للصفحة الرئيسية</Text>
+          <Text style={styles.backButtonText}>{t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -161,7 +161,7 @@ const UserProfileScreen: React.FC = () => {
                 )}
               </View>
               
-              <Text style={styles.headerTitle}>الملف الشخصي</Text>
+              <Text style={styles.headerTitle}>{t('profile.title')}</Text>
             </View>
           </LinearGradient>
 
@@ -171,7 +171,7 @@ const UserProfileScreen: React.FC = () => {
             <View style={styles.infoSection}>
               {/* الاسم */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>الاسم الكامل *</Text>
+                 <Text style={styles.inputLabel}>{t('auth.full_name')} *</Text>
                 <View style={[
                   styles.inputContainer,
                   edit ? styles.inputContainerEdit : styles.inputContainerDisabled
@@ -180,14 +180,14 @@ const UserProfileScreen: React.FC = () => {
                     styles.inputText,
                     edit ? styles.inputTextEdit : styles.inputTextDisabled
                   ]}>
-                    {form.first_name || 'غير محدد'}
+                     {form.first_name || t('common.not_specified')}
                   </Text>
                 </View>
               </View>
 
               {/* البريد الإلكتروني */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>البريد الإلكتروني *</Text>
+                 <Text style={styles.inputLabel}>{t('auth.email')} *</Text>
                 <View style={[
                   styles.inputContainer,
                   edit ? styles.inputContainerEdit : styles.inputContainerDisabled
@@ -196,14 +196,14 @@ const UserProfileScreen: React.FC = () => {
                     styles.inputText,
                     edit ? styles.inputTextEdit : styles.inputTextDisabled
                   ]}>
-                    {form.email || 'غير محدد'}
+                     {form.email || t('common.not_specified')}
                   </Text>
                 </View>
               </View>
 
               {/* رقم الهاتف */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>رقم الهاتف *</Text>
+                 <Text style={styles.inputLabel}>{t('auth.phone')} *</Text>
                 <View style={[
                   styles.inputContainer,
                   edit ? styles.inputContainerEdit : styles.inputContainerDisabled
@@ -212,7 +212,7 @@ const UserProfileScreen: React.FC = () => {
                     styles.inputText,
                     edit ? styles.inputTextEdit : styles.inputTextDisabled
                   ]}>
-                    {form.phone || 'غير محدد'}
+                     {form.phone || t('common.not_specified')}
                   </Text>
                 </View>
               </View>
@@ -232,21 +232,23 @@ const UserProfileScreen: React.FC = () => {
                       style={styles.gradientButton}
                     >
                       <Ionicons name="create" size={20} color={theme.colors.white} />
-                      <Text style={styles.buttonText}>✏️ تعديل البيانات</Text>
+                       <Text style={styles.buttonText}>✏️ {t('profile.edit')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
 
                   {/* زر تغيير كلمة المرور */}
                   <TouchableOpacity 
                     style={styles.passwordButton}
-                    onPress={() => Alert.alert('قريباً', 'سيتم إضافة هذه الميزة قريباً')}
+                    onPress={() => {
+                      navigation.navigate('ChangePassword' as never);
+                    }}
                   >
                     <LinearGradient
                       colors={[theme.colors.buttonOrange, theme.colors.buttonOrangeDark]}
                       style={styles.gradientButton}
                     >
                       <Ionicons name="lock-closed" size={20} color={theme.colors.white} />
-                      <Text style={styles.buttonText}>🔒 تغيير كلمة المرور</Text>
+                     <Text style={styles.buttonText}>🔒 {t('auth.password') || 'كلمة المرور'}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
@@ -263,7 +265,7 @@ const UserProfileScreen: React.FC = () => {
                       style={styles.gradientButton}
                     >
                       <Text style={styles.buttonText}>
-                        {loading ? 'جاري الحفظ...' : '💾 حفظ التغييرات'}
+                         {loading ? t('common.loading') : '💾 ' + t('common.save')}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -275,21 +277,36 @@ const UserProfileScreen: React.FC = () => {
                   >
                     <View style={styles.cancelButtonContent}>
                       <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
-                      <Text style={styles.cancelButtonText}>❌ إلغاء</Text>
+                       <Text style={styles.cancelButtonText}>❌ {t('common.cancel')}</Text>
                     </View>
                   </TouchableOpacity>
                 </>
               )}
             </View>
 
-            {/* خيارات إضافية */}
+      {/* خيارات إضافية */}
             <View style={styles.optionsSection}>
+        {/* اختيار اللغة */}
+        <View style={styles.languageRow}>
+          <Text style={styles.languageLabel}>{t('profile.change_language')}</Text>
+          <View style={styles.languageButtons}>
+            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ar')}>
+              <Text style={styles.langBtnText}>AR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('en')}>
+              <Text style={styles.langBtnText}>EN</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ku')}>
+              <Text style={styles.langBtnText}>KU</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
               <TouchableOpacity 
                 style={styles.optionButton}
                 onPress={() => navigation.navigate('MyAppointments' as never)}
               >
                 <Ionicons name="calendar" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>مواعيدي</Text>
+                <Text style={styles.optionText}>{t('appointments.my_appointments')}</Text>
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
 
@@ -298,7 +315,7 @@ const UserProfileScreen: React.FC = () => {
                 onPress={() => navigation.navigate('MedicineReminder' as never)}
               >
                 <Ionicons name="medical" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>تذكيرات الأدوية</Text>
+                <Text style={styles.optionText}>{t('medicine_reminder.title')}</Text>
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
 
@@ -307,7 +324,7 @@ const UserProfileScreen: React.FC = () => {
                 onPress={() => navigation.navigate('HealthCenters' as never)}
               >
                 <Ionicons name="business" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>المراكز الصحية</Text>
+                <Text style={styles.optionText}>{t('health_centers.title')}</Text>
                 <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -315,7 +332,7 @@ const UserProfileScreen: React.FC = () => {
             {/* زر تسجيل الخروج */}
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Ionicons name="log-out" size={20} color={theme.colors.white} />
-              <Text style={styles.logoutButtonText}>تسجيل الخروج</Text>
+              <Text style={styles.logoutButtonText}>{t('auth.logout')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -528,6 +545,35 @@ const styles = StyleSheet.create({
   },
   optionsSection: {
     marginBottom: theme.spacing.xl,
+  },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
+  },
+  languageLabel: {
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+  },
+  languageButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  langBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primary,
+  },
+  langBtnText: {
+    color: theme.colors.white,
+    fontWeight: 'bold',
   },
   optionButton: {
     flexDirection: 'row',

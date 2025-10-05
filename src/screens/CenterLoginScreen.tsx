@@ -45,7 +45,7 @@ const CenterLoginScreen: React.FC = () => {
           user_type: 'center',
         };
         
-        login(userData);
+        await login(email, password, 'center');
         Alert.alert('نجح', 'تم تسجيل الدخول بنجاح', [
           {
             text: 'حسناً',
@@ -56,7 +56,6 @@ const CenterLoginScreen: React.FC = () => {
         Alert.alert('خطأ', response.data.message || 'فشل في تسجيل الدخول');
       }
     } catch (error) {
-      console.error('Login error:', error);
       Alert.alert('خطأ', 'فشل في تسجيل الدخول. يرجى التحقق من البيانات والمحاولة مرة أخرى.');
     } finally {
       setLoading(false);

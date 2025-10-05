@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Development files
+.git/
+.gitignore
+README.md
+
+# Build artifacts
+dist/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Test files
+__tests__/
+*.test.js
+*.test.ts
+*.test.tsx
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+

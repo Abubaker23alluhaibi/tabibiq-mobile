@@ -30,7 +30,6 @@ const CenterHomeScreen: React.FC = () => {
       const response = await api.get('/center/profile');
       setCenterData(response.data);
     } catch (error) {
-      console.error('Error fetching center data:', error);
       Alert.alert('خطأ', 'فشل في جلب بيانات المركز');
     } finally {
       setLoading(false);

@@ -1,22 +1,72 @@
 {
   "cli": {
-    "version": ">= 5.9.1"
+    "version": ">= 7.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development",
+      "ios": {
+        "resourceClass": "m-medium"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "preview",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
+    "playstore": {
+      "distribution": "store",
+      "channel": "production",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease",
+        "credentialsSource": "remote",
+        "env": {
+          "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8",
+          "android.enableProguardInReleaseBuilds": "true",
+          "android.enableShrinkResourcesInReleaseBuilds": "true",
+          "android.enablePngCrunchInReleaseBuilds": "true"
+        }
+      }
     },
     "production": {
+      "channel": "production",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease",
+        "credentialsSource": "remote",
+        "env": {
+          "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8",
+          "android.enableProguardInReleaseBuilds": "true",
+          "android.enableShrinkResourcesInReleaseBuilds": "true",
+          "android.enablePngCrunchInReleaseBuilds": "true"
+        }
       }
+    },
+    "local": {
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "channel": "local"
     }
   },
   "submit": {
     "production": {}
   }
-} 
+}
