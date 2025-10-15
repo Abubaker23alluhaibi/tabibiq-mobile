@@ -135,7 +135,10 @@ export const mapSpecialtyToLocalized = (specialty: string | number | null | unde
     }
   }
 
-  return raw;
+  // Debug: طباعة التخصص الذي لم يتم العثور عليه
+  console.log(`Specialty not found: "${raw}" (language: ${currentLanguage})`);
+  
+  return raw || i18n.t('common.not_specified');
 };
 
 // دالة لتحويل التخصصات من العربية إلى الإنجليزية (للتسجيل)
@@ -241,7 +244,7 @@ export const mapProvinceToLocalized = (province: string | null | undefined): str
     }
   }
 
-  return raw;
+  return raw || i18n.t('common.not_specified');
 };
 
 // ترجمة فئات التخصصات حسب اللغة الحالية
@@ -265,7 +268,7 @@ export const mapCategoryToLocalized = (category: string | null | undefined): str
   };
 
   const data = categoriesMap[raw] || categoriesMap[raw.toLowerCase()];
-  if (!data) return raw;
+  if (!data) return raw || i18n.t('common.not_specified');
 
   switch (currentLanguage) {
     case 'en':

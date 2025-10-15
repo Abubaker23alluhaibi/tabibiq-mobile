@@ -693,7 +693,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         finalAge = ageNumber;
         finalPatientName = patientName.trim();
         finalPatientPhone = patientPhone.trim();
-        finalBookerName = profile?.first_name || profile?.name || user?.name || 'مستخدم';
+        finalBookerName = profile?.first_name || profile?.name || user?.name || t('common.user');
       } else {
         // التحقق من عمر المريض نفسه
         if (!age.trim()) {
@@ -713,9 +713,9 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         }
 
         finalAge = ageNumber;
-        finalPatientName = profile?.first_name || profile?.name || user?.name || 'مريض';
+        finalPatientName = profile?.first_name || profile?.name || user?.name || t('calendar.patient');
         finalPatientPhone = profile?.phone || user?.phone || '';
-        finalBookerName = profile?.first_name || profile?.name || user?.name || 'مستخدم';
+        finalBookerName = profile?.first_name || profile?.name || user?.name || t('common.user');
       }
 
       // إصلاح تنسيق البيانات المرسلة للخادم - محدث ليتطابق مع قاعدة البيانات
@@ -723,7 +723,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         userId: user?.id, // معرف المستخدم
         doctorId: doctorId, // معرف الطبيب
         userName: finalPatientName, // اسم المريض الفعلي
-        doctorName: doctor?.name || 'طبيب', // اسم الطبيب
+        doctorName: doctor?.name || t('common.doctor'), // اسم الطبيب
         centerName: '', // اسم المركز الصحي (فارغ حالياً)
         date: selectedDate, // التاريخ
         time: selectedTime, // الوقت
@@ -768,7 +768,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         sendAppointmentNotificationToDoctor(
           doctorId,
           response.data?.appointment?._id || Date.now().toString(),
-          profile?.first_name || profile?.name || user?.name || 'مريض',
+          profile?.first_name || profile?.name || user?.name || t('calendar.patient'),
           appointmentDate,
           appointmentDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
         )
@@ -793,8 +793,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         const result = await scheduleAppointmentReminder(
           response.data?.appointment?._id || Date.now().toString(),
           appointmentDate,
-          doctor?.name || doctor?.first_name || doctor?.full_name || 'د. ' + (doctor?.specialty || 'طبيب'),
-          profile?.first_name || profile?.name || user?.name || 'مريض'
+          doctor?.name || doctor?.first_name || doctor?.full_name || t('common.doctor') + ' ' + (doctor?.specialty || t('common.doctor')),
+          profile?.first_name || profile?.name || user?.name || t('calendar.patient')
         );
         } catch (error) {
           throw error;
@@ -876,7 +876,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     }
 
     if (!doctorId) {
-      Alert.alert(t('rating.error'), 'معرف الطبيب غير موجود');
+      Alert.alert(t('rating.error'), t('doctor.id_not_found'));
       return;
     }
 
@@ -944,7 +944,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
   const handleConfirmBookingForOther = () => {
     if (!patientName.trim() || !patientPhone.trim() || !patientAge.trim()) {
-      Alert.alert('خطأ', 'يرجى إدخال جميع البيانات المطلوبة');
+      Alert.alert(t('error.title'), t('validation.all_fields_required'));
       return;
     }
     
@@ -954,7 +954,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     // التحقق من صحة العمر
     const ageNum = parseInt(normalizedAge);
     if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-      Alert.alert('خطأ', 'يرجى إدخال عمر صحيح (1-120)');
+      Alert.alert(t('error.title'), t('validation.age_invalid'));
       return;
     }
     
@@ -989,7 +989,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     if (doctor?.mapLocation) {
       setShowMap(true);
     } else {
-      Alert.alert('معلومات', 'لا يوجد رابط للخريطة');
+      Alert.alert(t('common.info'), t('map.no_link'));
     }
   };
 
@@ -998,7 +998,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       // فتح الرابط في المتصفح
       Linking.openURL(doctor.mapLocation);
     } else {
-      Alert.alert('معلومات', 'لا يوجد رابط للخريطة');
+      Alert.alert(t('common.info'), t('map.no_link'));
     }
   };
 
@@ -1051,7 +1051,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         <View style={styles.disabledDoctorContainer}>
           <View style={styles.disabledDoctorContent}>
             <Ionicons name="lock-closed" size={80} color={theme.colors.error} />
-            <Text style={styles.disabledDoctorTitle}>الطبيب غير متاح</Text>
+            <Text style={styles.disabledDoctorTitle}>{t('doctor.not_available')}</Text>
             <Text style={styles.disabledDoctorMessage}>
               عذراً، هذا الطبيب غير متاح حالياً لحجز المواعيد. يرجى اختيار طبيب آخر من قائمة الأطباء المتاحين.
             </Text>
@@ -1059,7 +1059,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               style={styles.backToDoctorsButton}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backToDoctorsButtonText}>العودة إلى قائمة الأطباء</Text>
+              <Text style={styles.backToDoctorsButtonText}>{t('doctor.back_to_doctors')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1142,7 +1142,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
           <View style={styles.specialtyContainer}>
             <Ionicons name="medical" size={20} color={theme.colors.primary} />
             <Text style={styles.doctorSpecialty}>
-              {doctor.specialty || 'غير محدد'}
+              {doctor.specialty || t('common.not_specified')}
             </Text>
           </View>
 
@@ -1444,7 +1444,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 color={theme.colors.textPrimary}
               />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>اختر موعد الحجز</Text>
+            <Text style={styles.modalTitle}>{t('appointment.choose_appointment_time')}</Text>
           </View>
 
           {!selectedTime && (
@@ -1674,7 +1674,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   </View>
                   <View style={styles.patientInfoRow}>
                     <Text style={styles.patientInfoLabel}>{t('booking_for_other.booker_name')}:</Text>
-                    <Text style={styles.patientInfoValue}>{profile?.first_name || profile?.name || user?.name || 'مستخدم'}</Text>
+                    <Text style={styles.patientInfoValue}>{profile?.first_name || profile?.name || user?.name || t('common.user')}</Text>
                   </View>
                 </View>
               )}

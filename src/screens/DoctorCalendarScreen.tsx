@@ -377,16 +377,16 @@ const DoctorCalendarScreen = () => {
             </Text>
             {/* إضافة رقم المريض */}
             <Text style={styles.patientPhone}>
-              📞 {item.isBookingForOther 
+              {`📞 ${item.isBookingForOther 
                 ? (item.patientPhone || t('calendar.phone_unavailable'))
                 : (item.userId?.phone || item.phone || t('calendar.phone_unavailable'))
-              }
+              }`}
             </Text>
             
             {/* إضافة العمر - محدث ليتعامل مع البيانات الجديدة */}
             {(item.patientAge || item.age) && (
               <Text style={styles.patientAge}>
-                🎂 {t('validation.patient_age')}: {item.patientAge || item.age} {t('validation.years')}
+                {`🎂 ${t('validation.patient_age')}: ${item.patientAge || item.age} ${t('validation.years')}`}
               </Text>
             )}
 

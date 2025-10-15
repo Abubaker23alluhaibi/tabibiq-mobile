@@ -240,7 +240,7 @@ const TopRatedDoctorsScreen = () => {
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
-        <Text style={styles.backButton}>{t('common.back')}</Text>
+        <Text style={styles.backButtonText}>{t('common.back')}</Text>
       </TouchableOpacity>
     </View>
   );

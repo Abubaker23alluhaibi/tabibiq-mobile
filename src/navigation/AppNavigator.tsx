@@ -15,7 +15,9 @@ import DeepLinkHandler from '../components/DeepLinkHandler';
 // @ts-ignore
 
 // الشاشات
-import LandingScreen from '../screens/LandingScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import AppIntroScreen from '../screens/AppIntroScreen';
+import AuthOptionsScreen from '../screens/AuthOptionsScreen';
 import LoginScreen from '../screens/LoginScreen';
 import UserSignUpScreen from '../screens/UserSignUpScreen';
 import UserHomeScreen from '../screens/UserHomeScreen';
@@ -27,7 +29,6 @@ import DoctorProfileScreen from '../screens/DoctorProfileScreen';
 import DoctorAppointmentsScreen from '../screens/DoctorAppointmentsScreen';
 import MedicineReminderScreen from '../screens/MedicineReminderScreen';
 import HealthCentersScreen from '../screens/HealthCentersScreen';
-import CenterLoginScreen from '../screens/CenterLoginScreen';
 import CenterHomeScreen from '../screens/CenterHomeScreen';
 import DoctorCalendarScreen from '../screens/DoctorCalendarScreen';
 import DoctorAnalyticsScreen from '../screens/DoctorAnalyticsScreen';
@@ -85,7 +86,7 @@ const UserTabNavigator = () => {
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 10,
+          paddingBottom: 8,
           paddingTop: 4,
           height: 60,
         },
@@ -159,8 +160,8 @@ const DoctorTabNavigator = () => {
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 3,
-          paddingTop: 3,
+          paddingBottom: 4,
+          paddingTop: 2,
           height: 52,
         },
         headerShown: false,
@@ -267,7 +268,7 @@ const AppNavigator = () => {
       <DeepLinkHandler>
         <Stack.Navigator
           initialRouteName={!user
-            ? (isFirstLaunch ? 'Landing' : 'Login')
+            ? (isFirstLaunch ? 'Welcome' : 'Login')
             : (user.user_type === 'user'
                 ? 'UserHomeStack'
                 : user.user_type === 'doctor'
@@ -292,8 +293,18 @@ const AppNavigator = () => {
             // شاشات غير مسجل الدخول
             <>
               <Stack.Screen
-                name="Landing"
-                component={LandingScreen}
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AppIntro"
+                component={AppIntroScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="AuthOptionsScreen"
+                component={AuthOptionsScreen}
                 options={{ headerShown: false }}
               />
               <Stack.Screen
@@ -305,11 +316,6 @@ const AppNavigator = () => {
                 name="UserSignUp"
                 component={UserSignUpScreen}
                 options={{ title: t('auth.login') }}
-              />
-              <Stack.Screen
-                name="CenterLogin"
-                component={CenterLoginScreen}
-                options={{ title: t('center.login') }}
               />
               <Stack.Screen
                 name="DoctorDetails"

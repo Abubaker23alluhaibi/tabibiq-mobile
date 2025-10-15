@@ -1016,7 +1016,7 @@ const MedicineReminderScreen: React.FC = () => {
                   setShowAddModal(true);
                 }}
               >
-                <Text style={styles.simpleCancelButtonText}>إلغاء</Text>
+                <Text style={styles.simpleCancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </View>

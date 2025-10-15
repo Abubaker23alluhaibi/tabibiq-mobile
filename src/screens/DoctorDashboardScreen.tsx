@@ -309,12 +309,12 @@ const DoctorDashboardScreen = () => {
           return {
             id: appointment._id,
             // معلومات الطبيب (الطبيب الحالي)
-            doctorName: profile?.first_name || profile?.name || user?.name || 'طبيب',
-            doctorSpecialty: profile?.specialty || 'تخصص عام',
+            doctorName: profile?.first_name || profile?.name || user?.name || t('common.doctor'),
+            doctorSpecialty: profile?.specialty || t('common.general_specialty'),
             doctorImage: getDoctorImage() || 'https://via.placeholder.com/50',
             // معلومات المريض - محدث ليتعامل مع الحجز لشخص آخر
-            patientName: appointment.patientName || appointment.userName || appointment.userId?.first_name || 'مريض غير محدد',
-            userName: appointment.userName || appointment.userId?.first_name || 'مريض غير محدد',
+            patientName: appointment.patientName || appointment.userName || appointment.userId?.first_name || t('calendar.patient_unknown'),
+            userName: appointment.userName || appointment.userId?.first_name || t('calendar.patient_unknown'),
             patientPhone: appointment.isBookingForOther 
               ? (appointment.patientPhone || '')
               : (appointment.userId?.phone || appointment.patientPhone || ''),
@@ -326,7 +326,7 @@ const DoctorDashboardScreen = () => {
             date: formattedDate,
             time: appointment.time,
             status: appointment.status,
-            type: appointment.reason || 'استشارة',
+            type: appointment.reason || t('calendar.consultation'),
             formattedDateWithDay: formatDateWithDay(formattedDate),
             duration: appointment.duration || 30, // إضافة عرض مدة الموعد
             attendance: appointment.attendance || 'not_marked', // إضافة حالة الحضور
@@ -517,7 +517,7 @@ const DoctorDashboardScreen = () => {
       // إرسال إشعار فوري للدكتور
       await NotificationService.sendNewAppointmentNotificationToDoctor(
         profile?._id || '',
-        appointmentData.patientName || 'مريض',
+        appointmentData.patientName || t('calendar.patient'),
         appointmentData.date || new Date().toISOString(),
         appointmentData.time || '',
         appointmentData._id || ''
@@ -573,7 +573,7 @@ const DoctorDashboardScreen = () => {
                       
                       // إرسال إشعار محلي فوري مع صوت واهتزاز قوي
                       await NotificationService.sendAppointmentCancellationLocalNotification(
-                        'تم إلغاء الموعد',
+                        t('appointment.cancelled'),
                         `تم إلغاء موعدك مع ${appointment?.doctorName} في ${appointment?.date} الساعة ${appointment?.time}`,
                         {
                           type: 'appointment_cancelled',
@@ -663,22 +663,22 @@ const DoctorDashboardScreen = () => {
             {/* عند الحجز للنفس، اعرض userName (اسم المستخدم) */}
             <Text style={styles.patientName}>
               {item.isBookingForOther 
-                ? (item.patientName || item.userName || 'مريض غير محدد')
-                : (item.userName || item.patientName || item.userId?.first_name || 'مريض غير محدد')
+                ? (item.patientName || item.userName || t('calendar.patient_unknown'))
+                : (item.userName || item.patientName || item.userId?.first_name || t('calendar.patient_unknown'))
               }
             </Text>
             <Text style={styles.appointmentType}>
-              {item.type || item.reason || 'استشارة'}
+              {item.type || item.reason || t('calendar.consultation')}
             </Text>
             {/* إضافة رقم المريض */}
             <Text style={styles.patientPhone}>
-              📞 {item.patientPhone || item.userId?.phone || item.phone || 'رقم غير متوفر'}
+              {`📞 ${item.patientPhone || item.userId?.phone || item.phone || t('calendar.phone_unavailable')}`}
             </Text>
             
             {/* إضافة العمر - محدث ليتعامل مع البيانات الجديدة */}
             {(item.patientAge || item.age) && (
               <Text style={styles.patientAge}>
-                🎂 {t('validation.patient_age')}: {item.patientAge || item.age} {t('validation.years')}
+                {`🎂 ${t('validation.patient_age')}: ${item.patientAge || item.age} ${t('validation.years')}`}
               </Text>
             )}
 
@@ -713,7 +713,7 @@ const DoctorDashboardScreen = () => {
 
         <View style={styles.appointmentDuration}>
           <Ionicons name="timer" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles.durationText}>{item.duration || 30} دقيقة</Text>
+          <Text style={styles.durationText}>{item.duration || 30} {t('common.minutes')}</Text>
         </View>
 
         {/* إضافة التاريخ مع يوم الأسبوع */}
@@ -777,7 +777,7 @@ const DoctorDashboardScreen = () => {
           style={[styles.cancelButton, { backgroundColor: '#FF6B6B', marginTop: 5 }]}
           onPress={testImmediateNotification}
         >
-          <Text style={styles.cancelButtonText}>اختبار الإشعار</Text>
+          <Text style={styles.cancelButtonText}>{t('notifications.test_notification')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -828,7 +828,7 @@ const DoctorDashboardScreen = () => {
   // دالة لتحديد الحضور
   const markAttendance = useCallback(async (appointmentId: string, attendance: 'present' | 'absent') => {
     if (!profile?._id) {
-      Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
+      Alert.alert(t('error.title'), t('auth.login_required'));
       return;
     }
 
@@ -881,18 +881,18 @@ const DoctorDashboardScreen = () => {
         }, 500);
         
         Alert.alert(
-          'نجح', 
-          `تم تحديث حالة الحضور إلى: ${attendance === 'present' ? 'حاضر' : 'غائب'}`,
-          [{ text: 'حسناً', style: 'default' }]
+          t('common.success'), 
+          `${t('attendance.status_updated')}: ${attendance === 'present' ? t('attendance.present') : t('attendance.absent')}`,
+          [{ text: t('common.ok'), style: 'default' }]
         );
       } else {
-        Alert.alert('خطأ', 'فشل في تحديث حالة الحضور');
+        Alert.alert(t('error.title'), t('attendance.update_failed'));
         
         // استعادة البيانات الأصلية
         setAppointments(appointmentsRef.current);
       }
     } catch (error) {
-      Alert.alert('خطأ', 'حدث خطأ أثناء تحديث حالة الحضور');
+      Alert.alert(t('error.title'), t('attendance.update_error'));
       
       // استعادة البيانات الأصلية
       setAppointments(appointmentsRef.current);
@@ -990,10 +990,10 @@ const DoctorDashboardScreen = () => {
         <View style={styles.todayAppointmentsList}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {searchTerm.trim() ? 'نتائج البحث' : `${t('doctor.today_appointments')} - ${todayDayName}`}
+              {searchTerm.trim() ? t('search.results') : `${t('doctor.today_appointments')} - ${todayDayName}`}
             </Text>
             <Text style={styles.sectionCount}>
-              {searchTerm.trim() ? 'لا توجد نتائج للبحث' : t('doctor.no_confirmed_appointments_for_day')}
+              {searchTerm.trim() ? t('search.no_results') : t('doctor.no_confirmed_appointments_for_day')}
             </Text>
           </View>
           
@@ -1002,7 +1002,7 @@ const DoctorDashboardScreen = () => {
             <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="البحث في المواعيد..."
+              placeholder={t('search.appointments')}
               value={searchTerm}
               onChangeText={setSearchTerm}
               placeholderTextColor={theme.colors.textSecondary}
@@ -1017,19 +1017,19 @@ const DoctorDashboardScreen = () => {
           {searchTerm.trim() ? (
             <View style={styles.emptyState}>
               <Ionicons name="search-outline" size={48} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyText}>لا توجد نتائج للبحث: "{searchTerm}"</Text>
+              <Text style={styles.emptyText}>{t('search.no_results_for')}: "{searchTerm}"</Text>
               <Text style={styles.emptySubtext}>
-                جرب البحث بكلمات أخرى أو تأكد من وجود مواعيد
+                {t('search.try_different_criteria')}
               </Text>
               <Text style={styles.emptySubtext}>
-                عدد المواعيد المتاحة: {allAppointments.length}
+                {t('appointments.available_count')}: {allAppointments.length}
               </Text>
             </View>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="calendar-outline" size={48} color={theme.colors.textSecondary} />
               <Text style={styles.emptyText}>{t('doctor.no_confirmed_appointments_for_day')}</Text>
-              <Text style={styles.emptySubtext}>آخر تحديث: {new Date().toLocaleTimeString('ar-IQ')}</Text>
+              <Text style={styles.emptySubtext}>{t('common.last_updated')}: {new Date().toLocaleTimeString('ar-IQ')}</Text>
             </View>
           )}
         </View>
@@ -1040,11 +1040,11 @@ const DoctorDashboardScreen = () => {
       <View style={styles.todayAppointmentsList}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {searchTerm.trim() ? 'نتائج البحث' : `${t('doctor.today_appointments')} - ${todayDayName}`}
+            {searchTerm.trim() ? t('search.results') : `${t('doctor.today_appointments')} - ${todayDayName}`}
           </Text>
           <Text style={styles.sectionCount}>
             {todayAppointments.length} {todayAppointments.length === 1 ? t('doctor.appointments_count') : t('doctor.appointments_count_plural')}
-            {searchTerm.trim() && ` (نتائج البحث)`}
+            {searchTerm.trim() && ` (${t('search.results')})`}
           </Text>
         </View>
         
@@ -1053,7 +1053,7 @@ const DoctorDashboardScreen = () => {
           <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="البحث في المواعيد..."
+            placeholder={t('search.appointments')}
             value={searchTerm}
             onChangeText={setSearchTerm}
             placeholderTextColor={theme.colors.textSecondary}
@@ -1108,7 +1108,7 @@ const DoctorDashboardScreen = () => {
             })()}
             <View>
               <Text style={styles.doctorName}>{profile?.first_name || profile?.name || user?.name}</Text>
-              <Text style={styles.doctorSpecialty}>{profile?.specialty || 'طبيب'}</Text>
+              <Text style={styles.doctorSpecialty}>{profile?.specialty || t('common.doctor')}</Text>
             </View>
           </View>
           

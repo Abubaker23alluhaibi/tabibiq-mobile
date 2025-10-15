@@ -1,6 +1,8 @@
 // أنواع التنقل
 export type RootStackParamList = {
-  Landing: undefined;
+  Welcome: undefined;
+  AppIntro: undefined;
+  AuthOptionsScreen: undefined;
   Login: undefined;
   UserSignUp: undefined;
   UserHomeStack: undefined;
@@ -12,7 +14,6 @@ export type RootStackParamList = {
   DoctorAppointments: undefined;
   MedicineReminder: undefined;
   HealthCenters: undefined;
-  CenterLogin: undefined;
   CenterHome: undefined;
   DoctorCalendar: undefined;
   DoctorAnalytics: undefined;

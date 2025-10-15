@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { accountManagementAPI } from '../services/api';
 import { theme } from '../utils/theme';
@@ -11,6 +12,7 @@ interface AccountStatusCheckerProps {
 
 const AccountStatusChecker: React.FC<AccountStatusCheckerProps> = ({ children }) => {
   const { profile, signOut } = useAuth();
+  const { t } = useTranslation();
   const [isChecking, setIsChecking] = useState(false);
   const [accountDisabled, setAccountDisabled] = useState(false);
 
@@ -44,11 +46,11 @@ const AccountStatusChecker: React.FC<AccountStatusCheckerProps> = ({ children })
 
   const showDisabledAccountAlert = () => {
     Alert.alert(
-      'الحساب معطل',
-      'تم تعطيل حسابك مؤقتاً من قبل الإدارة. يرجى التواصل مع الدعم الفني.',
+      t('account_disabled'),
+      t('account_disabled_message'),
       [
         {
-          text: 'تسجيل الخروج',
+          text: t('logout'),
           onPress: () => signOut(),
           style: 'destructive'
         }
@@ -62,12 +64,12 @@ const AccountStatusChecker: React.FC<AccountStatusCheckerProps> = ({ children })
       <View style={styles.disabledContainer}>
         <View style={styles.disabledContent}>
           <Ionicons name="lock-closed" size={80} color={theme.colors.error} />
-          <Text style={styles.disabledTitle}>الحساب معطل</Text>
+          <Text style={styles.disabledTitle}>{t('account_disabled')}</Text>
           <Text style={styles.disabledMessage}>
-            تم تعطيل حسابك مؤقتاً من قبل الإدارة. يرجى التواصل مع الدعم الفني.
+            {t('account_disabled_message')}
           </Text>
           <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
-            <Text style={styles.signOutButtonText}>تسجيل الخروج</Text>
+            <Text style={styles.signOutButtonText}>{t('logout')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -77,7 +79,7 @@ const AccountStatusChecker: React.FC<AccountStatusCheckerProps> = ({ children })
   if (isChecking) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>جاري التحقق من حالة الحساب...</Text>
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }

@@ -120,8 +120,8 @@ const LoginScreen = () => {
   };
 
 
-  const navigateToLanding = () => {
-    navigation.navigate('Landing' as never);
+  const navigateToWelcome = () => {
+    navigation.navigate('Welcome' as never);
   };
 
   return (
@@ -145,7 +145,7 @@ const LoginScreen = () => {
           {/* Back Button - زر الرجوع */}
           <TouchableOpacity 
             style={styles.backButton} 
-            onPress={navigateToLanding}
+            onPress={navigateToWelcome}
           >
             <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
           </TouchableOpacity>
@@ -253,7 +253,7 @@ const LoginScreen = () => {
             <View style={styles.welcomeMessage}>
               <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
               <Text style={styles.welcomeText}>
-                مرحباً! تم حفظ بياناتك من التسجيل، اضغط "تسجيل الدخول" للمتابعة
+{t('auth.welcome_saved_data')}
               </Text>
             </View>
           )}
@@ -375,7 +375,7 @@ const LoginScreen = () => {
               onPress={navigateToDoctorSignUp}
             >
               <Ionicons name="open-outline" size={22} color={theme.colors.white} />
-              <Text style={styles.signUpButtonText}>{t('auth.create_doctor_account')} (موقع الويب)</Text>
+              <Text style={styles.signUpButtonText}>{t('auth.create_doctor_account')} ({t('common.website')})</Text>
             </TouchableOpacity>
 
           </View>

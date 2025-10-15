@@ -297,7 +297,7 @@ const DoctorProfileEditScreen: React.FC = () => {
                 <Ionicons name="information-circle" size={20} color={colors.white} />
               </View>
             </View>
-            <Text style={styles.imageHint}>الصورة متاحة من موقع الويب فقط</Text>
+            <Text style={styles.imageHint}>{t('profile.image_web_only')}</Text>
           </View>
         ))}
 
@@ -312,7 +312,7 @@ const DoctorProfileEditScreen: React.FC = () => {
               style={styles.inputContainer}
               onPress={() => openSelectionModal('category')}
             >
-              <Text style={styles.inputLabel}>فئة التخصص</Text>
+              <Text style={styles.inputLabel}>{t('auth.specialty_category')}</Text>
               <View style={styles.inputContainer}>
                 <Text style={[styles.input, !selectedCategory && styles.placeholder]}>
                   {selectedCategory || 'اختر فئة التخصص'}

@@ -11,14 +11,14 @@ const HealthCentersScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>المراكز الصحية</Text>
+        <Text style={styles.headerTitle}>{t('health_centers.title')}</Text>
       </View>
 
       <View style={styles.content}>
         <View style={styles.emptyContainer}>
           <Ionicons name="business" size={64} color={theme.colors.textSecondary} />
-          <Text style={styles.emptyTitle}>المراكز الصحية</Text>
-          <Text style={styles.emptySubtitle}>سيتم إضافته قريباً</Text>
+          <Text style={styles.emptyTitle}>{t('health_centers.title')}</Text>
+          <Text style={styles.emptySubtitle}>{t('health_centers.coming_soon')}</Text>
         </View>
       </View>
     </View>

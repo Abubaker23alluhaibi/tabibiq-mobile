@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../utils/theme';
 import { advertisementsAPI, Advertisement } from '../services/advertisementsAPI';
 
@@ -25,6 +26,7 @@ const AdvertisementSlider: React.FC<AdvertisementSliderProps> = ({
   target = 'both',
   style 
 }) => {
+  const { t } = useTranslation();
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,7 @@ const AdvertisementSlider: React.FC<AdvertisementSliderProps> = ({
     return (
       <View style={[styles.loadingContainer, style]}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>جاري تحميل الإعلانات...</Text>
+        <Text style={styles.loadingText}>{t('advertisements.loading')}</Text>
       </View>
     );
   }

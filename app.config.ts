@@ -39,7 +39,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     package: 'com.tabibiq.mobile',
-    versionCode: 8,
+    versionCode: 10,
+    softwareKeyboardLayoutMode: 'pan',
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
@@ -81,21 +82,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl: 'https://web-production-78766.up.railway.app',
     environment: 'production',
   },
+  plugins: [
+    "expo-font"
+  ],
   scheme: 'tabibiq',
-  linking: {
-    prefixes: ['tabibiq://', 'https://tabib-iq.com'],
-    config: {
-      screens: {
-        DoctorDetails: {
-          path: '/doctor/:doctorId',
-          parse: {
-            doctorId: (doctorId: string) => doctorId,
-          },
-        },
-        MyAppointments: '/appointments',
-        UserProfile: '/profile',
-        Notifications: '/notifications',
-      },
-    },
-  },
 });

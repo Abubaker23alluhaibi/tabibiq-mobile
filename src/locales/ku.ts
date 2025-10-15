@@ -24,6 +24,9 @@ export default {
     unknown_doctor: 'پزیشکی نەناسراو',
     not_specified: 'دیاری نەکراوە',
     years: 'ساڵ',
+    doctor: 'پزیشک',
+    general_specialty: 'پزیشکی گشتی',
+    clinic_location: 'شوێنی کلینیک',
     copied: 'کۆپی کراوە',
     copy_link: 'کۆپی کردنی لینک',
     minutes: 'خولەک',
@@ -307,7 +310,7 @@ export default {
     signup_error: 'هەڵە لە دروستکردنی هەژمار',
     signup_error_message:
       'هەڵەیەک ڕوویدا لە کاتی دروستکردنی هەژمارەکەت. تکایە دووبارە هەوڵ بدە.',
-    login_error: 'هەڵە لە چوونەژوورەوە',
+    view_welcome_screens: 'پەڕەکانی بەخێرهاتن پیشان بدە',
     login_error_message: 'ئیمەیڵ یان وشەی نهێنی هەڵەیە.',
     doctor_signup: 'چوونەژوورەوە وەک دکتۆر',
     signup_as_doctor: 'چوونەژوورەوە وەک دکتۆر',
@@ -628,6 +631,21 @@ export default {
     cancel: 'هەڵوەشاندنەوە',
   },
 
+  // پزیشکەکان
+  doctors: {
+    available: 'بەردەست',
+    not_available: 'بەردەست نییە',
+    rating: 'هەڵسەنگاندن',
+    experience: 'ئەزموون',
+    specialty: 'تایبەتمەندی',
+    location: 'شوێن',
+    book_appointment: 'نەشتەرگەری تۆمارکردن',
+    view_profile: 'بینینی پڕۆفایل',
+    call: 'پەیوەندی',
+    message: 'پەیام',
+    filtered: 'فلتەرکراو',
+  },
+
   // گەڕان
   search: {
     find_doctor: 'دکتۆر بدۆزەوە',
@@ -635,6 +653,9 @@ export default {
     province: 'پارێزگا',
     specialty: 'تایبەتمەندی',
     apply_filters: 'جێبەجێکردنی فلتەرەکان',
+    placeholder: 'گەڕان بۆ پزیشک، تایبەتمەندی، یان پارێزگا...',
+    no_results: 'هیچ ئەنجامێک نەدۆزرایەوە',
+    try_different_criteria: 'تاقی بکەرەوە بە پێداویستییە جیاوازەکان',
   },
 
   // فلتەرەکانی گەڕان
@@ -981,6 +1002,52 @@ export default {
   ],
 
   // پەڕەی سەرەکی
+  // Welcome Screens
+  welcome: {
+    title: 'بەخێربێیت بۆ TabibiQ',
+    subtitle: 'پلاتفۆرمی پێشەنگی دکتۆری عێراق کە نەخۆشەکان بە دکتۆر و ناوەندە تەندروستییەکانەوە دەبەستێتەوە',
+    get_started: 'دەست پێبکە',
+    already_have_account: 'هەژمارێکت هەیە؟',
+    icons: {
+      heart: 'دڵ',
+      medical: 'پزیشکی',
+      pulse: 'لێدان',
+      bandage: 'باند',
+      fitness: 'تەندروستی',
+      shield: 'پارێزگاری',
+    },
+  },
+
+  intro: {
+    title: 'ناساندنی ئەپ',
+    main_title: 'تایبەتمەندییەکانی TabibiQ بۆ بەدەست بێنە',
+    main_subtitle: 'پلاتفۆرمێکی پزیشکی یەکخراو کە نەخۆش، دکتۆر و ناوەندە تەندروستییەکان کۆدەکاتەوە',
+    continue: 'بەردەوام بە',
+    skip_to_login: 'بپەڕێ بۆ چوونەژوورەوە',
+  },
+
+  how_to_use: {
+    title: 'چۆن بەکاربهێنیت',
+    benefits_title: 'بۆچی TabibiQ؟',
+    benefit1: 'ئاسانی لە گەڕان و تۆمارکردنی دکتۆر',
+    benefit2: 'سەلامەتی و تایبەتی تەواو بۆ داتاکانت',
+    benefit3: 'ئەبەسەرھاتنی زیرەک بۆ نەشتەرگەری و دەرمان',
+    benefit4: 'پشتگیری فرە زمان (عەرەبی، ئینگلیزی، کوردی)',
+    get_started: 'دەست بە گەشتە تەندروستیەکەت بکە',
+    skip_to_login: 'بپەڕێ بۆ چوونەژوورەوە',
+  },
+
+  auth_options: {
+    title: 'هەڵبژاردنەکانی چوونەژوورەوە',
+    welcome_message: 'دڵنیاین کە پەیوەندیمان پێکەوە!',
+    welcome_subtitle_simple: 'ڕێگای گونجاو هەڵبژێرە بۆ دەستپێکردن',
+    patient_signup: 'تۆمارکردنی نەخۆشی نوێ',
+    patient_signup_desc: 'هەژمارێکی نوێ دروست بکە بۆ دەستگەیشتن بە هەموو خزمەتگوزارییە پزیشکییەکان',
+    patient_login: 'چوونەژوورەوەی نەخۆش',
+    patient_login_desc: 'چوونەژوورەوە بکە ئەگەر پێشتر هەژمارێکت هەبووە',
+    additional_info: 'هەموو داتاکان پارێزراوە و بە نوێترین تەکنەلۆجیاکان شەفاف کراوە',
+  },
+
   landing: {
     title: 'پلاتفۆرمی TabibiQ',
     highlight: 'پێشەنگ',

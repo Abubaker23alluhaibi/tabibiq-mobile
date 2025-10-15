@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { api, appointmentsAPI } from '../services/api';
-import { getLocalizedDayName } from '../utils/dateUtils';
+import { mapSpecialtyToLocalized, mapProvinceToLocalized } from '../utils/specialtyMapper';
 import Toast from '../components/Toast';
 import CustomModal from '../components/CustomModal';
 import { useToast } from '../hooks/useToast';
@@ -105,8 +105,8 @@ const MyAppointmentsScreen = () => {
               appointment.doctor?._id ||
               appointment.doctor?.id,
             doctorName:
-              appointment.doctorName || appointment.doctorId?.name || 'طبيب',
-            doctorSpecialty: appointment.doctorId?.specialty || 'تخصص عام',
+              appointment.doctorName || appointment.doctorId?.name || t('common.doctor'),
+            doctorSpecialty: appointment.doctorId?.specialty || t('common.general_specialty'),
             doctorImage:
               appointment.doctorId?.image ||
               appointment.doctorId?.profile_image ||
@@ -118,7 +118,7 @@ const MyAppointmentsScreen = () => {
             location:
               appointment.doctorId?.clinicLocation ||
               appointment.doctorId?.province ||
-              'موقع العيادة',
+              t('common.clinic_location'),
             reason: appointment.reason || '',
             duration: appointment.duration || 30,
             // إضافة بيانات المريض للحجز لشخص آخر
@@ -401,7 +401,7 @@ const MyAppointmentsScreen = () => {
           />
           <View>
             <Text style={styles.doctorName}>{item.doctorName}</Text>
-            <Text style={styles.doctorSpecialty}>{item.doctorSpecialty}</Text>
+            <Text style={styles.doctorSpecialty}>{mapSpecialtyToLocalized(item.doctorSpecialty)}</Text>
           </View>
           <Ionicons
             name="chevron-forward"

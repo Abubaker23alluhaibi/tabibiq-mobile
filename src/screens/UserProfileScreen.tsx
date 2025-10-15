@@ -102,8 +102,8 @@ const UserProfileScreen: React.FC = () => {
         <StatusBar backgroundColor={theme.colors.gradientStart} barStyle="light-content" />
         <View style={styles.loadingContent}>
           <Text style={styles.loadingIcon}>⏳</Text>
-          <Text style={styles.loadingTitle}>جاري تحميل البيانات...</Text>
-          <Text style={styles.loadingSubtitle}>يرجى الانتظار قليلاً</Text>
+          <Text style={styles.loadingTitle}>{t('common.loading')}</Text>
+          <Text style={styles.loadingSubtitle}>{t('common.please_wait')}</Text>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -131,7 +131,7 @@ const UserProfileScreen: React.FC = () => {
         onPress={() => navigation.goBack()}
       >
         <Ionicons name="arrow-back" size={20} color={theme.colors.purple} />
-        <Text style={styles.backButtonText}>العودة للصفحة الرئيسية</Text>
+        <Text style={styles.backButtonText}>{t('common.back_to_home')}</Text>
       </TouchableOpacity>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
