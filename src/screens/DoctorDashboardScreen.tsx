@@ -1230,8 +1230,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingBottom: 16,
     paddingHorizontal: 20,
   },
   headerContent: {

@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -959,7 +960,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   topBar: {
-    paddingTop: 34,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingBottom: 12,
     paddingHorizontal: 16,
     backgroundColor: theme.colors.background,
@@ -968,8 +969,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingTop: 34,
-    paddingBottom: 12,
+    paddingTop: 20,
+    paddingBottom: 8,
     paddingHorizontal: 16,
   },
   headerContent: {

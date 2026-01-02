@@ -1424,7 +1424,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
           style={styles.fixedBookingButton}
           onPress={() => setShowCalendar(true)}
         >
-          <Ionicons name="calendar" size={20} color={theme.colors.white} />
+          <Ionicons name="calendar" size={18} color={theme.colors.white} />
           <Text style={styles.fixedBookingButtonText}>{t('appointment.book_appointment')}</Text>
         </TouchableOpacity>
       </View>
@@ -2538,14 +2538,14 @@ const styles = StyleSheet.create({
   },
   fixedBookingContainer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: Platform.OS === 'ios' ? 0 : 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     backgroundColor: theme.colors.white,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 26,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     shadowColor: '#000',
@@ -2561,15 +2561,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   fixedBookingButtonText: {
     color: theme.colors.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   fixedMapButton: {
     backgroundColor: theme.colors.success,

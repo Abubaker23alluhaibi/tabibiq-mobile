@@ -323,8 +323,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingTop: 30,
+    paddingBottom: 10,
     paddingHorizontal: 16,
   },
   headerContent: {

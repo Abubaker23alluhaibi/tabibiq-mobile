@@ -119,17 +119,17 @@ const UserTabNavigator = () => {
             iconName = 'help-outline';
           }
 
-          return <Ionicons name={iconName} size={20} color={color} />;
+          return <Ionicons name={iconName} size={24} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 9, marginTop: -4 },
-        tabBarIconStyle: { marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 11, marginTop: -4, marginBottom: 2 },
+        tabBarIconStyle: { marginTop: -10, marginBottom: 4 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
           paddingBottom: Platform.OS === 'android' ? 25 : 8,
-          paddingTop: 4,
+          paddingTop: 16,
           height: Platform.OS === 'android' ? 70 : 55,
           elevation: 8,
           shadowColor: '#000',
@@ -198,17 +198,17 @@ const DoctorTabNavigator = () => {
             iconName = 'help-outline';
           }
 
-          return <Ionicons name={iconName} size={20} color={color} />;
+          return <Ionicons name={iconName} size={24} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 9, marginTop: -4 },
-        tabBarIconStyle: { marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 11, marginTop: -8, marginBottom: 2 },
+        tabBarIconStyle: { marginTop: -2 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
           paddingBottom: Platform.OS === 'android' ? 25 : 3,
-          paddingTop: 3,
+          paddingTop: 8,
           height: Platform.OS === 'android' ? 70 : 50,
           elevation: 8,
           shadowColor: '#000',
@@ -333,10 +333,12 @@ const AppNavigator = () => {
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.primary,
+              height: Platform.OS === 'ios' ? 60 : 56,
             },
             headerTintColor: theme.colors.white,
             headerTitleStyle: {
               fontWeight: 'bold',
+              fontSize: 18,
             },
             cardStyle: { backgroundColor: theme.colors.background },
           }}

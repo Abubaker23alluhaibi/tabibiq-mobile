@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: theme.colors.primary,
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 30,
   },
   headerTitle: {
     fontSize: 24,
