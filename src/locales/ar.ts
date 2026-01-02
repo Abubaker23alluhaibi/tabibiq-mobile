@@ -74,6 +74,13 @@ export default {
     error_loading: 'خطأ في تحميل الإعلانات',
   },
 
+  // الإعلانات
+  advertisements: {
+    loading: 'جاري تحميل الإعلانات...',
+    no_advertisements: 'لا توجد إعلانات متاحة',
+    error_loading: 'خطأ في تحميل الإعلانات',
+  },
+
   // أسماء الأيام
   day_names: {
     sunday: 'الأحد',
