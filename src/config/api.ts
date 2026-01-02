@@ -62,10 +62,6 @@ export const API_CONFIG = {
     return `${this.BASE_URL}/medicine-reminders`;
   },
   
-  get HEALTH_CENTERS() {
-    return `${this.BASE_URL}/health-centers`;
-  },
-  
   get NOTIFICATIONS() {
     return `${this.BASE_URL}/notifications`;
   },

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api';
+import { getToken as getSecureToken, saveToken as saveSecureToken, deleteToken as deleteSecureToken } from '../utils/secureStorage';
 
 const API_BASE_URL = API_CONFIG.BASE_URL;
 
@@ -20,10 +21,25 @@ const validateInput = (input: any): boolean => {
   return true;
 };
 
+// استخدام SecureStore للحصول على التوكن
 const getToken = async (): Promise<string | null> => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    return token || null;
+    // محاولة القراءة من SecureStore أولاً
+    const token = await getSecureToken();
+    if (token) {
+      return token;
+    }
+    
+    // Fallback: محاولة القراءة من AsyncStorage (للتوافق مع الإصدارات القديمة)
+    const oldToken = await AsyncStorage.getItem('token');
+    if (oldToken) {
+      // نقل التوكن إلى SecureStore
+      await saveSecureToken(oldToken);
+      await AsyncStorage.removeItem('token');
+      return oldToken;
+    }
+    
+    return null;
   } catch (error) {
     return null;
   }
@@ -584,7 +600,7 @@ export const authAPI = {
     try {
       const data = await api.post('/login', { email, password }, { includeAuth: false });
       if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
+        await saveSecureToken(data.token);
       }
       return data;
     } catch (error) {
@@ -596,7 +612,7 @@ export const authAPI = {
     try {
       const data = await api.post('/register', userData, { includeAuth: false });
       if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
+        await saveSecureToken(data.token);
       }
       return data;
     } catch (error) {
@@ -607,7 +623,7 @@ export const authAPI = {
   logout: async () => {
     try {
       const data = await api.post('/logout');
-      await AsyncStorage.removeItem('token');
+      await deleteSecureToken();
       return data;
     } catch (error) {
       handleError(error);
@@ -652,7 +668,7 @@ export const authAPI = {
     try {
       const data = await api.post('/refresh-token', {}, { includeAuth: true });
       if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
+        await saveSecureToken(data.token);
         // تم تجديد التوكن بنجاح
       }
       return data;

@@ -1,0 +1,406 @@
+import React, { useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withTiming,
+  withSequence,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
+import { theme } from '../utils/theme';
+import { isRTL, changeLanguage } from '../locales';
+
+const { width, height } = Dimensions.get('window');
+
+// Animated Icon Component
+const AnimatedMedicalIcon = ({
+  iconName,
+  iconSize,
+  style,
+  rotation,
+  scale,
+}: {
+  iconName: any;
+  iconSize: number;
+  style: any;
+  rotation: Animated.SharedValue<number>;
+  scale: Animated.SharedValue<number>;
+}) => {
+  const rotationStyle = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${rotation.value}deg` },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <Animated.View style={[styles.medicalIcon, style, rotationStyle]}>
+      <Ionicons name={iconName} size={iconSize} color="#FFD700" />
+    </Animated.View>
+  );
+};
+
+const WelcomeScreen = () => {
+  const navigation = useNavigation();
+  const { t, i18n } = useTranslation();
+
+  // Animation values
+  const titleTranslateY = useSharedValue(50);
+  const titleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(50);
+  const subtitleOpacity = useSharedValue(0);
+  const buttonScale = useSharedValue(0);
+  const buttonOpacity = useSharedValue(0);
+  const iconRotations = Array.from({ length: 8 }, () => useSharedValue(0));
+  const iconScales = Array.from({ length: 8 }, () => useSharedValue(0));
+
+  useEffect(() => {
+    // Title animation
+    titleTranslateY.value = withSpring(0, { damping: 12, stiffness: 100 });
+    titleOpacity.value = withTiming(1, { duration: 600 });
+
+    // Subtitle animation
+    setTimeout(() => {
+      subtitleTranslateY.value = withSpring(0, { damping: 12, stiffness: 100 });
+      subtitleOpacity.value = withTiming(1, { duration: 600 });
+    }, 200);
+
+    // Medical icons animations
+    iconRotations.forEach((rotation, index) => {
+      setTimeout(() => {
+        // Rotate once from 0 to 360 and then stop at 0
+        rotation.value = withSequence(
+          withTiming(360, { duration: 1500 + index * 150, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 0 })
+        );
+        iconScales[index].value = withSpring(1, { damping: 8, stiffness: 50 });
+      }, 400 + index * 100);
+    });
+
+    // Buttons animation
+    setTimeout(() => {
+      buttonScale.value = withSpring(1, { damping: 10, stiffness: 100 });
+      buttonOpacity.value = withTiming(1, { duration: 600 });
+    }, 600);
+  }, []);
+
+  const navigateToNext = () => {
+    navigation.navigate('Login' as never);
+  };
+
+  const navigateToLogin = () => {
+    navigation.navigate('Login' as never);
+  };
+
+  return (
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoText}>
+              <Text style={styles.logoTitle}>{t('landing.platform_title')}</Text>
+              <Text style={styles.logoSubtitle}>{t('landing.platform_subtitle')}</Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity style={styles.languageButton} onPress={() => {
+            const next = i18n.language === 'ar' ? 'en' : i18n.language === 'en' ? 'ku' : 'ar';
+            changeLanguage(next);
+          }}>
+            <Ionicons name="language" size={20} color="#FFFFFF" />
+            <Text style={styles.languageText}>
+              {i18n.language === 'ar' ? 'العربية' : i18n.language === 'en' ? 'English' : 'کوردی'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Main Content */}
+      <View style={styles.content}>
+        <View style={styles.welcomeContainer}>
+          {/* Welcome Text with Animation */}
+          <Animated.View
+            style={useAnimatedStyle(() => ({
+              transform: [{ translateY: titleTranslateY.value }],
+              opacity: titleOpacity.value,
+            }))}
+          >
+            <Text style={styles.welcomeTitle}>
+              {t('welcome.title')}
+            </Text>
+          </Animated.View>
+          
+          <Animated.View
+            style={useAnimatedStyle(() => ({
+              transform: [{ translateY: subtitleTranslateY.value }],
+              opacity: subtitleOpacity.value,
+            }))}
+          >
+            <Text style={styles.welcomeSubtitle}>
+              {t('welcome.subtitle')}
+            </Text>
+          </Animated.View>
+
+          {/* Medical Icons Section - Organized Grid Layout with Animation */}
+          <View style={styles.medicalIconsContainer}>
+            <View style={styles.iconsGrid}>
+              <AnimatedMedicalIcon
+                iconName="heart"
+                iconSize={35}
+                style={styles.gridIcon}
+                rotation={iconRotations[0]}
+                scale={iconScales[0]}
+              />
+              <AnimatedMedicalIcon
+                iconName="medical"
+                iconSize={40}
+                style={styles.gridIcon}
+                rotation={iconRotations[1]}
+                scale={iconScales[1]}
+              />
+              <AnimatedMedicalIcon
+                iconName="pulse"
+                iconSize={32}
+                style={styles.gridIcon}
+                rotation={iconRotations[2]}
+                scale={iconScales[2]}
+              />
+              <AnimatedMedicalIcon
+                iconName="stethoscope"
+                iconSize={38}
+                style={styles.gridIcon}
+                rotation={iconRotations[3]}
+                scale={iconScales[3]}
+              />
+              <AnimatedMedicalIcon
+                iconName="fitness"
+                iconSize={36}
+                style={styles.gridIcon}
+                rotation={iconRotations[4]}
+                scale={iconScales[4]}
+              />
+              <AnimatedMedicalIcon
+                iconName="shield-checkmark"
+                iconSize={34}
+                style={styles.gridIcon}
+                rotation={iconRotations[5]}
+                scale={iconScales[5]}
+              />
+              <AnimatedMedicalIcon
+                iconName="thermometer"
+                iconSize={30}
+                style={styles.gridIcon}
+                rotation={iconRotations[6]}
+                scale={iconScales[6]}
+              />
+              <AnimatedMedicalIcon
+                iconName="flask"
+                iconSize={33}
+                style={styles.gridIcon}
+                rotation={iconRotations[7]}
+                scale={iconScales[7]}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom Actions with Animation */}
+        <Animated.View
+          style={[
+            styles.bottomActions,
+            useAnimatedStyle(() => ({
+              transform: [{ scale: buttonScale.value }],
+              opacity: buttonOpacity.value,
+            })),
+          ]}
+        >
+          <TouchableOpacity style={styles.primaryButton} onPress={navigateToNext}>
+            <Text style={styles.primaryButtonText}>{t('welcome.get_started')}</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
+            <Text style={styles.secondaryButtonText}>{t('welcome.already_have_account')}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+  },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoText: {
+    flexDirection: 'column',
+  },
+  logoTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  logoSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  languageText: {
+    color: '#FFFFFF',
+    marginLeft: 4,
+    fontSize: 14,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  welcomeContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  medicalIconsContainer: {
+    marginTop: 40,
+    marginBottom: 20,
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  iconsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  medicalIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#FFD700',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  gridIcon: {
+    width: 70,
+    height: 70,
+  },
+  welcomeTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 3, height: 3 },
+    textShadowRadius: 6,
+  },
+  welcomeSubtitle: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 0,
+    paddingHorizontal: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    fontWeight: '500',
+    lineHeight: 26,
+  },
+  bottomActions: {
+    alignItems: 'center',
+  },
+  primaryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: theme.colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 16,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  secondaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+});
+
+export default WelcomeScreen;

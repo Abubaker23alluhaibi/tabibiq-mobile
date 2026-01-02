@@ -1,4 +1,4 @@
-package com.tabibiq.mobile
+package com.tabibiq.platform
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

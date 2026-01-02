@@ -23,6 +23,9 @@ export default {
     unknown_doctor: 'د. غير محدد',
     not_specified: 'غير محدد',
     years: 'سنة',
+    doctor: 'طبيب',
+    general_specialty: 'تخصص عام',
+    clinic_location: 'موقع العيادة',
     copied: 'تم النسخ',
     copy_link: 'نسخ الرابط',
     ok: 'حسناً',
@@ -33,6 +36,42 @@ export default {
     terms_of_service: 'شروط الاستخدام',
     open_privacy_policy: 'فتح سياسة الخصوصية',
     open_terms_of_service: 'فتح شروط الاستخدام',
+    privacy_policy_open_error: 'لا يمكن فتح سياسة الخصوصية',
+    terms_of_service_open_error: 'لا يمكن فتح شروط الاستخدام',
+    medical_disclaimer: 'تنويه: هذا التطبيق لا يقدم أي استشارة طبية. في حالات الطوارئ يرجى الاتصال بالطوارئ مباشرة.',
+  },
+  
+  // Privacy Settings
+  privacy: {
+    settings: 'إعدادات الخصوصية',
+    information: 'معلومات الخصوصية',
+    description: 'إدارة بياناتك الشخصية وخصوصيتك في التطبيق',
+    policies: 'السياسات',
+    data_management: 'إدارة البيانات',
+    export_data: 'تصدير بياناتي',
+    export_description: 'احصل على نسخة من جميع بياناتك الشخصية',
+    export_success: 'تم التصدير بنجاح',
+    export_message: 'تم تصدير بياناتك. يمكنك حفظ الملف.',
+    export_error: 'حدث خطأ أثناء تصدير البيانات',
+    delete_account: 'حذف حسابي',
+    delete_description: 'حذف حسابك وكل بياناتك بشكل نهائي',
+    delete_warning: 'هل أنت متأكد من حذف حسابك؟ سيتم حذف جميع بياناتك بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.',
+    delete_confirm: 'حذف',
+    delete_success: 'تم الحذف',
+    delete_success_message: 'تم حذف حسابك بنجاح',
+    delete_error: 'حدث خطأ أثناء حذف الحساب',
+    your_rights: 'حقوقك',
+    right_access: 'حق الوصول: يمكنك الوصول لبياناتك في أي وقت',
+    right_export: 'حق التصدير: يمكنك تصدير بياناتك',
+    right_delete: 'حق الحذف: يمكنك حذف حسابك وبياناتك',
+    right_correction: 'حق التصحيح: يمكنك تحديث بياناتك',
+  },
+
+  // الإعلانات
+  advertisements: {
+    loading: 'جاري تحميل الإعلانات...',
+    no_advertisements: 'لا توجد إعلانات متاحة',
+    error_loading: 'خطأ في تحميل الإعلانات',
   },
 
   // أسماء الأيام
@@ -162,6 +201,8 @@ export default {
     account_approved_message: 'تم الموافقة على حسابك بنجاح',
     account_rejected: 'تم رفض الحساب',
     account_rejected_message: 'تم رفض حسابك. يرجى الاتصال بالدعم لمزيد من المعلومات',
+    account_disabled: 'الحساب معطل',
+    account_disabled_message: 'تم تعطيل حسابك مؤقتاً من قبل الإدارة. يرجى التواصل مع الدعم الفني.',
     
     // انتهاء الجلسة
     session_expired: 'انتهت صلاحية الجلسة',
@@ -339,7 +380,7 @@ export default {
       'تم إنشاء حساب الطبيب بنجاح! سيتم مراجعة طلبك قريباً.',
     signup_error: 'خطأ في إنشاء الحساب',
     signup_error_message: 'حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة مرة أخرى.',
-    login_error: 'خطأ في تسجيل الدخول',
+    view_welcome_screens: 'عرض صفحات الترحيب',
     login_error_message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
     doctor_signup: 'تسجيل كطبيب',
     signup_as_doctor: 'تسجيل كطبيب',
@@ -413,7 +454,14 @@ export default {
     password_tip_numbers: '• يمكن أن تكون أحرف فقط',
     password_tip_personal: '• أو مزيج من الأرقام والأحرف',
     privacy_notice: 'باستخدام التطبيق، فإنك توافق على سياسة الخصوصية وشروط الاستخدام الخاصة بنا',
-    terms_notice: 'باستخدام التطبيق، فإنك توافق على شروط الاستخدام الخاصة بنا'
+    terms_notice: 'باستخدام التطبيق، فإنك توافق على شروط الاستخدام الخاصة بنا',
+    // Login screen translations
+    welcome_back: 'مرحباً بعودتك',
+    login_subtitle: 'سجل دخولك للوصول إلى حسابك',
+    welcome_saved_data: 'تم حفظ بياناتك من التسجيل، يمكنك تسجيل الدخول الآن',
+    doctor_login: 'تسجيل دخول الطبيب',
+    welcome_back_doctor: 'مرحباً بعودتك دكتور',
+    doctor_login_subtitle: 'سجل دخولك للوصول إلى حسابك الطبي'
   },
 
   // التحقق من صحة البيانات
@@ -550,6 +598,14 @@ export default {
     appointment_week: 'مواعيد الأسبوع',
     appointment_month: 'مواعيد الشهر',
     appointment_year: 'مواعيد السنة',
+    // إضافة المفاتيح المفقودة
+    cancel_appointment: 'إلغاء الموعد',
+    confirm_cancel: 'هل أنت متأكد من إلغاء هذا الموعد؟',
+    cancel: 'إلغاء',
+    details: 'التفاصيل',
+    consultation: 'استشارة',
+    follow_up: 'متابعة',
+    emergency: 'طوارئ',
     // إضافة ترجمات الحضور
     attendance: 'الحضور',
     attendance_status: 'حالة الحضور',
@@ -690,6 +746,7 @@ export default {
     view_profile: 'عرض الملف الشخصي',
     call: 'اتصال',
     message: 'رسالة',
+    filtered: 'مفلتر',
   },
 
   // فلاتر البحث
@@ -1088,6 +1145,52 @@ export default {
     'تشرين الثاني',
     'كانون الأول',
   ],
+
+  // Welcome Screens
+  welcome: {
+    title: 'مرحبا بكم منصة طبيب العراق',
+    subtitle: 'منصة طبيب العراق الرائدة لربط المرضى بالأطباء والمراكز الصحية',
+    get_started: 'ابدأ الآن',
+    already_have_account: 'لديك حساب بالفعل؟',
+    icons: {
+      heart: 'القلب',
+      medical: 'طبي',
+      pulse: 'نبض',
+      bandage: 'ضمادة',
+      fitness: 'لياقة',
+      shield: 'حماية',
+    },
+  },
+
+  intro: {
+    title: 'تعريف بالتطبيق',
+    main_title: 'اكتشف مميزات TabibiQ',
+    main_subtitle: 'منصة طبية متكاملة تجمع بين المرضى والأطباء والمراكز الصحية',
+    continue: 'متابعة',
+    skip_to_login: 'تخطي إلى تسجيل الدخول',
+  },
+
+  how_to_use: {
+    title: 'كيفية الاستخدام',
+    benefits_title: 'لماذا TabibiQ؟',
+    benefit1: 'سهولة في البحث عن الأطباء والحجز',
+    benefit2: 'أمان وخصوصية تامة لبياناتك',
+    benefit3: 'تذكيرات ذكية للمواعيد والأدوية',
+    benefit4: 'دعم متعدد اللغات (العربية، الإنجليزية، الكردية)',
+    get_started: 'ابدأ رحلتك الصحية',
+    skip_to_login: 'تخطي إلى تسجيل الدخول',
+  },
+
+  auth_options: {
+    title: 'خيارات الدخول',
+    welcome_message: 'نحن سعداء بانضمامك إلينا!',
+    welcome_subtitle_simple: 'اختر الطريقة المناسبة لك للبدء',
+    patient_signup: 'تسجيل مريض جديد',
+    patient_signup_desc: 'أنشئ حساب جديد للوصول إلى جميع الخدمات الطبية',
+    patient_login: 'تسجيل دخول المريض',
+    patient_login_desc: 'سجل دخولك إذا كان لديك حساب مسبق',
+    additional_info: 'جميع البيانات محمية ومشفرة بأحدث التقنيات',
+  },
 
   // Landing Page
   landing: {

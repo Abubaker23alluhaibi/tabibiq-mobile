@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_CONFIG } from '../config/api';
 import StarRating from '../components/StarRating';
 import { mapProvinceToLocalized, mapSpecialtyToLocalized } from '../utils/specialtyMapper';
+import { MEDICAL_SPECIALTIES, getSpecialtiesByCategory, SPECIALTY_CATEGORIES } from '../utils/medicalSpecialties';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,16 +46,28 @@ interface Doctor {
 
 const TopRatedDoctorsScreen = () => {
   const navigation = useNavigation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { signOut, user } = useAuth();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // حالات الفلترة
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
 
   useEffect(() => {
     fetchTopRatedDoctors();
   }, []);
+
+  useEffect(() => {
+    // تطبيق الفلترة عند تغيير التخصص أو الفئة
+    applyFilters();
+  }, [doctors, selectedCategory, selectedSpecialty]);
 
   const fetchTopRatedDoctors = async () => {
     try {
@@ -67,12 +81,12 @@ const TopRatedDoctorsScreen = () => {
       
       if (response.ok) {
         // تصفية الأطباء الذين لديهم تقييم فعلي فقط
-        const filteredDoctors = data.filter((doctor: Doctor) => 
+        const ratedDoctors = data.filter((doctor: Doctor) => 
           doctor.averageRating && doctor.averageRating > 0 && doctor.totalRatings && doctor.totalRatings > 0
         );
         
-        
-        setDoctors(filteredDoctors);
+        setDoctors(ratedDoctors);
+        setFilteredDoctors(ratedDoctors);
       } else {
         setError(data.error || t('error.fetch_doctor'));
       }
@@ -87,6 +101,70 @@ const TopRatedDoctorsScreen = () => {
     setRefreshing(true);
     await fetchTopRatedDoctors();
     setRefreshing(false);
+  };
+
+  const applyFilters = () => {
+    let filtered = [...doctors];
+
+    // فلترة حسب التخصص
+    if (selectedSpecialty) {
+      filtered = filtered.filter((doctor) => {
+        const doctorSpecialty = mapSpecialtyToLocalized(doctor.specialty);
+        // البحث في جميع اللغات للتخصص
+        const specialtyMatch = MEDICAL_SPECIALTIES.find(s => 
+          s.ar === selectedSpecialty || 
+          s.en === selectedSpecialty || 
+          s.ku === selectedSpecialty ||
+          s.ar === doctorSpecialty ||
+          s.en === doctorSpecialty ||
+          s.ku === doctorSpecialty
+        );
+        return specialtyMatch && (
+          specialtyMatch.ar === doctorSpecialty || 
+          specialtyMatch.ar === doctor.specialty ||
+          specialtyMatch.en === doctor.specialty ||
+          specialtyMatch.ku === doctor.specialty ||
+          doctorSpecialty === selectedSpecialty || 
+          doctor.specialty === selectedSpecialty
+        );
+      });
+    }
+    // فلترة حسب الفئة
+    else if (selectedCategory) {
+      const categorySpecialties = getSpecialtiesByCategory(selectedCategory);
+      const specialtyKeys = categorySpecialties.map(s => s.ar);
+      filtered = filtered.filter((doctor) => {
+        const doctorSpecialty = mapSpecialtyToLocalized(doctor.specialty);
+        // البحث في جميع التخصصات في الفئة
+        return categorySpecialties.some(s => 
+          s.ar === doctorSpecialty || 
+          s.en === doctorSpecialty ||
+          s.ku === doctorSpecialty ||
+          s.ar === doctor.specialty ||
+          s.en === doctor.specialty ||
+          s.ku === doctor.specialty
+        );
+      });
+    }
+
+    setFilteredDoctors(filtered);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedSpecialty(''); // إعادة تعيين التخصص عند تغيير الفئة
+    setShowCategoryModal(false);
+  };
+
+  const handleSpecialtySelect = (specialty: string) => {
+    setSelectedSpecialty(specialty);
+    setSelectedCategory(''); // إعادة تعيين الفئة عند اختيار تخصص محدد
+    setShowSpecialtyModal(false);
+  };
+
+  const clearFilters = () => {
+    setSelectedCategory('');
+    setSelectedSpecialty('');
   };
 
   const handleLogout = async () => {
@@ -208,27 +286,6 @@ const TopRatedDoctorsScreen = () => {
     );
   };
 
-  const renderStatsCard = () => (
-    <View style={styles.statsCard}>
-      <View style={styles.statItem}>
-        <Text style={styles.statNumber}>{doctors.length}</Text>
-        <Text style={styles.statLabel}>{t('doctor.title')}</Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={styles.statNumber}>
-          {doctors.length > 0 ? doctors[0].averageRating?.toFixed(1) || '0.0' : '0.0'}
-        </Text>
-        <Text style={styles.statLabel}>{t('rating.average_rating')}</Text>
-      </View>
-      <View style={styles.statItem}>
-        <Text style={styles.statNumber}>
-          {doctors.reduce((sum, doc) => sum + (doc.totalRatings || 0), 0)}
-        </Text>
-        <Text style={styles.statLabel}>{t('rating.total_ratings')}</Text>
-      </View>
-    </View>
-  );
-
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="star-outline" size={64} color={theme.colors.textSecondary} />
@@ -240,7 +297,7 @@ const TopRatedDoctorsScreen = () => {
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
-        <Text style={styles.backButton}>{t('common.back')}</Text>
+        <Text style={styles.backButtonText}>{t('common.back')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -315,25 +372,191 @@ const TopRatedDoctorsScreen = () => {
           renderEmptyState()
         ) : (
           <>
-            {/* Stats Card */}
-            {renderStatsCard()}
+            {/* Filters */}
+            <View style={styles.filtersContainer}>
+              <TouchableOpacity
+                style={[styles.filterButton, selectedCategory && styles.filterButtonActive]}
+                onPress={() => setShowCategoryModal(true)}
+              >
+                <Ionicons 
+                  name="grid-outline" 
+                  size={18} 
+                  color={selectedCategory ? theme.colors.white : theme.colors.primary} 
+                />
+                <Text style={[styles.filterButtonText, selectedCategory && styles.filterButtonTextActive]}>
+                  {selectedCategory || t('filters.specialty_category')}
+                </Text>
+                {selectedCategory && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      clearFilters();
+                    }}
+                    style={styles.clearFilterButton}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.colors.white} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.filterButton, selectedSpecialty && styles.filterButtonActive]}
+                onPress={() => setShowSpecialtyModal(true)}
+              >
+                <Ionicons 
+                  name="medical-outline" 
+                  size={18} 
+                  color={selectedSpecialty ? theme.colors.white : theme.colors.primary} 
+                />
+                <Text style={[styles.filterButtonText, selectedSpecialty && styles.filterButtonTextActive]}>
+                  {selectedSpecialty || t('filters.select_specialty')}
+                </Text>
+                {selectedSpecialty && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      clearFilters();
+                    }}
+                    style={styles.clearFilterButton}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.colors.white} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Doctors List */}
             <View style={styles.doctorsList}>
               <Text style={styles.sectionTitle}>
                 {t('rating.top_rated_doctors')}
+                {selectedCategory && ` - ${selectedCategory}`}
+                {selectedSpecialty && ` - ${selectedSpecialty}`}
               </Text>
-              <FlatList
-                data={doctors}
-                renderItem={renderDoctorCard}
-                keyExtractor={(item) => item._id}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={false}
-              />
+              {filteredDoctors.length === 0 ? (
+                <View style={styles.emptyFilterContainer}>
+                  <Ionicons name="search-outline" size={48} color={theme.colors.textSecondary} />
+                  <Text style={styles.emptyFilterText}>
+                    {t('filters.no_results') || 'لا توجد نتائج'}
+                  </Text>
+                  <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                    <Text style={styles.clearFiltersButtonText}>
+                      {t('filters.clear') || 'مسح الفلاتر'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredDoctors}
+                  renderItem={renderDoctorCard}
+                  keyExtractor={(item) => item._id}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              )}
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('filters.specialty_category') || 'فئة التخصص'}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowCategoryModal(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalList}>
+              <TouchableOpacity
+                style={[styles.modalItem, !selectedCategory && styles.modalItemActive]}
+                onPress={() => handleCategorySelect('')}
+              >
+                <Text style={[styles.modalItemText, !selectedCategory && styles.modalItemTextActive]}>
+                  {t('filters.all') || 'الكل'}
+                </Text>
+              </TouchableOpacity>
+              {SPECIALTY_CATEGORIES.map((category, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.modalItem, selectedCategory === category && styles.modalItemActive]}
+                  onPress={() => handleCategorySelect(category)}
+                >
+                  <Text style={[styles.modalItemText, selectedCategory === category && styles.modalItemTextActive]}>
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Specialty Modal */}
+      <Modal
+        visible={showSpecialtyModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowSpecialtyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('filters.select_specialty') || 'اختر التخصص'}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowSpecialtyModal(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalList}>
+              <TouchableOpacity
+                style={[styles.modalItem, !selectedSpecialty && styles.modalItemActive]}
+                onPress={() => handleSpecialtySelect('')}
+              >
+                <Text style={[styles.modalItemText, !selectedSpecialty && styles.modalItemTextActive]}>
+                  {t('filters.all') || 'الكل'}
+                </Text>
+              </TouchableOpacity>
+              {selectedCategory ? (
+                getSpecialtiesByCategory(selectedCategory).map((specialty, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.modalItem, selectedSpecialty === specialty.ar && styles.modalItemActive]}
+                    onPress={() => handleSpecialtySelect(specialty.ar)}
+                  >
+                    <Text style={[styles.modalItemText, selectedSpecialty === specialty.ar && styles.modalItemTextActive]}>
+                      {i18n.language === 'en' ? specialty.en : i18n.language === 'ku' ? specialty.ku : specialty.ar}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                MEDICAL_SPECIALTIES.map((specialty, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.modalItem, selectedSpecialty === specialty.ar && styles.modalItemActive]}
+                    onPress={() => handleSpecialtySelect(specialty.ar)}
+                  >
+                    <Text style={[styles.modalItemText, selectedSpecialty === specialty.ar && styles.modalItemTextActive]}>
+                      {i18n.language === 'en' ? specialty.en : i18n.language === 'ku' ? specialty.ku : specialty.ar}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -427,34 +650,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  statsCard: {
-    backgroundColor: theme.colors.white,
-    margin: 16,
-    borderRadius: 12,
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   doctorsList: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -546,6 +741,114 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.colors.textSecondary,
     fontWeight: '500',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+    gap: 8,
+  },
+  filterButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  filterButtonTextActive: {
+    color: theme.colors.white,
+  },
+  clearFilterButton: {
+    marginLeft: 4,
+  },
+  emptyFilterContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyFilterText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginTop: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  clearFiltersButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  clearFiltersButtonText: {
+    color: theme.colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: height * 0.7,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalList: {
+    maxHeight: height * 0.5,
+  },
+  modalItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalItemActive: {
+    backgroundColor: theme.colors.primary + '10',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+  },
+  modalItemTextActive: {
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 });
 

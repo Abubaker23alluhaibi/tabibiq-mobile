@@ -799,80 +799,36 @@ const UserHomeScreen = () => {
         backgroundColor={theme.colors.primary}
       />
 
-      <LinearGradient
-        colors={[theme.colors.primary, theme.colors.primaryDark]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.userInfo}>
-            <Text style={styles.welcomeText}>{t('user_home.welcome')}</Text>
-            <Text style={styles.userName}>
-              {profile?.first_name || profile?.name || user?.name}
-            </Text>
-          </View>
-
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => navigation.navigate('Notifications' as never)}
-            >
-              <Ionicons
-                name="notifications"
-                size={24}
-                color={theme.colors.white}
-              />
-              {notifications.filter(n => !n.isRead).length > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {notifications.filter(n => !n.isRead).length > 9
-                      ? '9+'
-                      : notifications.filter(n => !n.isRead).length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.profileButton}
-              onPress={() => navigation.navigate('UserProfile' as never)}
-            >
-              <Ionicons name="person" size={24} color={theme.colors.white} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={getResponsiveSearchBarStyles().searchContainer}>
-          <View style={[
-            getResponsiveSearchBarStyles().searchInputContainer,
-            isSearchFocused && { borderColor: theme.colors.primary, borderWidth: 1 }
-          ]}>
+      <View style={styles.topBar}>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate('Notifications' as never)}
+          >
             <Ionicons
-              name="search"
-              size={18}
-              color={theme.colors.textSecondary}
-              style={getResponsiveSearchBarStyles().searchIcon}
+              name="notifications"
+              size={24}
+              color={theme.colors.textPrimary}
             />
-            <TextInput
-              style={getResponsiveSearchBarStyles().searchInput}
-              placeholder={t('search.find_doctor')}
-              placeholderTextColor={theme.colors.textSecondary}
-              value={searchQuery}
-              onChangeText={handleSearch}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-            />
-          </View>
+            {notifications.filter(n => !n.isRead).length > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {notifications.filter(n => !n.isRead).length > 9
+                    ? '9+'
+                    : notifications.filter(n => !n.isRead).length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
           <TouchableOpacity
-            style={getResponsiveSearchBarStyles().filterButton}
-            onPress={() => setShowFilters(!showFilters)}
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('UserProfile' as never)}
           >
-            <Ionicons name="filter" size={18} color={theme.colors.white} />
+            <Ionicons name="person" size={24} color={theme.colors.textPrimary} />
           </TouchableOpacity>
         </View>
-      </LinearGradient>
-
-      {showFilters && renderFilterModal()}
+      </View>
 
       <ScrollView
         style={styles.content}
@@ -991,18 +947,6 @@ const UserHomeScreen = () => {
               {t('medicine_reminder.title')}
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('HealthCenters' as never)}
-          >
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="business" size={24} color={theme.colors.white} />
-            </View>
-            <Text style={styles.quickActionText}>
-              {t('health_centers.title')}
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -1013,6 +957,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  topBar: {
+    paddingTop: 34,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.background,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   header: {
     paddingTop: 34,
@@ -1045,11 +998,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.white + '20',
+    backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
     position: 'relative',
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   notificationBadge: {
     position: 'absolute',
@@ -1071,9 +1029,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.white + '20',
+    backgroundColor: theme.colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchContainer: {
     flexDirection: 'row',

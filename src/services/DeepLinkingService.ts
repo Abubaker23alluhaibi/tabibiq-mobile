@@ -65,7 +65,9 @@ class DeepLinkingService {
 
       this.isInitialized = true;
     } catch (error) {
-      console.error('خطأ في تهيئة Deep Linking:', error);
+      if (__DEV__) {
+        console.error('خطأ في تهيئة Deep Linking:', error);
+      }
     }
   }
 
@@ -79,9 +81,21 @@ class DeepLinkingService {
 
   private handleDeepLink(url: string): DeepLinkData | null {
     try {
-      console.log('Processing deep link URL:', url);
+      if (__DEV__) {
+        console.log('Processing deep link URL:', url);
+      }
       const parsed = Linking.parse(url);
-      console.log('Parsed URL:', parsed);
+      if (__DEV__) {
+        console.log('Parsed URL:', parsed);
+      }
+      
+      // التعامل مع روابط التطوير (exp://)
+      if (parsed.scheme === 'exp') {
+        if (__DEV__) {
+          console.log('Development deep link ignored:', url);
+        }
+        return null;
+      }
       
       // التعامل مع تنسيق tabibiq://doctor/123
       if (parsed.scheme === 'tabibiq') {
@@ -89,7 +103,9 @@ class DeepLinkingService {
         
         // في تنسيق tabibiq://doctor/123، الـ hostname هو "doctor" والـ path هو "/123"
         const allSegments = [parsed.hostname, ...pathSegments].filter(Boolean);
-        console.log('All segments:', allSegments);
+        if (__DEV__) {
+          console.log('All segments:', allSegments);
+        }
         
         if (allSegments.length > 0) {
           const firstSegment = allSegments[0];
@@ -100,7 +116,9 @@ class DeepLinkingService {
               id: allSegments[1] || undefined,
               action: allSegments[2] || 'view'
             };
-            console.log('Doctor deep link result:', result);
+            if (__DEV__) {
+              console.log('Doctor deep link result:', result);
+            }
             return result;
           }
           
@@ -110,7 +128,9 @@ class DeepLinkingService {
               id: allSegments[1] || undefined,
               action: allSegments[2] || 'view'
             };
-            console.log('Appointment deep link result:', result);
+            if (__DEV__) {
+              console.log('Appointment deep link result:', result);
+            }
             return result;
           }
           
@@ -119,7 +139,9 @@ class DeepLinkingService {
               type: 'profile' as const,
               action: allSegments[1] || 'view'
             };
-            console.log('Profile deep link result:', result);
+            if (__DEV__) {
+              console.log('Profile deep link result:', result);
+            }
             return result;
           }
           
@@ -129,7 +151,9 @@ class DeepLinkingService {
               id: allSegments[1] || undefined,
               action: allSegments[2] || 'view'
             };
-            console.log('Notification deep link result:', result);
+            if (__DEV__) {
+              console.log('Notification deep link result:', result);
+            }
             return result;
           }
         }
@@ -138,7 +162,9 @@ class DeepLinkingService {
       // التعامل مع روابط HTTPS من الموقع
       if (parsed.scheme === 'https' && parsed.hostname === 'tabib-iq.com') {
         const pathSegments = parsed.path ? parsed.path.split('/').filter(Boolean) : [];
-        console.log('HTTPS path segments:', pathSegments);
+        if (__DEV__) {
+          console.log('HTTPS path segments:', pathSegments);
+        }
         
         if (pathSegments.length > 0) {
           const firstSegment = pathSegments[0];
@@ -149,7 +175,9 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('HTTPS Doctor deep link result:', result);
+            if (__DEV__) {
+              console.log('HTTPS Doctor deep link result:', result);
+            }
             return result;
           }
           
@@ -159,7 +187,9 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('HTTPS Appointment deep link result:', result);
+            if (__DEV__) {
+              console.log('HTTPS Appointment deep link result:', result);
+            }
             return result;
           }
           
@@ -168,7 +198,9 @@ class DeepLinkingService {
               type: 'profile' as const,
               action: pathSegments[1] || 'view'
             };
-            console.log('HTTPS Profile deep link result:', result);
+            if (__DEV__) {
+              console.log('HTTPS Profile deep link result:', result);
+            }
             return result;
           }
           
@@ -178,7 +210,9 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('HTTPS Notification deep link result:', result);
+            if (__DEV__) {
+              console.log('HTTPS Notification deep link result:', result);
+            }
             return result;
           }
         }
@@ -187,7 +221,9 @@ class DeepLinkingService {
       // التعامل مع التنسيق القديم (hostname/path)
       if (parsed.hostname && parsed.path) {
         const pathSegments = parsed.path.split('/').filter(Boolean);
-        console.log('Legacy path segments:', pathSegments);
+        if (__DEV__) {
+          console.log('Legacy path segments:', pathSegments);
+        }
         
         if (pathSegments.length > 0) {
           const firstSegment = pathSegments[0];
@@ -198,7 +234,9 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('Legacy Doctor deep link result:', result);
+            if (__DEV__) {
+              console.log('Legacy Doctor deep link result:', result);
+            }
             return result;
           }
           
@@ -208,7 +246,9 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('Legacy Appointment deep link result:', result);
+            if (__DEV__) {
+              console.log('Legacy Appointment deep link result:', result);
+            }
             return result;
           }
           
@@ -217,7 +257,9 @@ class DeepLinkingService {
               type: 'profile' as const,
               action: pathSegments[1] || 'view'
             };
-            console.log('Legacy Profile deep link result:', result);
+            if (__DEV__) {
+              console.log('Legacy Profile deep link result:', result);
+            }
             return result;
           }
           
@@ -227,16 +269,22 @@ class DeepLinkingService {
               id: pathSegments[1],
               action: pathSegments[2] || 'view'
             };
-            console.log('Legacy Notification deep link result:', result);
+            if (__DEV__) {
+              console.log('Legacy Notification deep link result:', result);
+            }
             return result;
           }
         }
       }
 
-      console.log('No matching deep link pattern found');
+      if (__DEV__) {
+        console.log('No matching deep link pattern found');
+      }
       return null;
     } catch (error) {
-      console.error('Error parsing deep link:', error);
+      if (__DEV__) {
+        console.error('Error parsing deep link:', error);
+      }
       return null;
     }
   }
@@ -303,7 +351,7 @@ class DeepLinkingService {
         await Linking.openURL('app-settings:');
         return true;
       } else if (Platform.OS === 'android') {
-        await Linking.openURL('package:com.tabibiq.mobile');
+        await Linking.openURL('package:com.tabibiq.platform');
         return true;
       }
       return false;

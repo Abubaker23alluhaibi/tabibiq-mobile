@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TabibiQ - منصة طبيب العراق',
   slug: 'tabibiq-mobile',
   version: '1.0.2',
-  owner: 'tabibiq',
+  owner: 'abubakeriq',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -20,11 +20,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'com.tabibiq.mobile',
+    bundleIdentifier: 'com.tabibiq.platform',
     buildNumber: '1.0.2',
     infoPlist: {
       NSLocationWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
       NSLocationAlwaysAndWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
+      NSUserNotificationsUsageDescription: 'يستخدم التطبيق الإشعارات لإرسال تذكيرات المواعيد والتحديثات المهمة',
+      NSCameraUsageDescription: 'يستخدم التطبيق الكاميرا لالتقاط صور الملف الشخصي',
+      NSPhotoLibraryUsageDescription: 'يستخدم التطبيق معرض الصور لاختيار صور الملف الشخصي',
       CFBundleURLTypes: [
         {
           CFBundleURLName: 'tabibiq',
@@ -38,8 +41,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff'
     },
-    package: 'com.tabibiq.mobile',
-    versionCode: 8,
+    package: 'com.tabibiq.platform',
+    versionCode: 13,
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
@@ -47,7 +50,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.VIBRATE',
       'android.permission.WAKE_LOCK',
       'android.permission.SCHEDULE_EXACT_ALARM',
-      'android.permission.USE_EXACT_ALARM',
       'android.permission.RECEIVE_BOOT_COMPLETED'
     ],
     intentFilters: [
@@ -71,31 +73,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png'
   },
   updates: {
-    url: 'https://u.expo.dev/5440459c-c49b-40cc-993c-57e971386b9f'
+    url: 'https://u.expo.dev/be4c2514-ccbb-47d6-bcee-23b74a2ec333'
   },
   runtimeVersion: '1.0.2',
   extra: {
     eas: {
-      projectId: '5440459c-c49b-40cc-993c-57e971386b9f',
+      projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
     },
     apiUrl: 'https://web-production-78766.up.railway.app',
     environment: 'production',
   },
+  plugins: [
+    "expo-font",
+    "expo-secure-store"
+  ],
   scheme: 'tabibiq',
-  linking: {
-    prefixes: ['tabibiq://', 'https://tabib-iq.com'],
-    config: {
-      screens: {
-        DoctorDetails: {
-          path: '/doctor/:doctorId',
-          parse: {
-            doctorId: (doctorId: string) => doctorId,
-          },
-        },
-        MyAppointments: '/appointments',
-        UserProfile: '/profile',
-        Notifications: '/notifications',
-      },
-    },
-  },
 });

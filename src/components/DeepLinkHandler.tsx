@@ -80,7 +80,9 @@ const DeepLinkHandler: React.FC<DeepLinkHandlerProps> = ({ children }) => {
               // Unknown Deep Link type
           }
         } catch (error) {
-          console.error('Error handling deep link:', error);
+          if (__DEV__) {
+            console.error('Error handling deep link:', error);
+          }
         }
       }, 1000); // تأخير ثانية واحدة لضمان تحميل التطبيق
     };
@@ -130,7 +132,9 @@ const DeepLinkHandler: React.FC<DeepLinkHandlerProps> = ({ children }) => {
               break;
           }
         } catch (error) {
-          console.error('Error handling pending deep link:', error);
+          if (__DEV__) {
+            console.error('Error handling pending deep link:', error);
+          }
         }
       }, 1500);
     }

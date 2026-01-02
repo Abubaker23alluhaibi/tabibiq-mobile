@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api';
 import { User, Doctor } from '../types';
 import { doctorsAPI } from '../services/api';
+import { getToken as getSecureToken, saveToken as saveSecureToken, deleteToken as deleteSecureToken } from '../utils/secureStorage';
 // Remove circular dependency - we'll handle notifications differently
 // import { useNotifications } from './NotificationContext';
 
@@ -236,9 +237,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setProfile(fullProfileData);
       await saveUserToStorage(userData, fullProfileData);
 
-      // حفظ التوكن إذا كان موجوداً
+      // حفظ التوكن إذا كان موجوداً في SecureStore
       if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
+        await saveSecureToken(data.token);
       }
 
       return {};
@@ -351,7 +352,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // إرسال طلب تسجيل الخروج إلى الخادم
       if (user) {
         try {
-          const token = await AsyncStorage.getItem('token');
+          const token = await getSecureToken();
 
 
           const response = await fetch(API_CONFIG.AUTH_LOGOUT, {
@@ -399,12 +400,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       setProfile(null);
 
+      // حذف التوكن من SecureStore
+      await deleteSecureToken();
+
       // تنظيف جميع البيانات من التخزين المحلي
       try {
         await AsyncStorage.multiRemove([
           'user',
           'profile',
-          'token',
           'appointments',
           'reminders',
           'notifications',
@@ -478,7 +481,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // استخدام الطريقة القديمة للمستخدمين العاديين
         const url = `${API_CONFIG.BASE_URL}/user/${currentUser._id}`;
-        const token = await AsyncStorage.getItem('token');
+        const token = await getSecureToken();
         
         const response = await fetch(url, {
           method: 'PUT',
@@ -569,11 +572,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (!user) return;
 
+      const token = await getSecureToken();
       const response = await fetch(
         `${API_CONFIG.BASE_URL}/users/${user.id}`,
         {
           headers: {
-            Authorization: `Bearer ${await AsyncStorage.getItem('token')}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -611,7 +615,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await AsyncStorage.getItem('user');
       const profileData = await AsyncStorage.getItem('profile');
-      const token = await AsyncStorage.getItem('token');
+      const token = await getSecureToken();
       
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,66 +11,30 @@ import {
   Platform,
   StatusBar,
   Image,
-  ImageBackground,
   ScrollView,
+  Linking,
 } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import { isValidEmail, isValidPhone } from '../utils/helpers';
-import { getCurrentServerInfo } from '../config/api';
 import { theme } from '../utils/theme';
 import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
 import TermsOfServiceButton from '../components/TermsOfServiceButton';
 
-const LoginScreen = () => {
+const DoctorLoginScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute();
   const { t } = useTranslation();
   const { signIn } = useAuth();
   const { markAppAsLaunched } = useApp();
 
-  // الحصول على البيانات المحفوظة من التسجيل
-  const prefilledData = route.params as {
-    prefilledEmail?: string;
-    prefilledPassword?: string;
-    prefilledLoginType?: 'user' | 'doctor';
-  } | undefined;
-
-  const [email, setEmail] = useState(prefilledData?.prefilledEmail || '');
-  const [password, setPassword] = useState(prefilledData?.prefilledPassword || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // الحصول على معلومات الخادم الحالي
-  const serverInfo = getCurrentServerInfo();
-
-  // تحديث البيانات عند تغيير المعاملات
-  useEffect(() => {
-    if (prefilledData) {
-      
-      if (prefilledData.prefilledEmail) {
-        setEmail(prefilledData.prefilledEmail);
-      }
-      if (prefilledData.prefilledPassword) {
-        setPassword(prefilledData.prefilledPassword);
-      }
-    }
-  }, [prefilledData]);
-
-  // تحديث البيانات عند التركيز على الشاشة
-  useFocusEffect(
-    React.useCallback(() => {
-      const params = route.params as any;
-      if (params?.prefilledEmail) {
-        setEmail(params.prefilledEmail);
-        setPassword(params.prefilledPassword || '');
-      }
-    }, [route.params])
-  );
 
   const handleLogin = async () => {
     // التحقق من صحة البيانات
@@ -78,8 +42,6 @@ const LoginScreen = () => {
       Alert.alert('خطأ', 'يرجى إدخال جميع البيانات المطلوبة');
       return;
     }
-
-    // إذا كانت البيانات محفوظة من التسجيل، عرض رسالة ترحيبية
 
     // التحقق من صحة البريد الإلكتروني أو رقم الهاتف
     if (!isValidEmail(email) && !isValidPhone(email)) {
@@ -90,7 +52,7 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      const result = await signIn(email.trim(), password, 'user');
+      const result = await signIn(email.trim(), password, 'doctor');
 
       if (result.error) {
         Alert.alert('خطأ في تسجيل الدخول', result.error);
@@ -105,13 +67,12 @@ const LoginScreen = () => {
     }
   };
 
-  const navigateToSignUp = () => {
-    navigation.navigate('UserSignUp' as never);
+  const navigateToDoctorSignUp = () => {
+    Linking.openURL('https://www.tabib-iq.com/signup-doctor');
   };
 
-
-  const navigateToWelcome = () => {
-    navigation.navigate('Welcome' as never);
+  const navigateToLogin = () => {
+    navigation.navigate('Login' as never);
   };
 
   return (
@@ -126,22 +87,20 @@ const LoginScreen = () => {
         backgroundColor={theme.colors.primary}
       />
 
-      {/* Header - الهيدر الثابت */}
+      {/* Header */}
       <LinearGradient
         colors={[theme.colors.primary, theme.colors.primary]}
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          {/* Back Button - زر الرجوع */}
           <TouchableOpacity 
             style={styles.backButton} 
-            onPress={navigateToWelcome}
+            onPress={navigateToLogin}
           >
             <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
           </TouchableOpacity>
 
-          {/* Title */}
-          <Text style={styles.headerTitle}>{t('auth.login')}</Text>
+          <Text style={styles.headerTitle}>{t('auth.doctor_login') || 'تسجيل دخول الطبيب'}</Text>
 
           {/* Logo in corner */}
           <Image 
@@ -164,18 +123,8 @@ const LoginScreen = () => {
       >
         {/* Welcome Section - خارج المربع */}
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeSubtitle}>{t('auth.login_subtitle') || 'سجل دخولك للوصول إلى حسابك'}</Text>
+          <Text style={styles.welcomeSubtitle}>{t('auth.doctor_login_subtitle') || 'سجل دخولك للوصول إلى حسابك الطبي'}</Text>
         </View>
-
-        {/* رسالة ترحيبية للمستخدمين الجدد */}
-        {prefilledData?.prefilledEmail && prefilledData?.prefilledPassword && (
-          <View style={styles.welcomeMessage}>
-            <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
-            <Text style={styles.welcomeText}>
-              {t('auth.welcome_saved_data')}
-            </Text>
-          </View>
-        )}
 
         {/* Form Container - حقول الإدخال فقط */}
         <View style={styles.formContainer}>
@@ -264,15 +213,6 @@ const LoginScreen = () => {
                 <Text style={styles.loginButtonText}>{t('auth.login')}</Text>
               )}
             </TouchableOpacity>
-
-            {/* Doctor Login Button */}
-            <TouchableOpacity
-              style={styles.doctorLoginButton}
-              onPress={() => navigation.navigate('DoctorLogin' as never)}
-            >
-              <Ionicons name="medical" size={22} color={theme.colors.primary} />
-              <Text style={styles.doctorLoginButtonText}>{t('auth.doctor_login') || 'تسجيل دخول الطبيب'}</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -280,14 +220,14 @@ const LoginScreen = () => {
         <View style={styles.signUpSection}>
           <TouchableOpacity
             style={styles.signUpButton}
-            onPress={navigateToSignUp}
+            onPress={navigateToDoctorSignUp}
           >
             <Ionicons
               name="person-add"
               size={22}
               color={theme.colors.white}
             />
-            <Text style={styles.signUpButtonText}>{t('auth.create_patient_account')}</Text>
+            <Text style={styles.signUpButtonText}>{t('auth.create_doctor_account')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -390,60 +330,6 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 12,
   },
-  typeSelector: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.background,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-    gap: 4,
-  },
-  typeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 8,
-  },
-  typeButtonActive: {
-    backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  typeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
-  },
-  typeButtonTextActive: {
-    color: theme.colors.white,
-  },
-  welcomeMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.success + '20',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.success + '40',
-  },
-  welcomeText: {
-    color: theme.colors.success,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-    flex: 1,
-    textAlign: 'right',
-  },
   form: {
     width: '100%',
   },
@@ -454,28 +340,28 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.background,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     paddingHorizontal: 16,
     paddingVertical: 0,
     minHeight: 48,
   },
   inputIcon: {
-    marginRight: 12,
+    marginLeft: 12,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: theme.colors.textPrimary,
     textAlign: 'right',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 0,
     margin: 0,
   },
   passwordToggle: {
-    marginLeft: 12,
+    marginRight: 8,
     padding: 4,
   },
   forgotPassword: {
@@ -502,7 +388,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     width: '100%',
     minHeight: 52,
-    marginBottom: 10,
   },
   loginButtonDisabled: {
     opacity: 0.6,
@@ -514,7 +399,7 @@ const styles = StyleSheet.create({
   },
   signUpSection: {
     width: '100%',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   signUpButton: {
     flexDirection: 'row',
@@ -523,7 +408,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 18,
-    marginBottom: 10,
     width: '100%',
     justifyContent: 'center',
     minHeight: 52,
@@ -538,26 +422,6 @@ const styles = StyleSheet.create({
   },
   signUpButtonText: {
     color: theme.colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  doctorLoginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    width: '100%',
-    justifyContent: 'center',
-    minHeight: 52,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-    marginTop: 0,
-  },
-  doctorLoginButtonText: {
-    color: theme.colors.primary,
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -591,4 +455,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LoginScreen;
+export default DoctorLoginScreen;

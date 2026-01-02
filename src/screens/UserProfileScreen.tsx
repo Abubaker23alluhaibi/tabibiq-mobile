@@ -26,6 +26,7 @@ const UserProfileScreen: React.FC = () => {
   const { user, profile: authProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [edit, setEdit] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'settings'>('info');
   const [form, setForm] = useState({
     first_name: '',
     email: '',
@@ -102,8 +103,8 @@ const UserProfileScreen: React.FC = () => {
         <StatusBar backgroundColor={theme.colors.gradientStart} barStyle="light-content" />
         <View style={styles.loadingContent}>
           <Text style={styles.loadingIcon}>⏳</Text>
-          <Text style={styles.loadingTitle}>جاري تحميل البيانات...</Text>
-          <Text style={styles.loadingSubtitle}>يرجى الانتظار قليلاً</Text>
+          <Text style={styles.loadingTitle}>{t('common.loading')}</Text>
+          <Text style={styles.loadingSubtitle}>{t('common.please_wait')}</Text>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -117,225 +118,211 @@ const UserProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.colors.gradientStart} barStyle="light-content" />
+      <StatusBar backgroundColor={theme.colors.primary} barStyle="light-content" />
       
-      {/* خلفية التدرج */}
+      {/* Header مع صورة المستخدم */}
       <LinearGradient
-        colors={[theme.colors.gradientStart, theme.colors.gradientEnd]}
-        style={styles.backgroundGradient}
-      />
-      
-      {/* زر العودة */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
+        colors={[theme.colors.primary, theme.colors.primaryDark]}
+        style={styles.header}
       >
-        <Ionicons name="arrow-back" size={20} color={theme.colors.purple} />
-        <Text style={styles.backButtonText}>العودة للصفحة الرئيسية</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+        </TouchableOpacity>
+
+        <View style={styles.profileHeader}>
+          <View style={styles.imageContainer}>
+            {form.profileImage ? (
+              <Image source={{ uri: form.profileImage }} style={styles.userImage} />
+            ) : (
+              <View style={styles.placeholderImage}>
+                <Ionicons name="person" size={24} color={theme.colors.white} />
+              </View>
+            )}
+            {edit && (
+              <TouchableOpacity style={styles.editImageButton}>
+                <Ionicons name="camera" size={10} color={theme.colors.white} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.userName}>{form.first_name || t('common.not_specified')}</Text>
+          <Text style={styles.userEmail}>{form.email || ''}</Text>
+        </View>
+      </LinearGradient>
+
+      {/* التبويبات */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'info' && styles.tabActive]}
+          onPress={() => setActiveTab('info')}
+        >
+          <Ionicons 
+            name="person" 
+            size={20} 
+            color={activeTab === 'info' ? theme.colors.primary : theme.colors.textSecondary} 
+          />
+          <Text style={[styles.tabText, activeTab === 'info' && styles.tabTextActive]}>
+            {t('profile.info') || 'المعلومات'}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'settings' && styles.tabActive]}
+          onPress={() => setActiveTab('settings')}
+        >
+          <Ionicons 
+            name="settings" 
+            size={20} 
+            color={activeTab === 'settings' ? theme.colors.primary : theme.colors.textSecondary} 
+          />
+          <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
+            {t('profile.settings') || 'الإعدادات'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* البطاقة الرئيسية */}
-        <View style={styles.mainCard}>
-          {/* Header مع التدرج */}
-          <LinearGradient
-            colors={[theme.colors.buttonGradientStart, theme.colors.buttonGradientEnd]}
-            style={styles.headerGradient}
-          >
-            <View style={styles.headerContent}>
-              {/* صورة المستخدم */}
-              <View style={styles.imageContainer}>
-                {form.profileImage ? (
-                  <Image source={{ uri: form.profileImage }} style={styles.userImage} />
-                ) : (
-                  <View style={styles.placeholderImage}>
-                    <Text style={styles.placeholderText}>👤</Text>
-                  </View>
-                )}
-                
-                {/* زر تعديل الصورة */}
-                {edit && (
-                  <TouchableOpacity style={styles.editImageButton}>
-                    <Ionicons name="camera" size={16} color={theme.colors.white} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              <Text style={styles.headerTitle}>{t('profile.title')}</Text>
-            </View>
-          </LinearGradient>
-
-          {/* محتوى البطاقة */}
-          <View style={styles.cardContent}>
+        {activeTab === 'info' ? (
+          <View style={styles.tabContent}>
             {/* معلومات المستخدم */}
-            <View style={styles.infoSection}>
-              {/* الاسم */}
-              <View style={styles.inputGroup}>
-                 <Text style={styles.inputLabel}>{t('auth.full_name')} *</Text>
-                <View style={[
-                  styles.inputContainer,
-                  edit ? styles.inputContainerEdit : styles.inputContainerDisabled
-                ]}>
-                  <Text style={[
-                    styles.inputText,
-                    edit ? styles.inputTextEdit : styles.inputTextDisabled
-                  ]}>
-                     {form.first_name || t('common.not_specified')}
-                  </Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.personal_info') || 'المعلومات الشخصية'}</Text>
+              
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <Ionicons name="person-outline" size={20} color={theme.colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('auth.full_name')}</Text>
+                    <Text style={styles.infoValue}>{form.first_name || t('common.not_specified')}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <Ionicons name="mail-outline" size={20} color={theme.colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('auth.email')}</Text>
+                    <Text style={styles.infoValue}>{form.email || t('common.not_specified')}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <Ionicons name="call-outline" size={20} color={theme.colors.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>{t('auth.phone')}</Text>
+                    <Text style={styles.infoValue}>{form.phone || t('common.not_specified')}</Text>
+                  </View>
                 </View>
               </View>
 
-              {/* البريد الإلكتروني */}
-              <View style={styles.inputGroup}>
-                 <Text style={styles.inputLabel}>{t('auth.email')} *</Text>
-                <View style={[
-                  styles.inputContainer,
-                  edit ? styles.inputContainerEdit : styles.inputContainerDisabled
-                ]}>
-                  <Text style={[
-                    styles.inputText,
-                    edit ? styles.inputTextEdit : styles.inputTextDisabled
-                  ]}>
-                     {form.email || t('common.not_specified')}
-                  </Text>
-                </View>
-              </View>
+              {/* أزرار التحكم */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity 
+                  style={styles.primaryButton}
+                  onPress={handleEditProfile}
+                >
+                  <Ionicons name="create-outline" size={20} color={theme.colors.white} />
+                  <Text style={styles.primaryButtonText}>{t('profile.edit')}</Text>
+                </TouchableOpacity>
 
-              {/* رقم الهاتف */}
-              <View style={styles.inputGroup}>
-                 <Text style={styles.inputLabel}>{t('auth.phone')} *</Text>
-                <View style={[
-                  styles.inputContainer,
-                  edit ? styles.inputContainerEdit : styles.inputContainerDisabled
-                ]}>
-                  <Text style={[
-                    styles.inputText,
-                    edit ? styles.inputTextEdit : styles.inputTextDisabled
-                  ]}>
-                     {form.phone || t('common.not_specified')}
-                  </Text>
-                </View>
+                <TouchableOpacity 
+                  style={styles.secondaryButton}
+                  onPress={() => navigation.navigate('ChangePassword' as never)}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.secondaryButtonText}>{t('auth.password') || 'كلمة المرور'}</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            {/* أزرار التحكم */}
-            <View style={styles.buttonGroup}>
-              {!edit ? (
-                <>
-                  {/* زر التعديل */}
-                  <TouchableOpacity 
-                    style={styles.editButton}
-                    onPress={handleEditProfile}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.buttonGradientStart, theme.colors.buttonGradientEnd]}
-                      style={styles.gradientButton}
-                    >
-                      <Ionicons name="create" size={20} color={theme.colors.white} />
-                       <Text style={styles.buttonText}>✏️ {t('profile.edit')}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* زر تغيير كلمة المرور */}
-                  <TouchableOpacity 
-                    style={styles.passwordButton}
-                    onPress={() => {
-                      navigation.navigate('ChangePassword' as never);
-                    }}
-                  >
-                    <LinearGradient
-                      colors={[theme.colors.buttonOrange, theme.colors.buttonOrangeDark]}
-                      style={styles.gradientButton}
-                    >
-                      <Ionicons name="lock-closed" size={20} color={theme.colors.white} />
-                     <Text style={styles.buttonText}>🔒 {t('auth.password') || 'كلمة المرور'}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  {/* زر الحفظ */}
-                  <TouchableOpacity 
-                    style={styles.saveButton}
-                    onPress={handleSaveProfile}
-                    disabled={loading}
-                  >
-                    <LinearGradient
-                      colors={loading ? ['#ccc', '#ccc'] : [theme.colors.teal, theme.colors.tealDark]}
-                      style={styles.gradientButton}
-                    >
-                      <Text style={styles.buttonText}>
-                         {loading ? t('common.loading') : '💾 ' + t('common.save')}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* زر الإلغاء */}
-                  <TouchableOpacity 
-                    style={styles.cancelButton}
-                    onPress={handleCancelEdit}
-                  >
-                    <View style={styles.cancelButtonContent}>
-                      <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
-                       <Text style={styles.cancelButtonText}>❌ {t('common.cancel')}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-
-      {/* خيارات إضافية */}
-            <View style={styles.optionsSection}>
-        {/* اختيار اللغة */}
-        <View style={styles.languageRow}>
-          <Text style={styles.languageLabel}>{t('profile.change_language')}</Text>
-          <View style={styles.languageButtons}>
-            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ar')}>
-              <Text style={styles.langBtnText}>AR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('en')}>
-              <Text style={styles.langBtnText}>EN</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ku')}>
-              <Text style={styles.langBtnText}>KU</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-              <TouchableOpacity 
-                style={styles.optionButton}
-                onPress={() => navigation.navigate('MyAppointments' as never)}
-              >
-                <Ionicons name="calendar" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>{t('appointments.my_appointments')}</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+        ) : (
+          <View style={styles.tabContent}>
+            {/* الإعدادات */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.settings') || 'الإعدادات'}</Text>
+              
+              {/* اختيار اللغة */}
+              <View style={styles.settingsCard}>
+                <View style={styles.settingsRow}>
+                  <Ionicons name="language-outline" size={24} color={theme.colors.primary} />
+                  <Text style={styles.settingsLabel}>{t('profile.change_language')}</Text>
+                </View>
+                <View style={styles.languageButtons}>
+                  <TouchableOpacity 
+                    style={[styles.langBtn, getCurrentLanguage() === 'ar' && styles.langBtnActive]} 
+                    onPress={() => changeLanguage('ar')}
+                  >
+                    <Text style={[styles.langBtnText, getCurrentLanguage() === 'ar' && styles.langBtnTextActive]}>AR</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.langBtn, getCurrentLanguage() === 'en' && styles.langBtnActive]} 
+                    onPress={() => changeLanguage('en')}
+                  >
+                    <Text style={[styles.langBtnText, getCurrentLanguage() === 'en' && styles.langBtnTextActive]}>EN</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.langBtn, getCurrentLanguage() === 'ku' && styles.langBtnActive]} 
+                    onPress={() => changeLanguage('ku')}
+                  >
+                    <Text style={[styles.langBtnText, getCurrentLanguage() === 'ku' && styles.langBtnTextActive]}>KU</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-              <TouchableOpacity 
-                style={styles.optionButton}
-                onPress={() => navigation.navigate('MedicineReminder' as never)}
-              >
-                <Ionicons name="medical" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>{t('medicine_reminder.title')}</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+              {/* الخيارات */}
+              <View style={styles.settingsCard}>
+                <TouchableOpacity 
+                  style={styles.settingsItem}
+                  onPress={() => navigation.navigate('MyAppointments' as never)}
+                >
+                  <View style={styles.settingsRow}>
+                    <Ionicons name="calendar-outline" size={24} color={theme.colors.primary} />
+                    <Text style={styles.settingsLabel}>{t('appointments.my_appointments')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.optionButton}
-                onPress={() => navigation.navigate('HealthCenters' as never)}
-              >
-                <Ionicons name="business" size={24} color={theme.colors.purple} />
-                <Text style={styles.optionText}>{t('health_centers.title')}</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                <View style={styles.divider} />
+
+                <TouchableOpacity 
+                  style={styles.settingsItem}
+                  onPress={() => navigation.navigate('MedicineReminder' as never)}
+                >
+                  <View style={styles.settingsRow}>
+                    <Ionicons name="medical-outline" size={24} color={theme.colors.primary} />
+                    <Text style={styles.settingsLabel}>{t('medicine_reminder.title')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity 
+                  style={styles.settingsItem}
+                  onPress={() => navigation.navigate('PrivacySettings' as never)}
+                >
+                  <View style={styles.settingsRow}>
+                    <Ionicons name="shield-checkmark-outline" size={24} color={theme.colors.primary} />
+                    <Text style={styles.settingsLabel}>{t('privacy.settings') || 'إعدادات الخصوصية'}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+
+              </View>
+
+              {/* زر تسجيل الخروج */}
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={20} color={theme.colors.white} />
+                <Text style={styles.logoutButtonText}>{t('auth.logout')}</Text>
               </TouchableOpacity>
             </View>
-
-            {/* زر تسجيل الخروج */}
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Ionicons name="log-out" size={20} color={theme.colors.white} />
-              <Text style={styles.logoutButtonText}>{t('auth.logout')}</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -345,13 +332,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -365,7 +345,7 @@ const styles = StyleSheet.create({
   },
   loadingIcon: {
     fontSize: 48,
-    color: theme.colors.purple,
+    color: theme.colors.primary,
     marginBottom: theme.spacing.md,
   },
   loadingTitle: {
@@ -379,230 +359,248 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xl,
   },
-  backButton: {
-    position: 'absolute',
-    top: 18,
-    left: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+  header: {
+    paddingTop: 15,
+    paddingBottom: 15,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: 8,
-    flexDirection: 'row',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    marginBottom: theme.spacing.md,
   },
   backButtonText: {
-    color: theme.colors.purple,
+    color: theme.colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: theme.spacing.sm,
+    fontWeight: '600',
   },
-  scrollView: {
-    flex: 1,
-    padding: theme.spacing.md,
-  },
-  mainCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginTop: theme.spacing.xl,
-    ...theme.shadows.large,
-  },
-  headerGradient: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  headerContent: {
+  profileHeader: {
     alignItems: 'center',
   },
   imageContainer: {
     position: 'relative',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   userImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.3)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: theme.colors.white,
   },
   placeholderImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  placeholderText: {
-    fontSize: 32,
-  },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: theme.colors.purple,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: theme.colors.white,
   },
-  headerTitle: {
-    fontSize: 24,
+  editImageButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.primaryDark,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.white,
+  },
+  userName: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.white,
+    marginTop: theme.spacing.xs,
   },
-  cardContent: {
-    padding: theme.spacing.xl,
+  userEmail: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
-  infoSection: {
-    marginBottom: theme.spacing.xl,
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
   },
-  inputGroup: {
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: theme.colors.primary,
+  },
+  tabText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginLeft: theme.spacing.sm,
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: theme.colors.primary,
+    fontWeight: 'bold',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  tabContent: {
+    padding: theme.spacing.md,
+  },
+  section: {
     marginBottom: theme.spacing.lg,
   },
-  inputLabel: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.purple,
-    marginBottom: theme.spacing.sm,
-  },
-  inputContainer: {
-    borderRadius: 12,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    borderWidth: 2,
-  },
-  inputContainerEdit: {
-    borderColor: theme.colors.purple,
-    backgroundColor: theme.colors.white,
-  },
-  inputContainerDisabled: {
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.inputBackground,
-  },
-  inputText: {
-    fontSize: 16,
-  },
-  inputTextEdit: {
     color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.md,
+    marginLeft: theme.spacing.sm,
   },
-  inputTextDisabled: {
+  infoCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: theme.spacing.md,
+  },
+  infoLabel: {
+    fontSize: 12,
     color: theme.colors.textSecondary,
+    marginBottom: 4,
   },
-  buttonGroup: {
-    marginBottom: theme.spacing.xl,
+  infoValue: {
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: theme.spacing.sm,
+  },
+  actionButtons: {
+    marginTop: theme.spacing.lg,
     gap: theme.spacing.md,
   },
-  editButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  passwordButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  saveButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  cancelButton: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-  },
-  gradientButton: {
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-  },
-  buttonText: {
-    color: theme.colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: theme.spacing.sm,
-  },
-  cancelButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-    backgroundColor: theme.colors.buttonGray,
-  },
-  cancelButtonText: {
-    color: theme.colors.buttonGrayText,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: theme.spacing.sm,
-  },
-  optionsSection: {
-    marginBottom: theme.spacing.xl,
-  },
-  languageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    marginBottom: theme.spacing.sm,
-    ...theme.shadows.small,
-  },
-  languageLabel: {
-    fontSize: 16,
-    color: theme.colors.textPrimary,
-  },
-  languageButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  langBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
     backgroundColor: theme.colors.primary,
-  },
-  langBtnText: {
-    color: theme.colors.white,
-    fontWeight: 'bold',
-  },
-  optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 12,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    marginBottom: theme.spacing.sm,
     ...theme.shadows.small,
   },
-  optionText: {
+  primaryButtonText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: theme.spacing.sm,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+    ...theme.shadows.small,
+  },
+  secondaryButtonText: {
+    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: theme.spacing.sm,
+  },
+  settingsCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingsLabel: {
     fontSize: 16,
     color: theme.colors.textPrimary,
     marginLeft: theme.spacing.md,
     flex: 1,
   },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.sm,
+  },
+  languageButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+  },
+  langBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  langBtnActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  langBtnText: {
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  langBtnTextActive: {
+    color: theme.colors.white,
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
     backgroundColor: theme.colors.error,
     borderRadius: 12,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
+    ...theme.shadows.small,
   },
   logoutButtonText: {
     color: theme.colors.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginLeft: theme.spacing.sm,
   },

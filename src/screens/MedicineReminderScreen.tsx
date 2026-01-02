@@ -24,7 +24,6 @@ const MedicineReminderScreen: React.FC = () => {
   const { t } = useTranslation();
   const {
     scheduleMedicineReminder,
-    scheduleMedicineNotificationsIfNeeded,
     cancelNotification,
   } = useNotifications();
   const { user, profile } = useAuth();
@@ -33,7 +32,6 @@ const MedicineReminderScreen: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newReminder, setNewReminder] = useState({
     medicineName: '',
-    dosage: '',
     time: new Date(),
     frequency: 'once' as
       | 'once'
@@ -44,7 +42,6 @@ const MedicineReminderScreen: React.FC = () => {
   });
   const [newReminderTimes, setNewReminderTimes] = useState<string[]>([]);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedHour, setSelectedHour] = useState(new Date().getHours());
   const [selectedMinute, setSelectedMinute] = useState(new Date().getMinutes());
 
@@ -158,19 +155,6 @@ const MedicineReminderScreen: React.FC = () => {
     }
   };
 
-  // تنسيق الجرعة
-  const formatDosage = (dose: any) => {
-    try {
-      if (dose === null || dose === undefined) return '';
-      const s = String(dose).trim();
-      if (/^\d+(\.\d+)?$/.test(s)) {
-        return `${s} ${t('medicine_reminder.pill')}`;
-      }
-      return s;
-    } catch {
-      return String(dose || '');
-    }
-  };
 
   const getFrequencyText = (freq: string) => {
     switch (freq) {
@@ -207,19 +191,6 @@ const MedicineReminderScreen: React.FC = () => {
     setNewReminderTimes(prev => Array.from(new Set([...(prev || []), t])));
   };
 
-  // دالة لاختيار التاريخ
-  const handleDateChange = (daysToAdd: number) => {
-    const newDate = new Date();
-    newDate.setDate(newDate.getDate() + daysToAdd);
-    const currentTime = newReminder.time;
-    newDate.setHours(currentTime.getHours());
-    newDate.setMinutes(currentTime.getMinutes());
-    setNewReminder(prev => ({ ...prev, time: newDate }));
-    setShowDatePicker(false);
-    // إعادة فتح Modal الإضافة
-    setShowAddModal(true);
-  };
-
   // دالة لعرض اختيار الوقت
   const showTimePickerModal = () => {
     setSelectedHour(newReminder.time.getHours());
@@ -229,16 +200,9 @@ const MedicineReminderScreen: React.FC = () => {
     setShowAddModal(false);
   };
 
-  // دالة لعرض اختيار التاريخ
-  const showDatePickerModal = () => {
-    setShowDatePicker(true);
-    // إغلاق Modal الإضافة مؤقتاً
-    setShowAddModal(false);
-  };
-
   // دالة محسنة لإضافة تذكير الدواء (تدعم أوقات متعددة)
   const handleAddReminder = async () => {
-    if (!newReminder.medicineName || !newReminder.dosage) {
+    if (!newReminder.medicineName) {
       Alert.alert(t('common.error'), t('medicine_reminder.fill_required_fields'));
       return;
     }
@@ -274,19 +238,6 @@ const MedicineReminderScreen: React.FC = () => {
         return;
       }
 
-      // حساب startDate و endDate (مثل الويب: أسبوع افتراضياً)
-      const toYmd = (d: Date) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const da = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${da}`;
-      };
-      const start = new Date(newReminder.time);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      const startDate = toYmd(start);
-      const endDate = toYmd(end);
-
       // إنشاء عناصر محلية فقط - لا مزامنة مع الخادم
       const createdLocally: any[] = [];
       for (const t of timesToSave) {
@@ -296,9 +247,7 @@ const MedicineReminderScreen: React.FC = () => {
         createdLocally.push({
           id: reminderId,
           medicine_name: newReminder.medicineName,
-          dosage: newReminder.dosage,
           time: t,
-          date: startDate,
           frequency: newReminder.frequency,
           active: true,
           created_at: new Date().toISOString(),
@@ -321,7 +270,7 @@ const MedicineReminderScreen: React.FC = () => {
           await scheduleMedicineReminder(
             item.id,
             item.medicine_name,
-            item.dosage,
+            '',
             medicineTime,
             item.frequency
           );
@@ -345,7 +294,6 @@ const MedicineReminderScreen: React.FC = () => {
       // إعادة تعيين النموذج
       setNewReminder({
         medicineName: '',
-        dosage: '',
         time: new Date(),
         frequency: 'once',
       });
@@ -455,12 +403,6 @@ const MedicineReminderScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('medicine_reminder.title')}</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.rescheduleButton}
-            onPress={scheduleMedicineNotificationsIfNeeded}
-          >
-            <Ionicons name="refresh" size={18} color={theme.colors.white} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.addButton} onPress={addReminder}>
             <Ionicons name="add" size={20} color={theme.colors.white} />
           </TouchableOpacity>
@@ -501,9 +443,6 @@ const MedicineReminderScreen: React.FC = () => {
                   <View style={{ marginLeft: 12 }}>
                     <Text style={styles.medicineName}>
                       {reminder.medicine_name}
-                    </Text>
-                    <Text style={styles.medicineDosage}>
-                      {formatDosage(reminder.dosage)}
                     </Text>
                   </View>
                 </View>
@@ -610,42 +549,6 @@ const MedicineReminderScreen: React.FC = () => {
                   placeholder={t('medicine_reminder.enter_medicine_name')}
                   placeholderTextColor={theme.colors.textSecondary}
                 />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('medicine_reminder.dosage')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={newReminder.dosage}
-                  onChangeText={text =>
-                    setNewReminder(prev => ({ ...prev, dosage: text }))
-                  }
-                  placeholder={t('medicine_reminder.dosage_example')}
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('common.date')}</Text>
-                <View style={styles.simpleButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.simpleButton}
-                    onPress={() => {
-                      showDatePickerModal();
-                    }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name="calendar"
-                      size={16}
-                      color={theme.colors.white}
-                    />
-                    <Text style={styles.simpleButtonText}>
-                      {newReminder.time.toLocaleDateString('ar-EG')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -958,70 +861,6 @@ const MedicineReminderScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Modal لاختيار التاريخ - يجب أن يكون خارج Modal الإضافة مع zIndex أعلى */}
-      <Modal
-        visible={showDatePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDatePicker(false)}
-        statusBarTranslucent={true}
-        presentationStyle="overFullScreen"
-        hardwareAccelerated={true}
-      >
-        <View style={[styles.simpleModalOverlay, { zIndex: 999999 }]}>
-          <View style={[styles.simpleModalContent, { zIndex: 1000000 }]}>
-            <View style={styles.simpleModalHeader}>
-              <Text style={styles.simpleModalTitle}>{t('medicine_reminder.choose_date')}</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setShowDatePicker(false);
-                  setShowAddModal(true);
-                }}
-              >
-                <Ionicons name="close" size={18} color={theme.colors.white} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.simpleDateContainer}>
-              {[
-                { days: 0, label: t('medicine_reminder.today') },
-                { days: 1, label: t('medicine_reminder.tomorrow') },
-                { days: 2, label: t('medicine_reminder.day_after_tomorrow') },
-                { days: 3, label: t('medicine_reminder.after_3_days') },
-                { days: 7, label: t('medicine_reminder.after_week') },
-              ].map(option => (
-                <TouchableOpacity
-                  key={option.days}
-                  style={styles.simpleDateItem}
-                  onPress={() => {
-                    handleDateChange(option.days);
-                  }}
-                >
-                  <Ionicons
-                    name="calendar"
-                    size={18}
-                    color={theme.colors.primary}
-                  />
-                  <Text style={styles.simpleDateItemText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.simpleModalFooter}>
-              <TouchableOpacity
-                style={styles.simpleCancelButton}
-                onPress={() => {
-                  setShowDatePicker(false);
-                  setShowAddModal(true);
-                }}
-              >
-                <Text style={styles.simpleCancelButtonText}>إلغاء</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -1054,16 +893,6 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  rescheduleButton: {
-    backgroundColor: theme.colors.warning,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    marginTop: 8,
   },
   headerTitle: {
     fontSize: 20,

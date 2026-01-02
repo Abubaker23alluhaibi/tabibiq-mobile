@@ -23,6 +23,9 @@ export default {
     unknown_doctor: 'Unknown Doctor',
     not_specified: 'Not Specified',
     years: 'years',
+    doctor: 'Doctor',
+    general_specialty: 'General Specialty',
+    clinic_location: 'Clinic Location',
     copied: 'Copied',
     copy_link: 'Copy Link',
     ok: 'OK',
@@ -33,6 +36,7 @@ export default {
     terms_of_service: 'Terms of Service',
     open_privacy_policy: 'Open Privacy Policy',
     open_terms_of_service: 'Open Terms of Service',
+    medical_disclaimer: 'Disclaimer: This app does not provide medical advice. For emergencies, contact emergency services immediately.',
   },
 
   // Day names
@@ -137,7 +141,7 @@ export default {
     signup_error: 'Sign Up Error',
     signup_error_message:
       'An error occurred while creating your account. Please try again.',
-    login_error: 'Login Error',
+    view_welcome_screens: 'View Welcome Screens',
     login_error_message: 'Email or password is incorrect.',
     doctor_signup: 'Sign Up as Doctor',
     signup_as_doctor: 'Sign Up as Doctor',
@@ -206,7 +210,14 @@ export default {
     password_tip_numbers: '• Can be letters only',
     password_tip_personal: '• Or mix of numbers and letters',
     privacy_notice: 'By using the app, you agree to our Privacy Policy and Terms of Service',
-    terms_notice: 'By using the app, you agree to our Terms of Service'
+    terms_notice: 'By using the app, you agree to our Terms of Service',
+    // Login screen translations
+    welcome_back: 'Welcome Back',
+    login_subtitle: 'Sign in to access your account',
+    welcome_saved_data: 'Your registration data has been saved, you can now sign in',
+    doctor_login: 'Doctor Login',
+    welcome_back_doctor: 'Welcome Back Doctor',
+    doctor_login_subtitle: 'Sign in to access your medical account'
   },
 
   // Validation
@@ -458,6 +469,24 @@ export default {
     province: 'Province',
     specialty: 'Specialty',
     apply_filters: 'Apply Filters',
+    placeholder: 'Search for doctor, specialty, or province...',
+    no_results: 'No results found',
+    try_different_criteria: 'Try different search criteria',
+  },
+
+  // Doctors
+  doctors: {
+    available: 'Available',
+    not_available: 'Not Available',
+    rating: 'Rating',
+    experience: 'Experience',
+    specialty: 'Specialty',
+    location: 'Location',
+    book_appointment: 'Book Appointment',
+    view_profile: 'View Profile',
+    call: 'Call',
+    message: 'Message',
+    filtered: 'Filtered',
   },
 
   // Search Filters
@@ -997,6 +1026,52 @@ export default {
     fetch_doctor: 'Failed to fetch doctor data',
     doctor_not_found: 'Doctor not found',
     booking_failed: 'Failed to book appointment',
+  },
+
+  // Welcome Screens
+  welcome: {
+    title: 'Welcome to TabibiQ',
+    subtitle: 'Leading Iraq Doctor Platform connecting patients with doctors and health centers',
+    get_started: 'Get Started',
+    already_have_account: 'Already have an account?',
+    icons: {
+      heart: 'Heart',
+      medical: 'Medical',
+      pulse: 'Pulse',
+      bandage: 'Bandage',
+      fitness: 'Fitness',
+      shield: 'Protection',
+    },
+  },
+
+  intro: {
+    title: 'App Introduction',
+    main_title: 'Discover TabibiQ Features',
+    main_subtitle: 'An integrated medical platform bringing together patients, doctors and health centers',
+    continue: 'Continue',
+    skip_to_login: 'Skip to Login',
+  },
+
+  how_to_use: {
+    title: 'How to Use',
+    benefits_title: 'Why TabibiQ?',
+    benefit1: 'Easy doctor search and booking',
+    benefit2: 'Complete security and privacy for your data',
+    benefit3: 'Smart reminders for appointments and medications',
+    benefit4: 'Multi-language support (Arabic, English, Kurdish)',
+    get_started: 'Start Your Health Journey',
+    skip_to_login: 'Skip to Login',
+  },
+
+  auth_options: {
+    title: 'Login Options',
+    welcome_message: 'We are happy to have you join us!',
+    welcome_subtitle_simple: 'Choose the right way for you to get started',
+    patient_signup: 'New Patient Registration',
+    patient_signup_desc: 'Create a new account to access all medical services',
+    patient_login: 'Patient Login',
+    patient_login_desc: 'Login if you already have an account',
+    additional_info: 'All data is protected and encrypted with the latest technologies',
   },
 
   // Landing Page

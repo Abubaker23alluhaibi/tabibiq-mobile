@@ -44,7 +44,7 @@ const CenterHomeScreen: React.FC = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>جاري تحميل بيانات المركز...</Text>
+        <Text style={styles.loadingText}>{t('center.loading_data')}</Text>
       </View>
     );
   }
@@ -52,8 +52,8 @@ const CenterHomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>مرحباً بك في المركز الصحي</Text>
-        <Text style={styles.headerSubtitle}>{centerData?.name || 'مركز صحي'}</Text>
+        <Text style={styles.headerTitle}>{t('center.welcome')}</Text>
+        <Text style={styles.headerSubtitle}>{centerData?.name || t('center.health_center')}</Text>
       </View>
 
       <ScrollView style={styles.content}>
@@ -62,23 +62,23 @@ const CenterHomeScreen: React.FC = () => {
           <View style={styles.statCard}>
             <Ionicons name="people" size={32} color={theme.colors.primary} />
             <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>الأطباء</Text>
+            <Text style={styles.statLabel}>{t('center.doctors')}</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="calendar" size={32} color={theme.colors.success} />
             <Text style={styles.statNumber}>45</Text>
-            <Text style={styles.statLabel}>المواعيد اليوم</Text>
+            <Text style={styles.statLabel}>{t('center.today_appointments')}</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="medical" size={32} color={theme.colors.warning} />
             <Text style={styles.statNumber}>8</Text>
-            <Text style={styles.statLabel}>الخدمات</Text>
+            <Text style={styles.statLabel}>{t('center.services')}</Text>
           </View>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.actionsContainer}>
-          <Text style={styles.sectionTitle}>إجراءات سريعة</Text>
+          <Text style={styles.sectionTitle}>{t('center.quick_actions')}</Text>
           
           <View style={styles.actionGrid}>
             <TouchableOpacity
@@ -86,8 +86,8 @@ const CenterHomeScreen: React.FC = () => {
               onPress={() => handleAction('إدارة الأطباء')}
             >
               <Ionicons name="people" size={32} color={theme.colors.primary} />
-              <Text style={styles.actionTitle}>إدارة الأطباء</Text>
-              <Text style={styles.actionSubtitle}>إضافة وتعديل الأطباء</Text>
+              <Text style={styles.actionTitle}>{t('center.manage_doctors')}</Text>
+              <Text style={styles.actionSubtitle}>{t('center.add_edit_doctors')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -95,8 +95,8 @@ const CenterHomeScreen: React.FC = () => {
               onPress={() => handleAction('المواعيد')}
             >
               <Ionicons name="calendar" size={32} color={theme.colors.success} />
-              <Text style={styles.actionTitle}>المواعيد</Text>
-              <Text style={styles.actionSubtitle}>إدارة المواعيد اليومية</Text>
+              <Text style={styles.actionTitle}>{t('center.appointments')}</Text>
+              <Text style={styles.actionSubtitle}>{t('center.manage_daily_appointments')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -104,8 +104,8 @@ const CenterHomeScreen: React.FC = () => {
               onPress={() => handleAction('الخدمات')}
             >
               <Ionicons name="medical" size={32} color={theme.colors.warning} />
-              <Text style={styles.actionTitle}>الخدمات</Text>
-              <Text style={styles.actionSubtitle}>إدارة الخدمات المقدمة</Text>
+              <Text style={styles.actionTitle}>{t('center.services')}</Text>
+              <Text style={styles.actionSubtitle}>{t('center.manage_services')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -113,38 +113,38 @@ const CenterHomeScreen: React.FC = () => {
               onPress={() => handleAction('التقارير')}
             >
               <Ionicons name="analytics" size={32} color={theme.colors.error} />
-              <Text style={styles.actionTitle}>التقارير</Text>
-              <Text style={styles.actionSubtitle}>عرض الإحصائيات والتقارير</Text>
+              <Text style={styles.actionTitle}>{t('center.reports')}</Text>
+              <Text style={styles.actionSubtitle}>{t('center.view_statistics')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Recent Activity */}
         <View style={styles.activityContainer}>
-          <Text style={styles.sectionTitle}>النشاطات الأخيرة</Text>
+          <Text style={styles.sectionTitle}>{t('center.recent_activities')}</Text>
           
           <View style={styles.activityList}>
             <View style={styles.activityItem}>
               <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
               <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>تم إضافة طبيب جديد</Text>
-                <Text style={styles.activityTime}>منذ ساعتين</Text>
+                <Text style={styles.activityTitle}>{t('center.new_doctor_added')}</Text>
+                <Text style={styles.activityTime}>{t('center.two_hours_ago')}</Text>
               </View>
             </View>
 
             <View style={styles.activityItem}>
               <Ionicons name="calendar" size={20} color={theme.colors.primary} />
               <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>موعد جديد محجوز</Text>
-                <Text style={styles.activityTime}>منذ 3 ساعات</Text>
+                <Text style={styles.activityTitle}>{t('center.new_appointment_booked')}</Text>
+                <Text style={styles.activityTime}>{t('center.three_hours_ago')}</Text>
               </View>
             </View>
 
             <View style={styles.activityItem}>
               <Ionicons name="medical" size={20} color={theme.colors.warning} />
               <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>تم تحديث الخدمات</Text>
-                <Text style={styles.activityTime}>منذ 5 ساعات</Text>
+                <Text style={styles.activityTitle}>{t('center.services_updated')}</Text>
+                <Text style={styles.activityTime}>{t('center.five_hours_ago')}</Text>
               </View>
             </View>
           </View>

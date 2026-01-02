@@ -14,6 +14,7 @@ import {
   Linking,
   Clipboard,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -693,7 +694,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         finalAge = ageNumber;
         finalPatientName = patientName.trim();
         finalPatientPhone = patientPhone.trim();
-        finalBookerName = profile?.first_name || profile?.name || user?.name || 'مستخدم';
+        finalBookerName = profile?.first_name || profile?.name || user?.name || t('common.user');
       } else {
         // التحقق من عمر المريض نفسه
         if (!age.trim()) {
@@ -713,9 +714,9 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         }
 
         finalAge = ageNumber;
-        finalPatientName = profile?.first_name || profile?.name || user?.name || 'مريض';
+        finalPatientName = profile?.first_name || profile?.name || user?.name || t('calendar.patient');
         finalPatientPhone = profile?.phone || user?.phone || '';
-        finalBookerName = profile?.first_name || profile?.name || user?.name || 'مستخدم';
+        finalBookerName = profile?.first_name || profile?.name || user?.name || t('common.user');
       }
 
       // إصلاح تنسيق البيانات المرسلة للخادم - محدث ليتطابق مع قاعدة البيانات
@@ -723,7 +724,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         userId: user?.id, // معرف المستخدم
         doctorId: doctorId, // معرف الطبيب
         userName: finalPatientName, // اسم المريض الفعلي
-        doctorName: doctor?.name || 'طبيب', // اسم الطبيب
+        doctorName: doctor?.name || t('common.doctor'), // اسم الطبيب
         centerName: '', // اسم المركز الصحي (فارغ حالياً)
         date: selectedDate, // التاريخ
         time: selectedTime, // الوقت
@@ -768,7 +769,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         sendAppointmentNotificationToDoctor(
           doctorId,
           response.data?.appointment?._id || Date.now().toString(),
-          profile?.first_name || profile?.name || user?.name || 'مريض',
+          profile?.first_name || profile?.name || user?.name || t('calendar.patient'),
           appointmentDate,
           appointmentDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
         )
@@ -793,8 +794,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         const result = await scheduleAppointmentReminder(
           response.data?.appointment?._id || Date.now().toString(),
           appointmentDate,
-          doctor?.name || doctor?.first_name || doctor?.full_name || 'د. ' + (doctor?.specialty || 'طبيب'),
-          profile?.first_name || profile?.name || user?.name || 'مريض'
+          doctor?.name || doctor?.first_name || doctor?.full_name || t('common.doctor') + ' ' + (doctor?.specialty || t('common.doctor')),
+          profile?.first_name || profile?.name || user?.name || t('calendar.patient')
         );
         } catch (error) {
           throw error;
@@ -876,7 +877,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     }
 
     if (!doctorId) {
-      Alert.alert(t('rating.error'), 'معرف الطبيب غير موجود');
+      Alert.alert(t('rating.error'), t('doctor.id_not_found'));
       return;
     }
 
@@ -944,7 +945,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
   const handleConfirmBookingForOther = () => {
     if (!patientName.trim() || !patientPhone.trim() || !patientAge.trim()) {
-      Alert.alert('خطأ', 'يرجى إدخال جميع البيانات المطلوبة');
+      Alert.alert(t('error.title'), t('validation.all_fields_required'));
       return;
     }
     
@@ -954,7 +955,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     // التحقق من صحة العمر
     const ageNum = parseInt(normalizedAge);
     if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-      Alert.alert('خطأ', 'يرجى إدخال عمر صحيح (1-120)');
+      Alert.alert(t('error.title'), t('validation.age_invalid'));
       return;
     }
     
@@ -989,7 +990,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     if (doctor?.mapLocation) {
       setShowMap(true);
     } else {
-      Alert.alert('معلومات', 'لا يوجد رابط للخريطة');
+      Alert.alert(t('common.info'), t('map.no_link'));
     }
   };
 
@@ -998,7 +999,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       // فتح الرابط في المتصفح
       Linking.openURL(doctor.mapLocation);
     } else {
-      Alert.alert('معلومات', 'لا يوجد رابط للخريطة');
+      Alert.alert(t('common.info'), t('map.no_link'));
     }
   };
 
@@ -1051,7 +1052,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         <View style={styles.disabledDoctorContainer}>
           <View style={styles.disabledDoctorContent}>
             <Ionicons name="lock-closed" size={80} color={theme.colors.error} />
-            <Text style={styles.disabledDoctorTitle}>الطبيب غير متاح</Text>
+            <Text style={styles.disabledDoctorTitle}>{t('doctor.not_available')}</Text>
             <Text style={styles.disabledDoctorMessage}>
               عذراً، هذا الطبيب غير متاح حالياً لحجز المواعيد. يرجى اختيار طبيب آخر من قائمة الأطباء المتاحين.
             </Text>
@@ -1059,7 +1060,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               style={styles.backToDoctorsButton}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.backToDoctorsButtonText}>العودة إلى قائمة الأطباء</Text>
+              <Text style={styles.backToDoctorsButtonText}>{t('doctor.back_to_doctors')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1093,18 +1094,17 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+        {/* زر الرجوع */}
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.simpleBackButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('doctor.details')}</Text>
-      </View>
 
-      <View style={styles.content}>
         {/* صورة الطبيب */}
         <View style={styles.imageContainer}>
           {(() => {
@@ -1142,7 +1142,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
           <View style={styles.specialtyContainer}>
             <Ionicons name="medical" size={20} color={theme.colors.primary} />
             <Text style={styles.doctorSpecialty}>
-              {doctor.specialty || 'غير محدد'}
+              {doctor.specialty || t('common.not_specified')}
             </Text>
           </View>
 
@@ -1226,38 +1226,29 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               size={20}
               color={theme.colors.primary}
             />
-            <Text style={styles.infoText}>
-              {t('location.manual')}: {doctor.clinicLocation}
-            </Text>
+            {doctor.mapLocation ? (
+              <TouchableOpacity
+                style={styles.infoTextContainer}
+                onPress={() => Linking.openURL(doctor.mapLocation)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.infoText, styles.clickableInfoText]}>
+                  {t('location.manual')}: {doctor.clinicLocation}
+                </Text>
+                <Ionicons
+                  name="map-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                  style={styles.mapIconInline}
+                />
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.infoText}>
+                {t('location.manual')}: {doctor.clinicLocation}
+              </Text>
+            )}
           </View>
         )}
-
-        {/* رابط الخريطة (تم إخفاؤه لصالح الأيقونة بجانب زر الحجز) */}
-
-        {/* زر الحجز + أيقونة فتح الخريطة بجانبه */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, { flex: 1 }]}
-            onPress={() => setShowCalendar(true)}
-          >
-            <Ionicons name="calendar" size={20} color={theme.colors.white} />
-            <Text style={styles.actionButtonText}>{t('appointment.book_appointment')}</Text>
-          </TouchableOpacity>
-
-          {doctor.mapLocation && (
-            <TouchableOpacity
-              style={styles.mapIconButton}
-              onPress={() => Linking.openURL(doctor.mapLocation)}
-              accessibilityLabel="فتح الخريطة"
-            >
-              <Ionicons
-                name="map-outline"
-                size={20}
-                color={theme.colors.white}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
 
         {/* زر نسخ الرابط */}
         <View style={styles.actionsContainer}>
@@ -1424,6 +1415,18 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
         {/* مساحة إضافية في الأسفل لضمان ظهور الأزرار */}
         <View style={styles.bottomSpacer} />
+        </View>
+      </ScrollView>
+
+      {/* زر الحجز الثابت */}
+      <View style={styles.fixedBookingContainer}>
+        <TouchableOpacity
+          style={styles.fixedBookingButton}
+          onPress={() => setShowCalendar(true)}
+        >
+          <Ionicons name="calendar" size={20} color={theme.colors.white} />
+          <Text style={styles.fixedBookingButtonText}>{t('appointment.book_appointment')}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Modal التقويم */}
@@ -1444,7 +1447,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 color={theme.colors.textPrimary}
               />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>اختر موعد الحجز</Text>
+            <Text style={styles.modalTitle}>{t('appointment.choose_appointment_time')}</Text>
           </View>
 
           {!selectedTime && (
@@ -1674,7 +1677,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   </View>
                   <View style={styles.patientInfoRow}>
                     <Text style={styles.patientInfoLabel}>{t('booking_for_other.booker_name')}:</Text>
-                    <Text style={styles.patientInfoValue}>{profile?.first_name || profile?.name || user?.name || 'مستخدم'}</Text>
+                    <Text style={styles.patientInfoValue}>{profile?.first_name || profile?.name || user?.name || t('common.user')}</Text>
                   </View>
                 </View>
               )}
@@ -1839,7 +1842,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         onClose={hideModal}
         showCloseButton={modal.showCloseButton}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -1847,6 +1850,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // مساحة للزر الثابت
   },
   loadingContainer: {
     flex: 1,
@@ -1889,6 +1898,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  simpleBackButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+    padding: 8,
   },
   imageContainer: {
     alignItems: 'center',
@@ -1946,6 +1960,20 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginLeft: 12,
     flex: 1,
+  },
+  infoTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  clickableInfoText: {
+    flex: 1,
+    color: theme.colors.primary,
+    textDecorationLine: 'underline',
+  },
+  mapIconInline: {
+    marginLeft: 8,
   },
   ratingContainer: {
     alignItems: 'center',
@@ -2507,6 +2535,55 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     opacity: 0.6,
+  },
+  fixedBookingContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: 12,
+  },
+  fixedBookingButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  fixedBookingButtonText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  fixedMapButton: {
+    backgroundColor: theme.colors.success,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapButtonInline: {
+    marginLeft: 8,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: theme.colors.background,
   },
 });
 

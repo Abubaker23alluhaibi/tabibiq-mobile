@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useTranslation } from 'react-i18next';
@@ -14,9 +15,52 @@ import DeepLinkHandler from '../components/DeepLinkHandler';
 // تجاهل تحذيرات shadow* من React Navigation
 // @ts-ignore
 
+// Custom transition animation for smooth fade + slide
+const customTransition = {
+  cardStyleInterpolator: ({ current, next, layouts }: any) => {
+    return {
+      cardStyle: {
+        transform: [
+          {
+            translateX: current.progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [layouts.screen.width, 0],
+            }),
+          },
+        ],
+        opacity: current.progress.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0, 0.5, 1],
+        }),
+      },
+      overlayStyle: {
+        opacity: current.progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 0.5],
+        }),
+      },
+    };
+  },
+  transitionSpec: {
+    open: {
+      animation: 'timing',
+      config: {
+        duration: 400,
+      },
+    },
+    close: {
+      animation: 'timing',
+      config: {
+        duration: 300,
+      },
+    },
+  },
+};
+
 // الشاشات
-import LandingScreen from '../screens/LandingScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
+import DoctorLoginScreen from '../screens/DoctorLoginScreen';
 import UserSignUpScreen from '../screens/UserSignUpScreen';
 import UserHomeScreen from '../screens/UserHomeScreen';
 import DoctorDashboardScreen from '../screens/DoctorDashboardScreen';
@@ -26,8 +70,6 @@ import UserProfileScreen from '../screens/UserProfileScreen';
 import DoctorProfileScreen from '../screens/DoctorProfileScreen';
 import DoctorAppointmentsScreen from '../screens/DoctorAppointmentsScreen';
 import MedicineReminderScreen from '../screens/MedicineReminderScreen';
-import HealthCentersScreen from '../screens/HealthCentersScreen';
-import CenterLoginScreen from '../screens/CenterLoginScreen';
 import CenterHomeScreen from '../screens/CenterHomeScreen';
 import DoctorCalendarScreen from '../screens/DoctorCalendarScreen';
 import DoctorAnalyticsScreen from '../screens/DoctorAnalyticsScreen';
@@ -40,6 +82,7 @@ import AllDoctorsScreen from '../screens/AllDoctorsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TopRatedDoctorsScreen from '../screens/TopRatedDoctorsScreen';
 import DoctorReviewsScreen from '../screens/DoctorReviewsScreen';
+import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
 
 // أنواع التنقل
 import { RootStackParamList } from '../types';
@@ -55,7 +98,7 @@ const UserTabNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'UserHome') {
@@ -76,18 +119,23 @@ const UserTabNavigator = () => {
             iconName = 'help-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={20} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 10 },
-        tabBarIconStyle: { marginTop: -4 },
+        tabBarLabelStyle: { fontSize: 9, marginTop: -4 },
+        tabBarIconStyle: { marginTop: 2 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 10,
+          paddingBottom: Platform.OS === 'android' ? 25 : 8,
           paddingTop: 4,
-          height: 60,
+          height: Platform.OS === 'android' ? 70 : 55,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         headerShown: false,
       })}
@@ -131,7 +179,7 @@ const DoctorTabNavigator = () => {
     <Tab.Navigator
       initialRouteName="DoctorDashboard"
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'DoctorDashboard') {
@@ -150,18 +198,23 @@ const DoctorTabNavigator = () => {
             iconName = 'help-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={20} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 10 },
+        tabBarLabelStyle: { fontSize: 9, marginTop: -4 },
         tabBarIconStyle: { marginTop: 2 },
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
-          paddingBottom: 3,
+          paddingBottom: Platform.OS === 'android' ? 25 : 3,
           paddingTop: 3,
-          height: 52,
+          height: Platform.OS === 'android' ? 70 : 50,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         headerShown: false,
       })}
@@ -267,7 +320,7 @@ const AppNavigator = () => {
       <DeepLinkHandler>
         <Stack.Navigator
           initialRouteName={!user
-            ? (isFirstLaunch ? 'Landing' : 'Login')
+            ? (isFirstLaunch ? 'Welcome' : 'Login')
             : (user.user_type === 'user'
                 ? 'UserHomeStack'
                 : user.user_type === 'doctor'
@@ -292,24 +345,33 @@ const AppNavigator = () => {
             // شاشات غير مسجل الدخول
             <>
               <Stack.Screen
-                name="Landing"
-                component={LandingScreen}
-                options={{ headerShown: false }}
+                name="Welcome"
+                component={WelcomeScreen}
+                options={{ 
+                  headerShown: false,
+                  ...customTransition,
+                }}
               />
               <Stack.Screen
                 name="Login"
                 component={LoginScreen}
-                options={{ headerShown: false }}
+                options={{ 
+                  headerShown: false,
+                  ...customTransition,
+                }}
+              />
+              <Stack.Screen
+                name="DoctorLogin"
+                component={DoctorLoginScreen}
+                options={{ 
+                  headerShown: false,
+                  ...customTransition,
+                }}
               />
               <Stack.Screen
                 name="UserSignUp"
                 component={UserSignUpScreen}
                 options={{ title: t('auth.login') }}
-              />
-              <Stack.Screen
-                name="CenterLogin"
-                component={CenterLoginScreen}
-                options={{ title: t('center.login') }}
               />
               <Stack.Screen
                 name="DoctorDetails"
@@ -369,6 +431,11 @@ const AppNavigator = () => {
                     options={{ title: t('auth.change_password') }}
                   />
                   <Stack.Screen
+                    name="PrivacySettings"
+                    component={PrivacySettingsScreen}
+                    options={{ title: t('privacy.settings') || 'إعدادات الخصوصية' }}
+                  />
+                  <Stack.Screen
                     name="TopRatedDoctors"
                     component={TopRatedDoctorsScreen}
                     options={{ headerShown: false }}
@@ -377,11 +444,6 @@ const AppNavigator = () => {
                     name="DoctorReviews"
                     component={DoctorReviewsScreen}
                     options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="HealthCenters"
-                    component={HealthCentersScreen}
-                    options={{ title: t('health_centers.title') }}
                   />
                 </>
               )}
@@ -481,6 +543,11 @@ const AppNavigator = () => {
                     name="ChangePassword"
                     component={ChangePasswordScreen}
                     options={{ title: t('auth.change_password') }}
+                  />
+                  <Stack.Screen
+                    name="PrivacySettings"
+                    component={PrivacySettingsScreen}
+                    options={{ title: t('privacy.settings') || 'إعدادات الخصوصية' }}
                   />
                   <Stack.Screen
                     name="TopRatedDoctors"

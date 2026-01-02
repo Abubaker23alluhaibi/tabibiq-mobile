@@ -1,7 +1,8 @@
 // أنواع التنقل
 export type RootStackParamList = {
-  Landing: undefined;
+  Welcome: undefined;
   Login: undefined;
+  DoctorLogin: undefined;
   UserSignUp: undefined;
   UserHomeStack: undefined;
   DoctorDashboard: undefined;
@@ -11,8 +12,6 @@ export type RootStackParamList = {
   DoctorProfile: undefined;
   DoctorAppointments: undefined;
   MedicineReminder: undefined;
-  HealthCenters: undefined;
-  CenterLogin: undefined;
   CenterHome: undefined;
   DoctorCalendar: undefined;
   DoctorAnalytics: undefined;
@@ -25,6 +24,7 @@ export type RootStackParamList = {
   ChangePassword: undefined;
   TopRatedDoctors: undefined;
   DoctorReviews: { doctorId: string };
+  PrivacySettings: undefined;
 };
 
 // نوع المستخدم

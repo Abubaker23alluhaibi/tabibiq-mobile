@@ -34,7 +34,7 @@ interface Doctor {
 }
 
 const AllDoctorsScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
@@ -116,12 +116,18 @@ const AllDoctorsScreen = () => {
       const mapped: Doctor[] = (data || []).map((d: any) => {
         const rawSpec = d.specialty || d.category_ar || d.category;
         const localizedSpec = mapSpecialtyToLocalized(rawSpec);
+        
+        // Debug: طباعة التخصص الأصلي والمترجم (في التطوير فقط)
+        if (__DEV__ && rawSpec && rawSpec !== localizedSpec) {
+          // يمكن إضافة logging هنا إذا لزم الأمر
+        }
+        
         return {
           id: d._id || d.id,
-          name: d.name || 'طبيب',
-          specialty: localizedSpec || 'تخصص عام',
-          province: d.province || 'غير محدد',
-          area: d.area || 'غير محدد',
+          name: d.name || t('common.doctor'),
+          specialty: localizedSpec || t('common.general_specialty'),
+          province: d.province || t('common.not_specified'),
+          area: d.area || t('common.not_specified'),
           image: d.imageUrl || d.profile_image || d.profileImage || d.image || null,
           isFeatured: d.isFeatured || d.is_featured || false,
           rating: Number(
@@ -131,7 +137,7 @@ const AllDoctorsScreen = () => {
             d.avgRating ??
             d.rating ?? 0
           ) || 0,
-          experience: d.experienceYears ? `${d.experienceYears} سنة` : 'غير محدد',
+          experience: d.experienceYears ? `${d.experienceYears} ${t('common.years')}` : t('common.not_specified'),
         };
       });
       
@@ -177,7 +183,7 @@ const AllDoctorsScreen = () => {
         {item.isFeatured && (
           <View style={styles.featuredBadge}>
             <Ionicons name="star" size={12} color={theme.colors.white} />
-            <Text style={styles.featuredText}>مميز</Text>
+            <Text style={styles.featuredText}>{t('doctor.featured')}</Text>
           </View>
         )}
       </View>
@@ -199,7 +205,7 @@ const AllDoctorsScreen = () => {
         <View style={styles.locationContainer}>
           <Ionicons name="location" size={12} color={theme.colors.textSecondary} style={styles.locationIcon} />
           <Text style={styles.loc} numberOfLines={2} ellipsizeMode="tail">
-            {mapProvinceToLocalized(item.province)}, {item.area}
+            {mapProvinceToLocalized(item.province)}{item.area ? `, ${item.area}` : ''}
           </Text>
         </View>
 
@@ -245,7 +251,7 @@ const AllDoctorsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.filterModal}>
             <View style={styles.filterHeader}>
-              <Text style={styles.filterTitle}>{t('filters.title') || 'فلاتر البحث'}</Text>
+              <Text style={styles.filterTitle}>{t('filters.title')}</Text>
               <TouchableOpacity onPress={() => setShowFilters(false)}>
                 <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
               </TouchableOpacity>
@@ -254,7 +260,7 @@ const AllDoctorsScreen = () => {
 
           <View style={styles.filterSection}>
             <Text style={styles.filterLabel}>
-              {t('filters.province') || 'المحافظة'} ({PROVINCES.length})
+              {t('filters.province')} ({PROVINCES.length})
             </Text>
             <ScrollView
               horizontal
@@ -276,7 +282,7 @@ const AllDoctorsScreen = () => {
                     selectedProvince === '' && styles.filterChipTextActive,
                   ]}
                 >
-                  {t('filters.all') || 'الكل'}
+                  {t('filters.all')}
                 </Text>
               </TouchableOpacity>
               {PROVINCES.map((province) => (
@@ -306,14 +312,14 @@ const AllDoctorsScreen = () => {
 
           {/* اختيار فئة التخصص */}
           <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>{t('filters.specialty_category_optional') || 'فئة التخصص (اختياري)'}</Text>
+            <Text style={styles.filterLabel}>{t('filters.specialty_category_optional')}</Text>
             <View style={styles.categoryButton}>
               <TouchableOpacity
                 style={styles.categoryButtonContent}
                 onPress={() => setShowCategoryModal(true)}
               >
                 <Text style={styles.categoryButtonText}>
-                  {selectedCategory ? mapCategoryToLocalized(selectedCategory) : (t('filters.select_specialty_category_optional') || 'اختر فئة التخصص (اختياري)')}
+                  {selectedCategory ? mapCategoryToLocalized(selectedCategory) : t('filters.select_specialty_category_optional')}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
@@ -330,13 +336,13 @@ const AllDoctorsScreen = () => {
 
           {/* اختيار التخصص */}
           <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>{t('filters.specialty') || 'التخصص'}</Text>
+            <Text style={styles.filterLabel}>{t('filters.specialty')}</Text>
             <TouchableOpacity
               style={styles.categoryButton}
               onPress={() => setShowSpecialtyModal(true)}
             >
               <Text style={styles.categoryButtonText}>
-                {selectedSpecialty || t('filters.select_specialty') || 'اختر التخصص'}
+                {selectedSpecialty || t('filters.select_specialty')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -346,7 +352,7 @@ const AllDoctorsScreen = () => {
               <View style={styles.infoContainer}>
                 <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
                 <Text style={styles.infoText}>
-                  {t('filters.category_selected_info', { category: mapCategoryToLocalized(selectedCategory) }) || `تم اختيار فئة "${mapCategoryToLocalized(selectedCategory)}" - ستظهر التخصصات المتعلقة بهذه الفئة فقط`}
+                  {t('filters.category_selected_info', { category: mapCategoryToLocalized(selectedCategory) })}
                 </Text>
               </View>
             )}
@@ -355,7 +361,7 @@ const AllDoctorsScreen = () => {
           <View style={styles.filterActions}>
             <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
               <Ionicons name="refresh" size={16} color={theme.colors.primary} />
-              <Text style={styles.clearFiltersText}>{t('filters.clear') || 'مسح الفلاتر'}</Text>
+              <Text style={styles.clearFiltersText}>{t('filters.clear')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -363,7 +369,7 @@ const AllDoctorsScreen = () => {
               onPress={() => setShowFilters(false)}
             >
               <Text style={styles.applyFilterButtonText}>
-                {t('filters.apply') || 'تطبيق الفلاتر'}
+                {t('filters.apply')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -397,7 +403,7 @@ const AllDoctorsScreen = () => {
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
         <TextInput
           style={styles.searchInput}
-          placeholder={t('search.placeholder') || "البحث عن طبيب، تخصص، أو محافظة..."}
+          placeholder={t('search.placeholder')}
           value={searchQuery}
           onChangeText={(text) => {
             setSearchQuery(text);
@@ -414,11 +420,11 @@ const AllDoctorsScreen = () => {
       {/* Active Filters Display */}
       {(selectedSpecialty || selectedProvince) && (
         <View style={styles.activeFiltersContainer}>
-          <Text style={styles.activeFiltersTitle}>{t('filters.applied') || 'الفلاتر المطبقة:'}</Text>
+          <Text style={styles.activeFiltersTitle}>{t('filters.applied')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {selectedProvince && (
               <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterText}>{t('filters.province') || 'المحافظة'}: {mapProvinceToLocalized(selectedProvince)}</Text>
+                <Text style={styles.activeFilterText}>{t('filters.province')}: {mapProvinceToLocalized(selectedProvince)}</Text>
                 <TouchableOpacity onPress={() => { setSelectedProvince(''); }}>
                   <Ionicons name="close-circle" size={16} color={theme.colors.primary} />
                 </TouchableOpacity>
@@ -426,7 +432,7 @@ const AllDoctorsScreen = () => {
             )}
             {selectedSpecialty && (
               <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterText}>{t('filters.specialty') || 'التخصص'}: {mapSpecialtyToLocalized(selectedSpecialty)}</Text>
+                <Text style={styles.activeFilterText}>{t('filters.specialty')}: {mapSpecialtyToLocalized(selectedSpecialty)}</Text>
                 <TouchableOpacity onPress={() => { setSelectedSpecialty(''); }}>
                   <Ionicons name="close-circle" size={16} color={theme.colors.primary} />
                 </TouchableOpacity>
@@ -439,8 +445,8 @@ const AllDoctorsScreen = () => {
       {/* Results Count */}
       <View style={styles.resultsContainer}>
         <Text style={styles.resultsText}>
-          {filteredDoctors.length} {t('doctors.available') || 'طبيب متاح'}
-          {(searchQuery || selectedSpecialty || selectedProvince) ? ` (${t('doctors.filtered') || 'مفلتر'})` : ''}
+          {filteredDoctors.length} {t('doctors.available')}
+          {(searchQuery || selectedSpecialty || selectedProvince) ? ` (${t('doctors.filtered')})` : ''}
         </Text>
       </View>
 
@@ -463,10 +469,10 @@ const AllDoctorsScreen = () => {
           <View style={styles.emptyContainer}>
             <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
             <Text style={styles.emptyText}>
-              {loading ? (t('common.loading') || 'جاري التحميل...') : (t('search.no_results') || 'لا توجد نتائج للبحث')}
+              {loading ? t('common.loading') : t('search.no_results')}
             </Text>
             <Text style={styles.emptySubtext}>
-              {t('search.try_different_criteria') || 'جرب تغيير معايير البحث أو الفلترة'}
+              {t('search.try_different_criteria')}
             </Text>
           </View>
         }
@@ -485,7 +491,7 @@ const AllDoctorsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('filters.specialty_category') || 'فئة التخصص'}</Text>
+              <Text style={styles.modalTitle}>{t('filters.specialty_category')}</Text>
               <View style={styles.modalHeaderButtons}>
                 <TouchableOpacity 
                   onPress={() => {
@@ -495,7 +501,7 @@ const AllDoctorsScreen = () => {
                   style={styles.backButton}
                 >
                   <Ionicons name="arrow-back" size={20} color={theme.colors.primary} />
-                  <Text style={styles.backButtonText}>الفلاتر</Text>
+                  <Text style={styles.backButtonText}>{t('filters.title')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowCategoryModal(false)} style={styles.closeButton}>
                   <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
@@ -528,7 +534,7 @@ const AllDoctorsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('filters.specialty') || 'التخصص'}</Text>
+              <Text style={styles.modalTitle}>{t('filters.specialty')}</Text>
               <View style={styles.modalHeaderButtons}>
                 <TouchableOpacity 
                   onPress={() => {
@@ -538,7 +544,7 @@ const AllDoctorsScreen = () => {
                   style={styles.backButton}
                 >
                   <Ionicons name="arrow-back" size={20} color={theme.colors.primary} />
-                  <Text style={styles.backButtonText}>الفلاتر</Text>
+                  <Text style={styles.backButtonText}>{t('filters.title')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowSpecialtyModal(false)} style={styles.closeButton}>
                   <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
@@ -555,7 +561,9 @@ const AllDoctorsScreen = () => {
                     style={styles.modalItem}
                     onPress={() => handleSpecialtySelect(specialty.ar)}
                   >
-                    <Text style={styles.modalItemText}>{specialty.ar}</Text>
+                    <Text style={styles.modalItemText}>
+                      {i18n.language === 'en' ? specialty.en : i18n.language === 'ku' ? specialty.ku : specialty.ar}
+                    </Text>
                   </TouchableOpacity>
                 ))
               ) : (
@@ -566,7 +574,9 @@ const AllDoctorsScreen = () => {
                     style={styles.modalItem}
                     onPress={() => handleSpecialtySelect(specialty.ar)}
                   >
-                    <Text style={styles.modalItemText}>{specialty.ar}</Text>
+                    <Text style={styles.modalItemText}>
+                      {i18n.language === 'en' ? specialty.en : i18n.language === 'ku' ? specialty.ku : specialty.ar}
+                    </Text>
                   </TouchableOpacity>
                 ))
               )}
