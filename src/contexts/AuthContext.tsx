@@ -4,6 +4,7 @@ import { API_CONFIG } from '../config/api';
 import { User, Doctor } from '../types';
 import { doctorsAPI } from '../services/api';
 import { getToken as getSecureToken, saveToken as saveSecureToken, deleteToken as deleteSecureToken } from '../utils/secureStorage';
+import { formatPhone } from '../utils/helpers';
 // Remove circular dependency - we'll handle notifications differently
 // import { useNotifications } from './NotificationContext';
 
@@ -140,9 +141,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
 
-      // التحقق من صحة المدخلات
-      if (!validateEmail(email)) {
-        return { error: 'البريد الإلكتروني غير صحيح' };
+      // التحقق من صحة المدخلات - يمكن أن يكون بريد إلكتروني أو رقم هاتف
+      const isValidInput = validateEmail(email) || validatePhone(email);
+      if (!isValidInput) {
+        return { error: 'البريد الإلكتروني أو رقم الهاتف غير صحيح' };
       }
 
       if (!validatePassword(password)) {
@@ -150,38 +152,137 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // تنظيف المدخلات
-      const cleanEmail = email.trim().toLowerCase();
+      const isEmailInput = validateEmail(email);
+      let cleanInput: string;
       const cleanPassword = password.trim();
+
+      if (isEmailInput) {
+        cleanInput = email.trim().toLowerCase();
+      } else {
+        // رقم هاتف - تنسيقه بشكل صحيح
+        const trimmedPhone = email.trim();
+        // إزالة المسافات والرموز أولاً
+        const cleanedPhone = trimmedPhone.replace(/[\s\-\(\)]/g, '');
+        // تنسيق الرقم
+        cleanInput = formatPhone(cleanedPhone);
+      }
+
+      // إعداد البيانات للطلب
+      const requestBody: any = {
+        password: cleanPassword,
+        loginType,
+      };
+
+      // إذا كان بريد إلكتروني، أرسله في حقل email
+      // إذا كان رقم هاتف، جرب عدة تنسيقات
+      if (isEmailInput) {
+        requestBody.email = cleanInput;
+      } else {
+        // رقم هاتف - جرب عدة تنسيقات
+        const phoneWithoutPlus = cleanInput.replace(/^\+/, '');
+        const phoneWithout964 = phoneWithoutPlus.replace(/^964/, '');
+        
+        // جرب إرسال الرقم في phone فقط (التنسيق الأساسي)
+        requestBody.phone = cleanInput;
+        
+        // بعض APIs قد تحتاج الرقم بدون +964
+        // لكن لا نرسل تنسيقات متعددة في نفس الوقت لأنها قد تسبب مشاكل
+        // سنحاول phone أولاً، وإذا فشل سنحاول email
+      }
+
+      console.log('Login request body:', JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(API_CONFIG.AUTH_LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: cleanEmail,
-          password: cleanPassword,
-          loginType,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const responseText = await response.text();
         let errorMessage = 'فشل تسجيل الدخول';
         
+        console.log('Login error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: responseText,
+        });
+        
+        // إذا كان رقم هاتف وفشل، جرب تنسيق مختلف
+        if (!isEmailInput && response.status === 401) {
+          console.log('Trying alternative phone format...');
+          const phoneWithoutPlus = cleanInput.replace(/^\+/, '');
+          const phoneWithout964 = phoneWithoutPlus.replace(/^964/, '');
+          
+          // محاولة ثانية بتنسيق مختلف
+          const altRequestBody: any = {
+            password: cleanPassword,
+            loginType,
+            phone: phoneWithoutPlus, // بدون +
+          };
+          
+          console.log('Alternative login request:', JSON.stringify(altRequestBody, null, 2));
+          
+          const altResponse = await fetch(API_CONFIG.AUTH_LOGIN, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(altRequestBody),
+          });
+          
+          if (altResponse.ok) {
+            // نجحت المحاولة الثانية
+            const altResponseText = await altResponse.text();
+            const altData = JSON.parse(altResponseText);
+            
+            const userDataFromResponse = altData.user || altData.doctor;
+            if (userDataFromResponse) {
+              const userData: User = {
+                id: userDataFromResponse._id || userDataFromResponse.id || '',
+                name: userDataFromResponse.name || '',
+                email: userDataFromResponse.email || '',
+                phone: userDataFromResponse.phone || '',
+                user_type: altData.userType || userDataFromResponse.user_type || (altData.doctor ? 'doctor' : 'user'),
+                image: userDataFromResponse.profile_image || userDataFromResponse.image || '',
+                created_at: userDataFromResponse.created_at || userDataFromResponse.createdAt || '',
+                updated_at: userDataFromResponse.updated_at || userDataFromResponse.updatedAt || '',
+              };
+
+              setUser(userData);
+              const fullProfileData = userDataFromResponse;
+              setProfile(fullProfileData);
+              await saveUserToStorage(userData, fullProfileData);
+
+              if (altData.token) {
+                await saveSecureToken(altData.token);
+              }
+
+              return {}; // نجح
+            }
+          }
+        }
+        
         try {
           const errorData = JSON.parse(responseText);
           errorMessage =
             errorData.message ||
             errorData.error ||
+            errorData.detail ||
             `خطأ في الخادم (${response.status})`;
+          console.log('Parsed error data:', errorData);
         } catch (parseError) {
+          console.log('Error parsing response:', parseError);
           if (response.status === 404) {
             errorMessage = 'نقطة الاتصال غير موجودة. تحقق من إعدادات الخادم.';
+          } else if (response.status === 401) {
+            errorMessage = 'البريد الإلكتروني أو رقم الهاتف أو كلمة المرور غير صحيحة';
           } else if (response.status >= 500) {
             errorMessage = 'خطأ في الخادم. يرجى المحاولة لاحقاً.';
           } else {
-            errorMessage = `خطأ في الخادم (${response.status})`;
+            errorMessage = `خطأ في الخادم (${response.status}): ${responseText.substring(0, 100)}`;
           }
         }
 

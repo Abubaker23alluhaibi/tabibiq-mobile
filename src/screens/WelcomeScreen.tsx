@@ -48,7 +48,7 @@ const AnimatedMedicalIcon = ({
 
   return (
     <Animated.View style={[styles.medicalIcon, style, rotationStyle]}>
-      <Ionicons name={iconName} size={iconSize} color="#FFD700" />
+      <Ionicons name={iconName} size={iconSize} color={theme.colors.primary} />
     </Animated.View>
   );
 };
@@ -64,8 +64,8 @@ const WelcomeScreen = () => {
   const subtitleOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
-  const iconRotations = Array.from({ length: 8 }, () => useSharedValue(0));
-  const iconScales = Array.from({ length: 8 }, () => useSharedValue(0));
+  const iconRotations = Array.from({ length: 3 }, () => useSharedValue(0));
+  const iconScales = Array.from({ length: 3 }, () => useSharedValue(0));
 
   useEffect(() => {
     // Title animation
@@ -157,64 +157,29 @@ const WelcomeScreen = () => {
             </Text>
           </Animated.View>
 
-          {/* Medical Icons Section - Organized Grid Layout with Animation */}
+          {/* Medical Icons Section - 3 icons only */}
           <View style={styles.medicalIconsContainer}>
             <View style={styles.iconsGrid}>
               <AnimatedMedicalIcon
                 iconName="heart"
-                iconSize={35}
+                iconSize={40}
                 style={styles.gridIcon}
                 rotation={iconRotations[0]}
                 scale={iconScales[0]}
               />
               <AnimatedMedicalIcon
                 iconName="medical"
-                iconSize={40}
+                iconSize={45}
                 style={styles.gridIcon}
                 rotation={iconRotations[1]}
                 scale={iconScales[1]}
               />
               <AnimatedMedicalIcon
                 iconName="pulse"
-                iconSize={32}
+                iconSize={40}
                 style={styles.gridIcon}
                 rotation={iconRotations[2]}
                 scale={iconScales[2]}
-              />
-              <AnimatedMedicalIcon
-                iconName="stethoscope"
-                iconSize={38}
-                style={styles.gridIcon}
-                rotation={iconRotations[3]}
-                scale={iconScales[3]}
-              />
-              <AnimatedMedicalIcon
-                iconName="fitness"
-                iconSize={36}
-                style={styles.gridIcon}
-                rotation={iconRotations[4]}
-                scale={iconScales[4]}
-              />
-              <AnimatedMedicalIcon
-                iconName="shield-checkmark"
-                iconSize={34}
-                style={styles.gridIcon}
-                rotation={iconRotations[5]}
-                scale={iconScales[5]}
-              />
-              <AnimatedMedicalIcon
-                iconName="thermometer"
-                iconSize={30}
-                style={styles.gridIcon}
-                rotation={iconRotations[6]}
-                scale={iconScales[6]}
-              />
-              <AnimatedMedicalIcon
-                iconName="flask"
-                iconSize={33}
-                style={styles.gridIcon}
-                rotation={iconRotations[7]}
-                scale={iconScales[7]}
               />
             </View>
           </View>
@@ -321,17 +286,16 @@ const styles = StyleSheet.create({
   medicalIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: theme.colors.primary + '15',
     borderRadius: 20,
     padding: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    shadowColor: '#FFD700',
+    borderWidth: 0,
+    shadowColor: theme.colors.primary,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
   },
