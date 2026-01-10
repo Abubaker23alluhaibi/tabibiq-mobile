@@ -89,20 +89,72 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 export const isValidPhone = (phone: string): boolean => {
-  const phoneRegex = /^(\+964|964|0)?7[0-9]{8}$/;
-  return phoneRegex.test(phone);
+  if (!phone || typeof phone !== 'string') return false;
+  
+  // تنظيف الرقم من المسافات والرموز
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  
+  // التحقق من جميع التنسيقات العراقية المحتملة
+  // الرقم العراقي: 7 + 9 أرقام = 10 أرقام إجمالاً
+  // +9647xxxxxxxxx (13 حرف), 9647xxxxxxxxx (12), 07xxxxxxxxx (11), 7xxxxxxxxx (10)
+  const phoneRegex = /^(\+?964|0)?7[0-9]{9}$/;
+  
+  // التحقق من أن الرقم المطبع يحتوي على 10 أرقام (7 + 9)
+  const normalized = normalizePhone(cleaned);
+  const isValidFormat = phoneRegex.test(cleaned);
+  const isValidLength = normalized.length === 10 && normalized.startsWith('7');
+  
+  return isValidFormat && isValidLength;
+};
+
+// دالة لتطبيع رقم الهاتف إلى تنسيق موحد للمقارنة
+// ترجع الرقم بتنسيق: 7xxxxxxxxx (10 أرقام)
+export const normalizePhone = (phone: string): string => {
+  if (!phone || typeof phone !== 'string') return '';
+  
+  // إزالة جميع المسافات والرموز والأحرف غير الرقمية (باستثناء + في البداية)
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
+  
+  // إزالة + من البداية إذا كان موجوداً
+  if (cleaned.startsWith('+')) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  // إزالة 964 من البداية إذا كان موجوداً
+  if (cleaned.startsWith('964')) {
+    cleaned = cleaned.substring(3);
+  }
+  
+  // إزالة 0 من البداية إذا كان موجوداً (بعد إزالة 964)
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  // التحقق من أن الرقم يحتوي على أرقام فقط وأنه يبدأ بـ 7
+  // إزالة أي أحرف غير رقمية متبقية
+  cleaned = cleaned.replace(/[^0-9]/g, '');
+  
+  // التحقق من أن الرقم يبدأ بـ 7 ويحتوي على 10 أرقام
+  if (cleaned.startsWith('7') && cleaned.length === 10) {
+    return cleaned;
+  }
+  
+  // إذا كان الرقم لا يبدأ بـ 7 أو طوله غير صحيح، نرجعه كما هو (للتحقق لاحقاً)
+  return cleaned;
 };
 
 export const formatPhone = (phone: string): string => {
-  if (phone.startsWith('+964')) {
-    return phone;
-  } else if (phone.startsWith('964')) {
-    return `+${phone}`;
-  } else if (phone.startsWith('0')) {
-    return `+964${phone.substring(1)}`;
-  } else if (phone.startsWith('7')) {
-    return `+964${phone}`;
+  if (!phone || typeof phone !== 'string') return phone;
+  
+  // تطبيع الرقم أولاً
+  const normalized = normalizePhone(phone);
+  
+  // إذا كان الرقم يبدأ بـ 7، نضيف +964
+  if (normalized.startsWith('7') && normalized.length === 10) {
+    return `+964${normalized}`;
   }
+  
+  // إذا كان الرقم بالكامل صحيحاً، نعيده كما هو
   return phone;
 };
 

@@ -4,7 +4,7 @@ import { API_CONFIG } from '../config/api';
 import { User, Doctor } from '../types';
 import { doctorsAPI } from '../services/api';
 import { getToken as getSecureToken, saveToken as saveSecureToken, deleteToken as deleteSecureToken } from '../utils/secureStorage';
-import { formatPhone } from '../utils/helpers';
+import { formatPhone, normalizePhone } from '../utils/helpers';
 // Remove circular dependency - we'll handle notifications differently
 // import { useNotifications } from './NotificationContext';
 
@@ -159,35 +159,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (isEmailInput) {
         cleanInput = email.trim().toLowerCase();
       } else {
-        // رقم هاتف - تنسيقه بشكل صحيح
+        // رقم هاتف - تنظيفه وتنسيقه بشكل صحيح
         const trimmedPhone = email.trim();
-        // إزالة المسافات والرموز أولاً
-        const cleanedPhone = trimmedPhone.replace(/[\s\-\(\)]/g, '');
-        // تنسيق الرقم
-        cleanInput = formatPhone(cleanedPhone);
+        // استخدام formatPhone للتنسيق الصحيح
+        cleanInput = formatPhone(trimmedPhone);
+        
+        console.log('Phone formatting:', {
+          original: email,
+          trimmed: trimmedPhone,
+          formatted: cleanInput,
+          normalized: normalizePhone(trimmedPhone)
+        });
       }
 
       // إعداد البيانات للطلب
-      const requestBody: any = {
+      // إذا كان بريد إلكتروني، أرسله في حقل email
+      // إذا كان رقم هاتف، نستخدم الرقم المطبع بشكل موحد
+      let requestBody: any = {
         password: cleanPassword,
         loginType,
       };
 
-      // إذا كان بريد إلكتروني، أرسله في حقل email
-      // إذا كان رقم هاتف، جرب عدة تنسيقات
       if (isEmailInput) {
         requestBody.email = cleanInput;
       } else {
-        // رقم هاتف - جرب عدة تنسيقات
-        const phoneWithoutPlus = cleanInput.replace(/^\+/, '');
-        const phoneWithout964 = phoneWithoutPlus.replace(/^964/, '');
-        
-        // جرب إرسال الرقم في phone فقط (التنسيق الأساسي)
+        // رقم هاتف - استخدام التنسيق الموحد (+9647xxxxxxxxx)
         requestBody.phone = cleanInput;
-        
-        // بعض APIs قد تحتاج الرقم بدون +964
-        // لكن لا نرسل تنسيقات متعددة في نفس الوقت لأنها قد تسبب مشاكل
-        // سنحاول phone أولاً، وإذا فشل سنحاول email
       }
 
       console.log('Login request body:', JSON.stringify(requestBody, null, 2));
@@ -210,59 +207,79 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           body: responseText,
         });
         
-        // إذا كان رقم هاتف وفشل، جرب تنسيق مختلف
+        // إذا كان رقم هاتف وفشل، جرب تنسيقات مختلفة
         if (!isEmailInput && response.status === 401) {
-          console.log('Trying alternative phone format...');
-          const phoneWithoutPlus = cleanInput.replace(/^\+/, '');
-          const phoneWithout964 = phoneWithoutPlus.replace(/^964/, '');
+          console.log('Trying alternative phone formats...');
           
-          // محاولة ثانية بتنسيق مختلف
-          const altRequestBody: any = {
-            password: cleanPassword,
-            loginType,
-            phone: phoneWithoutPlus, // بدون +
-          };
+          // الحصول على الرقم المطبع بدون تنسيق
+          const normalizedPhone = normalizePhone(email.trim());
           
-          console.log('Alternative login request:', JSON.stringify(altRequestBody, null, 2));
+          // تنسيقات مختلفة للاختبار
+          const phoneFormats = [
+            `+964${normalizedPhone}`,      // +9647xxxxxxxxx
+            `964${normalizedPhone}`,       // 9647xxxxxxxxx
+            `0${normalizedPhone}`,         // 07xxxxxxxxx
+            normalizedPhone,                // 7xxxxxxxxx
+          ];
           
-          const altResponse = await fetch(API_CONFIG.AUTH_LOGIN, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(altRequestBody),
-          });
+          // إزالة التنسيقات المكررة
+          const uniqueFormats = [...new Set(phoneFormats)];
           
-          if (altResponse.ok) {
-            // نجحت المحاولة الثانية
-            const altResponseText = await altResponse.text();
-            const altData = JSON.parse(altResponseText);
+          for (const phoneFormat of uniqueFormats) {
+            console.log(`Trying phone format: ${phoneFormat}`);
             
-            const userDataFromResponse = altData.user || altData.doctor;
-            if (userDataFromResponse) {
-              const userData: User = {
-                id: userDataFromResponse._id || userDataFromResponse.id || '',
-                name: userDataFromResponse.name || '',
-                email: userDataFromResponse.email || '',
-                phone: userDataFromResponse.phone || '',
-                user_type: altData.userType || userDataFromResponse.user_type || (altData.doctor ? 'doctor' : 'user'),
-                image: userDataFromResponse.profile_image || userDataFromResponse.image || '',
-                created_at: userDataFromResponse.created_at || userDataFromResponse.createdAt || '',
-                updated_at: userDataFromResponse.updated_at || userDataFromResponse.updatedAt || '',
-              };
+            const altRequestBody: any = {
+              password: cleanPassword,
+              loginType,
+              phone: phoneFormat,
+            };
+            
+            try {
+              const altResponse = await fetch(API_CONFIG.AUTH_LOGIN, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(altRequestBody),
+              });
+              
+              if (altResponse.ok) {
+                console.log(`Login succeeded with format: ${phoneFormat}`);
+                const altResponseText = await altResponse.text();
+                const altData = JSON.parse(altResponseText);
+                
+                const userDataFromResponse = altData.user || altData.doctor;
+                if (userDataFromResponse) {
+                  const userData: User = {
+                    id: userDataFromResponse._id || userDataFromResponse.id || '',
+                    name: userDataFromResponse.name || '',
+                    email: userDataFromResponse.email || '',
+                    phone: userDataFromResponse.phone || '',
+                    user_type: altData.userType || userDataFromResponse.user_type || (altData.doctor ? 'doctor' : 'user'),
+                    image: userDataFromResponse.profile_image || userDataFromResponse.image || '',
+                    created_at: userDataFromResponse.created_at || userDataFromResponse.createdAt || '',
+                    updated_at: userDataFromResponse.updated_at || userDataFromResponse.updatedAt || '',
+                  };
 
-              setUser(userData);
-              const fullProfileData = userDataFromResponse;
-              setProfile(fullProfileData);
-              await saveUserToStorage(userData, fullProfileData);
+                  setUser(userData);
+                  const fullProfileData = userDataFromResponse;
+                  setProfile(fullProfileData);
+                  await saveUserToStorage(userData, fullProfileData);
 
-              if (altData.token) {
-                await saveSecureToken(altData.token);
+                  if (altData.token) {
+                    await saveSecureToken(altData.token);
+                  }
+
+                  return {}; // نجح
+                }
               }
-
-              return {}; // نجح
+            } catch (formatError) {
+              console.log(`Format ${phoneFormat} failed:`, formatError);
+              continue; // جرب التنسيق التالي
             }
           }
+          
+          console.log('All phone formats failed');
         }
         
         try {

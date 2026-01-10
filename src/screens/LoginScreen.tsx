@@ -95,26 +95,32 @@ const LoginScreen = () => {
     });
   }, []);
 
-  // دالة لتطبيع رقم الهاتف للمقارنة
-  const normalizePhone = (phone: string): string => {
-    if (!phone) return '';
-    // إزالة المسافات والرموز
-    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    // تنسيق الرقم
-    cleaned = formatPhone(cleaned);
-    // إزالة + إذا كان موجوداً للمقارنة
-    return cleaned.replace(/^\+/, '');
-  };
+  // استخدام دالة normalizePhone من helpers مباشرة (تم إزالة التعريف المحلي)
 
   // دالة للتحقق من وجود المستخدم ونوعه
   const checkUserExists = async (emailOrPhone: string): Promise<{ exists: boolean; userType?: 'user' | 'doctor' }> => {
     try {
       const trimmedInput = emailOrPhone.trim();
       const isEmail = isValidEmail(trimmedInput);
+      const isPhone = isValidPhone(trimmedInput);
+      
+      console.log('🔍 checkUserExists called with:', {
+        input: trimmedInput,
+        isEmail,
+        isPhone,
+        normalizedPhone: isPhone ? normalizePhone(trimmedInput) : 'N/A'
+      });
+      
+      if (!isEmail && !isPhone) {
+        console.log('❌ Invalid input format');
+        return { exists: false };
+      }
+      
       const searchValue = isEmail ? trimmedInput.toLowerCase() : trimmedInput;
       
       // محاولة البحث في الأطباء أولاً (لأنهم أقل عدداً)
       try {
+        console.log('🔍 Searching in doctors...');
         const doctorsResponse = await fetch(`${API_CONFIG.DOCTORS}`, {
           method: 'GET',
           headers: {
@@ -124,6 +130,8 @@ const LoginScreen = () => {
 
         if (doctorsResponse.ok) {
           const doctorsData = await doctorsResponse.json();
+          console.log(`📋 Found ${Array.isArray(doctorsData) ? doctorsData.length : 0} doctors`);
+          
           if (Array.isArray(doctorsData)) {
             const foundDoctor = doctorsData.find(
               (doctor: any) => {
@@ -133,21 +141,50 @@ const LoginScreen = () => {
                 } else {
                   // رقم هاتف - تطبيع ومقارنة
                   const doctorPhone = doctor.phone ? doctor.phone.trim() : '';
-                  return normalizePhone(doctorPhone) === normalizePhone(trimmedInput);
+                  const normalizedDoctorPhone = normalizePhone(doctorPhone);
+                  const normalizedInputPhone = normalizePhone(trimmedInput);
+                  
+                  // التحقق من أن كلا الرقمين صالحين
+                  if (!normalizedInputPhone || normalizedInputPhone.length !== 10) {
+                    return false;
+                  }
+                  
+                  if (!normalizedDoctorPhone || normalizedDoctorPhone.length !== 10) {
+                    return false;
+                  }
+                  
+                  const match = normalizedDoctorPhone === normalizedInputPhone;
+                  
+                  // إضافة console.log للتشخيص (فقط عند عدم التطابق للتقليل من السجلات)
+                  if (normalizedDoctorPhone && normalizedInputPhone && normalizedDoctorPhone.startsWith('7')) {
+                    console.log('📱 Phone comparison:', {
+                      input: trimmedInput,
+                      normalizedInput: normalizedInputPhone,
+                      doctorPhone: doctorPhone,
+                      normalizedDoctor: normalizedDoctorPhone,
+                      match: match
+                    });
+                  }
+                  
+                  return match;
                 }
               }
             );
             if (foundDoctor) {
+              console.log('✅ Doctor found!');
               return { exists: true, userType: 'doctor' };
             }
           }
+        } else {
+          console.log('❌ Doctors API response not OK:', doctorsResponse.status);
         }
       } catch (e) {
-        console.log('Error checking doctors:', e);
+        console.error('❌ Error checking doctors:', e);
       }
 
       // محاولة البحث في المستخدمين
       try {
+        console.log('🔍 Searching in users...');
         const usersResponse = await fetch(`${API_CONFIG.USERS_PROFILE}`, {
           method: 'GET',
           headers: {
@@ -157,6 +194,8 @@ const LoginScreen = () => {
 
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
+          console.log(`📋 Found ${Array.isArray(usersData) ? usersData.length : 0} users`);
+          
           if (Array.isArray(usersData)) {
             const foundUser = usersData.find(
               (user: any) => {
@@ -166,17 +205,45 @@ const LoginScreen = () => {
                 } else {
                   // رقم هاتف - تطبيع ومقارنة
                   const userPhone = user.phone ? user.phone.trim() : '';
-                  return normalizePhone(userPhone) === normalizePhone(trimmedInput);
+                  const normalizedUserPhone = normalizePhone(userPhone);
+                  const normalizedInputPhone = normalizePhone(trimmedInput);
+                  
+                  // التحقق من أن كلا الرقمين صالحين
+                  if (!normalizedInputPhone || normalizedInputPhone.length !== 10) {
+                    return false;
+                  }
+                  
+                  if (!normalizedUserPhone || normalizedUserPhone.length !== 10) {
+                    return false;
+                  }
+                  
+                  const match = normalizedUserPhone === normalizedInputPhone;
+                  
+                  // إضافة console.log للتشخيص (فقط عند عدم التطابق للتقليل من السجلات)
+                  if (normalizedUserPhone && normalizedInputPhone && normalizedUserPhone.startsWith('7')) {
+                    console.log('📱 Phone comparison:', {
+                      input: trimmedInput,
+                      normalizedInput: normalizedInputPhone,
+                      userPhone: userPhone,
+                      normalizedUser: normalizedUserPhone,
+                      match: match
+                    });
+                  }
+                  
+                  return match;
                 }
               }
             );
             if (foundUser) {
+              console.log('✅ User found!');
               return { exists: true, userType: 'user' };
             }
           }
+        } else {
+          console.log('❌ Users API response not OK:', usersResponse.status);
         }
       } catch (e) {
-        console.log('Error checking users:', e);
+        console.error('❌ Error checking users:', e);
       }
 
       // إذا لم نجد المستخدم
@@ -202,41 +269,71 @@ const LoginScreen = () => {
     setCheckingUser(true);
 
     try {
-      console.log('Checking user exists for:', emailOrPhone.trim());
+      const trimmedInput = emailOrPhone.trim();
+      console.log('🔍 Checking user exists for:', trimmedInput);
+      console.log('📱 Is phone?', isValidPhone(trimmedInput));
+      console.log('📧 Is email?', isValidEmail(trimmedInput));
       
       // فحص وجود المستخدم ونوعه
-      const checkResult = await checkUserExists(emailOrPhone.trim());
+      const checkResult = await checkUserExists(trimmedInput);
       
-      console.log('Check result:', checkResult);
+      console.log('✅ Check result:', checkResult);
 
       if (checkResult.exists) {
         // المستخدم موجود - عرض حقل كلمة المرور مع تحديد نوع المستخدم
         setUserType(checkResult.userType || 'user');
         setShowPasswordField(true);
-        console.log('User exists, type:', checkResult.userType);
+        console.log('✅ User exists, type:', checkResult.userType);
       } else {
         // المستخدم غير موجود - توجيه لإنشاء حساب
-        console.log('User not found, showing signup option');
+        console.log('❌ User not found');
+        
+        // إظهار رسالة خطأ واضحة
+        const inputType = isValidEmail(trimmedInput) ? 'البريد الإلكتروني' : 'رقم الهاتف';
         Alert.alert(
           'حساب غير موجود',
-          'لم يتم العثور على حساب بهذا البريد الإلكتروني أو رقم الهاتف. هل تريد إنشاء حساب جديد؟',
+          `لم يتم العثور على حساب بهذا ${inputType}. يرجى التحقق من ${inputType} أو إنشاء حساب جديد.`,
           [
             {
               text: 'إلغاء',
               style: 'cancel',
+              onPress: () => {
+                // إعادة تعيين الحقول
+                setShowPasswordField(false);
+                setPassword('');
+                setUserType(null);
+              },
             },
             {
               text: 'إنشاء حساب',
-              onPress: () => navigation.navigate('UserSignUp' as never),
+              onPress: () => {
+                setShowPasswordField(false);
+                setPassword('');
+                setUserType(null);
+                navigation.navigate('UserSignUp' as never);
+              },
             },
           ]
         );
       }
     } catch (error) {
-      console.error('Error in handleContinue:', error);
-      // في حالة الخطأ، نفترض أن المستخدم موجود ونطلب كلمة المرور
-      setUserType('user');
-      setShowPasswordField(true);
+      console.error('❌ Error in handleContinue:', error);
+      
+      // في حالة الخطأ (مشكلة في الاتصال)، نعرض رسالة واضحة
+      Alert.alert(
+        'خطأ في الاتصال',
+        'حدث خطأ أثناء التحقق من الحساب. يرجى المحاولة مرة أخرى أو التحقق من الاتصال بالإنترنت.',
+        [
+          {
+            text: 'حسناً',
+            onPress: () => {
+              setShowPasswordField(false);
+              setPassword('');
+              setUserType(null);
+            },
+          },
+        ]
+      );
     } finally {
       setCheckingUser(false);
     }

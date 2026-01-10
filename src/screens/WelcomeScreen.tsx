@@ -19,6 +19,7 @@ import Animated, {
   withSequence,
   interpolate,
   Easing,
+  SharedValue,
 } from 'react-native-reanimated';
 import { theme } from '../utils/theme';
 import { isRTL, changeLanguage } from '../locales';
@@ -36,8 +37,8 @@ const AnimatedMedicalIcon = ({
   iconName: any;
   iconSize: number;
   style: any;
-  rotation: Animated.SharedValue<number>;
-  scale: Animated.SharedValue<number>;
+  rotation: SharedValue<number>;
+  scale: SharedValue<number>;
 }) => {
   const rotationStyle = useAnimatedStyle(() => ({
     transform: [
@@ -48,7 +49,7 @@ const AnimatedMedicalIcon = ({
 
   return (
     <Animated.View style={[styles.medicalIcon, style, rotationStyle]}>
-      <Ionicons name={iconName} size={iconSize} color={theme.colors.primary} />
+      <Ionicons name={iconName} size={iconSize} color={theme.colors.white} />
     </Animated.View>
   );
 };
@@ -280,24 +281,24 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 20,
     width: '100%',
   },
   medicalIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.primary + '15',
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 12,
     borderWidth: 0,
-    shadowColor: theme.colors.primary,
+    shadowColor: 'transparent',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 0,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   gridIcon: {
     width: 70,
