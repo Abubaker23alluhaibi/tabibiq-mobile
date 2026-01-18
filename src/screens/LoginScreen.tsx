@@ -27,7 +27,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
-import { isValidEmail, isValidPhone, formatPhone } from '../utils/helpers';
+import { isValidEmail, isValidPhone, formatPhone, normalizePhone } from '../utils/helpers';
 import { API_CONFIG } from '../config/api';
 import { theme } from '../utils/theme';
 import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
@@ -116,138 +116,31 @@ const LoginScreen = () => {
         return { exists: false };
       }
       
-      const searchValue = isEmail ? trimmedInput.toLowerCase() : trimmedInput;
+      // استخدام الـ endpoint الجديد للتحقق من وجود المستخدم
+      const queryParam = isEmail ? `email=${encodeURIComponent(trimmedInput)}` : `phone=${encodeURIComponent(trimmedInput)}`;
+      const checkUrl = `${API_CONFIG.BASE_URL}/api/check-user-exists?${queryParam}`;
       
-      // محاولة البحث في الأطباء أولاً (لأنهم أقل عدداً)
       try {
-        console.log('🔍 Searching in doctors...');
-        const doctorsResponse = await fetch(`${API_CONFIG.DOCTORS}`, {
+        console.log('🔍 Checking user existence via API...');
+        const response = await fetch(checkUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
         });
 
-        if (doctorsResponse.ok) {
-          const doctorsData = await doctorsResponse.json();
-          console.log(`📋 Found ${Array.isArray(doctorsData) ? doctorsData.length : 0} doctors`);
-          
-          if (Array.isArray(doctorsData)) {
-            const foundDoctor = doctorsData.find(
-              (doctor: any) => {
-                if (isEmail) {
-                  const doctorEmail = doctor.email ? doctor.email.toLowerCase().trim() : '';
-                  return doctorEmail === searchValue;
-                } else {
-                  // رقم هاتف - تطبيع ومقارنة
-                  const doctorPhone = doctor.phone ? doctor.phone.trim() : '';
-                  const normalizedDoctorPhone = normalizePhone(doctorPhone);
-                  const normalizedInputPhone = normalizePhone(trimmedInput);
-                  
-                  // التحقق من أن كلا الرقمين صالحين
-                  if (!normalizedInputPhone || normalizedInputPhone.length !== 10) {
-                    return false;
-                  }
-                  
-                  if (!normalizedDoctorPhone || normalizedDoctorPhone.length !== 10) {
-                    return false;
-                  }
-                  
-                  const match = normalizedDoctorPhone === normalizedInputPhone;
-                  
-                  // إضافة console.log للتشخيص (فقط عند عدم التطابق للتقليل من السجلات)
-                  if (normalizedDoctorPhone && normalizedInputPhone && normalizedDoctorPhone.startsWith('7')) {
-                    console.log('📱 Phone comparison:', {
-                      input: trimmedInput,
-                      normalizedInput: normalizedInputPhone,
-                      doctorPhone: doctorPhone,
-                      normalizedDoctor: normalizedDoctorPhone,
-                      match: match
-                    });
-                  }
-                  
-                  return match;
-                }
-              }
-            );
-            if (foundDoctor) {
-              console.log('✅ Doctor found!');
-              return { exists: true, userType: 'doctor' };
-            }
-          }
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Check result:', result);
+          return result;
         } else {
-          console.log('❌ Doctors API response not OK:', doctorsResponse.status);
+          console.log('❌ Check API response not OK:', response.status);
+          return { exists: false };
         }
       } catch (e) {
-        console.error('❌ Error checking doctors:', e);
+        console.error('❌ Error checking user existence:', e);
+        return { exists: false };
       }
-
-      // محاولة البحث في المستخدمين
-      try {
-        console.log('🔍 Searching in users...');
-        const usersResponse = await fetch(`${API_CONFIG.USERS_PROFILE}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (usersResponse.ok) {
-          const usersData = await usersResponse.json();
-          console.log(`📋 Found ${Array.isArray(usersData) ? usersData.length : 0} users`);
-          
-          if (Array.isArray(usersData)) {
-            const foundUser = usersData.find(
-              (user: any) => {
-                if (isEmail) {
-                  const userEmail = user.email ? user.email.toLowerCase().trim() : '';
-                  return userEmail === searchValue;
-                } else {
-                  // رقم هاتف - تطبيع ومقارنة
-                  const userPhone = user.phone ? user.phone.trim() : '';
-                  const normalizedUserPhone = normalizePhone(userPhone);
-                  const normalizedInputPhone = normalizePhone(trimmedInput);
-                  
-                  // التحقق من أن كلا الرقمين صالحين
-                  if (!normalizedInputPhone || normalizedInputPhone.length !== 10) {
-                    return false;
-                  }
-                  
-                  if (!normalizedUserPhone || normalizedUserPhone.length !== 10) {
-                    return false;
-                  }
-                  
-                  const match = normalizedUserPhone === normalizedInputPhone;
-                  
-                  // إضافة console.log للتشخيص (فقط عند عدم التطابق للتقليل من السجلات)
-                  if (normalizedUserPhone && normalizedInputPhone && normalizedUserPhone.startsWith('7')) {
-                    console.log('📱 Phone comparison:', {
-                      input: trimmedInput,
-                      normalizedInput: normalizedInputPhone,
-                      userPhone: userPhone,
-                      normalizedUser: normalizedUserPhone,
-                      match: match
-                    });
-                  }
-                  
-                  return match;
-                }
-              }
-            );
-            if (foundUser) {
-              console.log('✅ User found!');
-              return { exists: true, userType: 'user' };
-            }
-          }
-        } else {
-          console.log('❌ Users API response not OK:', usersResponse.status);
-        }
-      } catch (e) {
-        console.error('❌ Error checking users:', e);
-      }
-
-      // إذا لم نجد المستخدم
-      return { exists: false };
     } catch (error) {
       console.error('Error checking user:', error);
       return { exists: false };
