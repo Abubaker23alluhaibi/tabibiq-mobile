@@ -54,14 +54,20 @@ class AdvertisementsAPI {
     try {
       logApiCall('GET', `${this.baseUrl}/${target}`, { target });
       
-      const response = await api.get(`/advertisements/${target}`);
+      const response = await api.get(`/advertisements/${target}`, { includeAuth: false });
       
       logApiResponse(`${this.baseUrl}/${target}`, 200);
       
-      return response.data || [];
+      // api.get يرجع البيانات مباشرة وليس response.data
+      if (Array.isArray(response)) {
+        return response;
+      }
+      
+      return response || [];
     } catch (error: any) {
       logError('خطأ في جلب الإعلانات', error);
-      throw new Error(error.response?.data?.error || 'فشل في جلب الإعلانات');
+      console.log('Error fetching advertisements:', error);
+      return [];
     }
   }
 
@@ -76,10 +82,15 @@ class AdvertisementsAPI {
       
       logApiResponse(`${this.baseUrl}/admin/advertisements`, 200);
       
-      return response.data || [];
+      // api.get يرجع البيانات مباشرة وليس response.data
+      if (Array.isArray(response)) {
+        return response;
+      }
+      
+      return response || [];
     } catch (error: any) {
       logError('خطأ في جلب جميع الإعلانات', error);
-      throw new Error(error.response?.data?.error || 'فشل في جلب جميع الإعلانات');
+      return [];
     }
   }
 
@@ -178,7 +189,15 @@ class AdvertisementsAPI {
       
       logApiResponse(`${this.baseUrl}/${advertisementId}/stats`, 200);
       
-      return response.data || { views: 0, clicks: 0 };
+      // api.get يرجع البيانات مباشرة
+      if (response && typeof response === 'object') {
+        return {
+          views: response.views || 0,
+          clicks: response.clicks || 0
+        };
+      }
+      
+      return { views: 0, clicks: 0 };
     } catch (error: any) {
       logError('خطأ في جلب إحصائيات الإعلان', error);
       return { views: 0, clicks: 0 };
