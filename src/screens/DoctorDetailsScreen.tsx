@@ -13,7 +13,7 @@ import {
   Dimensions,
   Linking,
   Clipboard,
-  Platform,
+  Platform, // ✅ تمت إضافته هنا
   SafeAreaView,
   StatusBar,
 } from 'react-native';

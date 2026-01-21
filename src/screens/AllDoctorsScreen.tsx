@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,12 +49,19 @@ const AllDoctorsScreen = () => {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
 
+  // --- State Management ---
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true); // تحميل أولي
+  const [loadingMore, setLoadingMore] = useState(false); // تحميل المزيد (Pagination)
+  const [refreshing, setRefreshing] = useState(false); // سحب للتحديث
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true); // هل يوجد المزيد من البيانات؟
 
+  // --- Filter States ---
   const [searchQuery, setSearchQuery] = useState('');
+  // نستخدم هذا المتغير لتأخير البحث قليلاً (Debounce)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(''); 
+  
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -61,40 +69,51 @@ const AllDoctorsScreen = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterViewMode, setFilterViewMode] = useState<FilterViewMode>('MAIN');
 
+  // مؤقت للبحث
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // --- Debounce Search Logic ---
+  // هذا يمنع إرسال طلب للسيرفر مع كل حرف يكتبه المستخدم
   useEffect(() => {
-    loadDoctors();
-  }, []);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // انتظر نصف ثانية بعد توقف الكتابة
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+  }, [searchQuery]);
 
+  // --- Main Data Fetching Effect ---
+  // يتم استدعاؤه عند تغيير أي فلتر (بحث، محافظة، تخصص)
   useEffect(() => {
-    let filtered = [...doctors];
+    // إعادة تعيين الصفحة للأولى عند تغيير الفلاتر
+    setPage(1);
+    setHasMore(true);
+    fetchDoctors(1, true);
+  }, [debouncedSearchQuery, selectedSpecialty, selectedProvince, selectedCategory]);
 
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(d =>
-        d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.province.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.area.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+  // --- Fetch Function ---
+  const fetchDoctors = async (pageNumber: number, reset: boolean = false) => {
+    if (!reset && (!hasMore || loadingMore)) return;
 
-    if (selectedSpecialty) {
-      filtered = filtered.filter(d => d.specialty === selectedSpecialty);
-    }
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
 
-    if (selectedProvince) {
-      filtered = filtered.filter(d => d.province === selectedProvince);
-    }
-
-    setFilteredDoctors(filtered);
-  }, [searchQuery, selectedSpecialty, selectedProvince, doctors]);
-
-  const loadDoctors = async () => {
-    setLoading(true);
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/doctors`);
+      // بناء رابط الـ API مع الفلاتر (Server-Side Filtering Ready)
+      let url = `${API_CONFIG.BASE_URL}/doctors?page=${pageNumber}&limit=10`;
+      
+      if (debouncedSearchQuery) url += `&search=${encodeURIComponent(debouncedSearchQuery)}`;
+      if (selectedProvince) url += `&province=${encodeURIComponent(selectedProvince)}`;
+      if (selectedSpecialty) url += `&specialty=${encodeURIComponent(selectedSpecialty)}`;
+      // ملاحظة: إذا الباك إند لا يدعم هذه المتغيرات حالياً، سيتجاهلها ويعيد الكل، وسيعمل الكود أيضاً
+
+      const res = await fetch(url);
       const data = await res.json();
 
-      const mapped: Doctor[] = (data || []).map((d: any) => ({
+      // التعامل مع هيكلية البيانات (سواء كانت مصفوفة مباشرة أو داخل كائن data)
+      const rawDoctors = Array.isArray(data) ? data : (data.doctors || data.data || []);
+      
+      const mapped: Doctor[] = rawDoctors.map((d: any) => ({
         id: d._id || d.id,
         name: d.name || t('common.doctor'),
         specialty: mapSpecialtyToLocalized(d.specialty || d.category_ar || d.category),
@@ -102,52 +121,74 @@ const AllDoctorsScreen = () => {
         area: d.area || t('common.not_specified'),
         image: d.imageUrl || d.profile_image || d.profileImage || d.image || null,
         isFeatured: d.isFeatured || d.is_featured || false,
-        rating: Number(
-          d.averageRating ??
-            d.ratingAverage ??
-            d.rating_avg ??
-            d.avgRating ??
-            d.rating ??
-            0
-        ) || 0,
-        experience: d.experienceYears
-          ? `${d.experienceYears} ${t('common.years')}`
-          : t('common.not_specified'),
+        rating: Number(d.averageRating ?? d.ratingAverage ?? d.rating_avg ?? d.avgRating ?? d.rating ?? 0) || 0,
+        experience: d.experienceYears ? `${d.experienceYears} ${t('common.years')}` : t('common.not_specified'),
       }));
 
-      const featured = mapped.filter(d => d.isFeatured);
-      const regular = mapped.filter(d => !d.isFeatured);
-      
-      const shuffledRegular = regular.sort(() => Math.random() - 0.5);
+      // --- Client Side Filtering Fallback ---
+      // إذا كان الباك إند لا يدعم الفلترة، نقوم بالفلترة هنا (لضمان عمل التطبيق في كل الحالات)
+      let finalDoctors = mapped;
+      // نتحقق إذا كان السيرفر أعاد الكل (عدد كبير) رغم أننا طلبنا صفحة محددة، فهذا يعني أنه لا يدعم الفلترة
+      const serverSupportsFiltering = rawDoctors.length <= 20; 
 
-      setDoctors([...featured, ...shuffledRegular]);
-      setFilteredDoctors([...featured, ...shuffledRegular]);
-    } catch {
-      setDoctors([]);
-      setFilteredDoctors([]);
+      if (!serverSupportsFiltering) {
+         if (debouncedSearchQuery) {
+            finalDoctors = finalDoctors.filter(d => 
+               d.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+               d.specialty.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+            );
+         }
+         if (selectedProvince) finalDoctors = finalDoctors.filter(d => d.province === selectedProvince);
+         if (selectedSpecialty) finalDoctors = finalDoctors.filter(d => d.specialty === selectedSpecialty);
+      }
+
+      // تحديث الحالة
+      if (reset) {
+        setDoctors(finalDoctors);
+      } else {
+        setDoctors(prev => [...prev, ...finalDoctors]);
+      }
+
+      // التحقق مما إذا كان هناك المزيد
+      if (finalDoctors.length < 10) {
+        setHasMore(false);
+      }
+
+    } catch (error) {
+      if (reset) setDoctors([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setRefreshing(false);
     }
   };
 
-  const onRefresh = async () => {
+  // --- Handlers ---
+  const handleLoadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchDoctors(nextPage, false);
+    }
+  };
+
+  const onRefresh = () => {
     setRefreshing(true);
-    await loadDoctors();
-    setRefreshing(false);
+    setPage(1);
+    setHasMore(true);
+    fetchDoctors(1, true);
   };
 
   const clearFilters = () => {
     setSelectedCategory('');
     setSelectedSpecialty('');
     setSelectedProvince('');
+    // سيقوم الـ useEffect بإعادة التحميل تلقائياً
   };
 
-  // =======================
-  // ✅ QUICK FILTERS (SIMPLIFIED)
-  // =======================
+  // --- Render Components ---
   const renderQuickFilters = () => {
-    // نأخذ عنصر واحد فقط من كل نوع
-    const oneProvince = PROVINCES[0]; // بغداد عادة
+    const oneProvince = PROVINCES[0]; 
     const oneSpecialty = typeof MEDICAL_SPECIALTIES[0] === 'string' 
         ? MEDICAL_SPECIALTIES[0] 
         : (MEDICAL_SPECIALTIES[0] as any).value || (MEDICAL_SPECIALTIES[0] as any).ar;
@@ -155,89 +196,50 @@ const AllDoctorsScreen = () => {
     return (
       <View style={styles.quickFilterContainer}>
         <Text style={styles.sectionTitle}>{t('suggestions', 'اقتراحات سريعة')}</Text>
-        <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickFilterScroll}
-        >
-            {/* 1. محافظة واحدة */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickFilterScroll}>
             <TouchableOpacity
-                style={[
-                    styles.quickFilterChip,
-                    selectedProvince === oneProvince && styles.quickFilterChipActive
-                ]}
+                style={[styles.quickFilterChip, selectedProvince === oneProvince && styles.quickFilterChipActive]}
                 onPress={() => setSelectedProvince(selectedProvince === oneProvince ? '' : oneProvince)}
             >
-                <Text style={[
-                    styles.quickFilterText,
-                    selectedProvince === oneProvince && styles.quickFilterTextActive
-                ]}>
+                <Text style={[styles.quickFilterText, selectedProvince === oneProvince && styles.quickFilterTextActive]}>
                     {mapProvinceToLocalized(oneProvince, i18n.language)}
                 </Text>
             </TouchableOpacity>
 
-            {/* 2. تخصص واحد */}
             <TouchableOpacity
-                style={[
-                    styles.quickFilterChip,
-                    selectedSpecialty === oneSpecialty && styles.quickFilterChipActive
-                ]}
+                style={[styles.quickFilterChip, selectedSpecialty === oneSpecialty && styles.quickFilterChipActive]}
                 onPress={() => setSelectedSpecialty(selectedSpecialty === oneSpecialty ? '' : oneSpecialty)}
             >
-                <Text style={[
-                    styles.quickFilterText,
-                    selectedSpecialty === oneSpecialty && styles.quickFilterTextActive
-                ]}>
+                <Text style={[styles.quickFilterText, selectedSpecialty === oneSpecialty && styles.quickFilterTextActive]}>
                     {mapSpecialtyToLocalized(oneSpecialty, i18n.language)}
                 </Text>
             </TouchableOpacity>
 
-            {/* 3. زر المزيد */}
             <TouchableOpacity
                 style={styles.moreButtonChip}
-                onPress={() => {
-                    setFilterViewMode('MAIN');
-                    setShowFilters(true);
-                }}
+                onPress={() => { setFilterViewMode('MAIN'); setShowFilters(true); }}
             >
                 <Text style={styles.moreButtonText}>{t('common.more', 'المزيد')}...</Text>
                 <Ionicons name="filter" size={14} color={theme.colors.primary} style={{marginLeft: 4}} />
             </TouchableOpacity>
-
         </ScrollView>
       </View>
     );
   };
 
-  // =======================
-  // ✅ GRID CARD RENDER
-  // =======================
   const renderItem = ({ item }: { item: Doctor }) => (
     <TouchableOpacity
       style={styles.gridCard}
       activeOpacity={0.8}
-      onPress={() =>
-        (navigation as any).navigate('DoctorDetails', { doctorId: item.id })
-      }
+      onPress={() => (navigation as any).navigate('DoctorDetails', { doctorId: item.id })}
     >
       <Image
-        source={{
-          uri: item.image
-            ? item.image
-            : 'https://via.placeholder.com/300x200.png?text=Doctor',
-        }}
+        source={{ uri: item.image ? item.image : 'https://via.placeholder.com/300x200.png?text=Doctor' }}
         style={styles.cardImage}
       />
-
       <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {item.name}
-        </Text>
-
-        <Text style={styles.cardSpec} numberOfLines={1}>
-          {item.specialty}
-        </Text>
-
+        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.cardSpec} numberOfLines={1}>{item.specialty}</Text>
         <View style={styles.locationRow}>
           <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
           <Text style={styles.cardLoc} numberOfLines={1}>
@@ -245,14 +247,11 @@ const AllDoctorsScreen = () => {
              {item.area ? ` - ${item.area}` : ''}
           </Text>
         </View>
-
         <View style={styles.cardFooter}>
           {item.rating ? (
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={14} color="#FFD700" />
-              <Text style={styles.ratingText}>
-                {item.rating.toFixed(1)}
-              </Text>
+              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
             </View>
           ) : <View />} 
         </View>
@@ -260,9 +259,15 @@ const AllDoctorsScreen = () => {
     </TouchableOpacity>
   );
 
-  // =======================
-  // ✅ SIMPLIFIED FILTER POPUP CONTENT
-  // =======================
+  const renderFooter = () => {
+    if (!loadingMore) return <View style={{height: 20}} />;
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+      </View>
+    );
+  };
+
   const renderFilterContent = () => {
     switch (filterViewMode) {
       case 'PROVINCE':
@@ -282,10 +287,7 @@ const AllDoctorsScreen = () => {
                renderItem={({ item }) => (
                  <TouchableOpacity 
                    style={styles.listItem}
-                   onPress={() => {
-                     setSelectedProvince(item);
-                     setFilterViewMode('MAIN');
-                   }}
+                   onPress={() => { setSelectedProvince(item); setFilterViewMode('MAIN'); }}
                  >
                    <Text style={[styles.listItemText, selectedProvince === item && styles.selectedText]}>
                      {mapProvinceToLocalized(item, i18n.language)}
@@ -296,7 +298,6 @@ const AllDoctorsScreen = () => {
              />
           </View>
         );
-
       case 'CATEGORY':
         return (
           <View style={styles.popupContent}>
@@ -314,11 +315,7 @@ const AllDoctorsScreen = () => {
                renderItem={({ item }) => (
                  <TouchableOpacity 
                    style={styles.listItem}
-                   onPress={() => {
-                     setSelectedCategory(item);
-                     setSelectedSpecialty(''); 
-                     setFilterViewMode('MAIN');
-                   }}
+                   onPress={() => { setSelectedCategory(item); setSelectedSpecialty(''); setFilterViewMode('MAIN'); }}
                  >
                    <Text style={[styles.listItemText, selectedCategory === item && styles.selectedText]}>
                      {mapCategoryToLocalized(item)}
@@ -329,12 +326,8 @@ const AllDoctorsScreen = () => {
              />
           </View>
         );
-
       case 'SPECIALTY':
-        const specialtiesList = selectedCategory 
-            ? getSpecialtiesByCategory(selectedCategory) 
-            : MEDICAL_SPECIALTIES;
-
+        const specialtiesList = selectedCategory ? getSpecialtiesByCategory(selectedCategory) : MEDICAL_SPECIALTIES;
         return (
           <View style={styles.popupContent}>
              <View style={styles.popupHeader}>
@@ -353,10 +346,7 @@ const AllDoctorsScreen = () => {
                  return (
                     <TouchableOpacity 
                       style={styles.listItem}
-                      onPress={() => {
-                        setSelectedSpecialty(val);
-                        setFilterViewMode('MAIN');
-                      }}
+                      onPress={() => { setSelectedSpecialty(val); setFilterViewMode('MAIN'); }}
                     >
                       <Text style={[styles.listItemText, selectedSpecialty === val && styles.selectedText]}>
                         {mapSpecialtyToLocalized(val, i18n.language)}
@@ -368,7 +358,6 @@ const AllDoctorsScreen = () => {
              />
           </View>
         );
-
       case 'MAIN':
       default:
         return (
@@ -379,13 +368,8 @@ const AllDoctorsScreen = () => {
                  <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
                </TouchableOpacity>
             </View>
-
             <View style={styles.filterBody}>
-                {/* 1. Province */}
-                <TouchableOpacity 
-                  style={styles.simpleSelector}
-                  onPress={() => setFilterViewMode('PROVINCE')}
-                >
+                <TouchableOpacity style={styles.simpleSelector} onPress={() => setFilterViewMode('PROVINCE')}>
                   <View>
                     <Text style={styles.simpleLabel}>{t('filters.province')}</Text>
                     <Text style={selectedProvince ? styles.simpleValueSelected : styles.simpleValue}>
@@ -394,12 +378,7 @@ const AllDoctorsScreen = () => {
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
-
-                {/* 2. Category (Optional) */}
-                <TouchableOpacity 
-                  style={styles.simpleSelector}
-                  onPress={() => setFilterViewMode('CATEGORY')}
-                >
+                <TouchableOpacity style={styles.simpleSelector} onPress={() => setFilterViewMode('CATEGORY')}>
                    <View>
                     <Text style={styles.simpleLabel}>{t('filters.specialty_category_optional')}</Text>
                     <Text style={selectedCategory ? styles.simpleValueSelected : styles.simpleValue}>
@@ -408,12 +387,7 @@ const AllDoctorsScreen = () => {
                    </View>
                    <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
-
-                {/* 3. Specialty */}
-                <TouchableOpacity 
-                  style={styles.simpleSelector}
-                  onPress={() => setFilterViewMode('SPECIALTY')}
-                >
+                <TouchableOpacity style={styles.simpleSelector} onPress={() => setFilterViewMode('SPECIALTY')}>
                   <View>
                     <Text style={styles.simpleLabel}>{t('filters.specialty')}</Text>
                     <Text style={selectedSpecialty ? styles.simpleValueSelected : styles.simpleValue}>
@@ -423,16 +397,11 @@ const AllDoctorsScreen = () => {
                   <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
             </View>
-
             <View style={styles.popupFooter}>
                 <TouchableOpacity style={styles.textBtn} onPress={clearFilters}>
                     <Text style={styles.textBtnLabel}>{t('filters.clear')}</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.solidBtn} 
-                  onPress={() => setShowFilters(false)}
-                >
+                <TouchableOpacity style={styles.solidBtn} onPress={() => setShowFilters(false)}>
                     <Text style={styles.solidBtnLabel}>{t('filters.apply')}</Text>
                 </TouchableOpacity>
             </View>
@@ -441,25 +410,19 @@ const AllDoctorsScreen = () => {
     }
   };
 
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-
-      {/* HEADER */}
+      
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {t('user_home.recommended_doctors')}
-        </Text>
-        <TouchableOpacity onPress={() => {
-            setFilterViewMode('MAIN');
-            setShowFilters(true);
-        }}>
+        <Text style={styles.headerTitle}>{t('user_home.recommended_doctors')}</Text>
+        <TouchableOpacity onPress={() => { setFilterViewMode('MAIN'); setShowFilters(true); }}>
           <Ionicons name="filter" size={24} color={theme.colors.white} />
         </TouchableOpacity>
       </View>
 
-      {/* SEARCH */}
+      {/* Search */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
         <TextInput
@@ -470,345 +433,123 @@ const AllDoctorsScreen = () => {
         />
       </View>
 
-      {/* QUICK FILTERS */}
+      {/* Quick Filters */}
       {renderQuickFilters()}
 
-      {/* LIST */}
+      {/* Doctors List */}
       <FlatList
-        data={filteredDoctors}
+        data={doctors}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         numColumns={2}
         columnWrapperStyle={{ justifyContent: 'space-between' }}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        
+        // ✅ Infinite Scroll Props
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5} // تحميل المزيد عندما يصل لمنتصف القائمة الحالية
+        ListFooterComponent={renderFooter}
+        
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
+          <RefreshControl 
+            refreshing={refreshing} 
             onRefresh={onRefresh}
             colors={[theme.colors.primary]}
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text>
-              {loading ? t('common.loading') : t('search.no_results')}
-            </Text>
-          </View>
+          !loading && doctors.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text>{t('search.no_results')}</Text>
+            </View>
+          ) : null
         }
       />
 
-      {/* ✅ SIMPLIFIED POPUP MODAL */}
-      <Modal
-        visible={showFilters}
-        transparent={true} // مهم للشفافية
-        animationType="fade"
-        onRequestClose={() => setShowFilters(false)}
-      >
+      {/* Filter Modal */}
+      <Modal visible={showFilters} transparent={true} animationType="fade" onRequestClose={() => setShowFilters(false)}>
         <View style={styles.modalOverlay}>
             {renderFilterContent()}
         </View>
       </Modal>
-
     </View>
   );
 };
 
-export default AllDoctorsScreen;
-
-// =======================
-// ✅ STYLES
-// =======================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
-
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16,
     backgroundColor: theme.colors.primary,
   },
-
-  headerTitle: {
-    color: theme.colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-
+  headerTitle: { color: theme.colors.white, fontSize: 18, fontWeight: 'bold' },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    margin: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white,
+    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, margin: 16,
+    borderWidth: 1, borderColor: theme.colors.border,
   },
-
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    textAlign: 'right'
-  },
-
-  // ✅ Styles for Simplified Quick Filters
-  quickFilterContainer: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: theme.colors.textPrimary,
-      marginLeft: 16,
-      marginBottom: 8,
-      textAlign: 'left',
-  },
-  quickFilterScroll: {
-      paddingHorizontal: 16,
-      paddingBottom: 4,
-  },
+  searchInput: { flex: 1, marginLeft: 10, textAlign: 'right' },
+  
+  // Quick Filters
+  quickFilterContainer: { marginBottom: 16 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary, marginLeft: 16, marginBottom: 8, textAlign: 'left' },
+  quickFilterScroll: { paddingHorizontal: 16, paddingBottom: 4 },
   quickFilterChip: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: theme.colors.white,
-      borderRadius: 20,
-      marginRight: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
+      paddingHorizontal: 16, paddingVertical: 8, backgroundColor: theme.colors.white,
+      borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: theme.colors.border,
   },
-  quickFilterChipActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-  },
-  quickFilterText: {
-      fontSize: 13,
-      color: theme.colors.textSecondary,
-      fontWeight: '500',
-  },
-  quickFilterTextActive: {
-      color: theme.colors.white,
-  },
+  quickFilterChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  quickFilterText: { fontSize: 13, color: theme.colors.textSecondary, fontWeight: '500' },
+  quickFilterTextActive: { color: theme.colors.white },
   moreButtonChip: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: theme.colors.background,
-      borderRadius: 20,
-      marginRight: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.primary,
-      flexDirection: 'row',
-      alignItems: 'center',
+      paddingHorizontal: 16, paddingVertical: 8, backgroundColor: theme.colors.background,
+      borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: theme.colors.primary,
+      flexDirection: 'row', alignItems: 'center',
   },
-  moreButtonText: {
-      fontSize: 13,
-      color: theme.colors.primary,
-      fontWeight: '600',
-  },
+  moreButtonText: { fontSize: 13, color: theme.colors.primary, fontWeight: '600' },
 
-  listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-  },
-
+  // List Styles
+  listContainer: { paddingHorizontal: 16, paddingBottom: 32 },
   gridCard: {
-    width: '48%',
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.colors.border + '20',
-    elevation: 3,
+    width: '48%', backgroundColor: theme.colors.white, borderRadius: 16, marginBottom: 16,
+    overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border + '20', elevation: 3,
   },
-
-  cardImage: {
-    width: '100%',
-    height: 140,
-    resizeMode: 'cover',
-    backgroundColor: theme.colors.background,
-  },
-
-  cardBody: {
-    padding: 12,
-  },
-
-  cardName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.textPrimary,
-    textAlign: 'left',
-    marginBottom: 4,
-  },
-
-  cardSpec: {
-    fontSize: 12,
-    color: theme.colors.primary,
-    fontWeight: '600',
-    textAlign: 'left',
-    marginBottom: 6,
-  },
-
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+  cardImage: { width: '100%', height: 140, resizeMode: 'cover', backgroundColor: theme.colors.background },
+  cardBody: { padding: 12 },
+  cardName: { fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary, textAlign: 'left', marginBottom: 4 },
+  cardSpec: { fontSize: 12, color: theme.colors.primary, fontWeight: '600', textAlign: 'left', marginBottom: 6 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  cardLoc: { fontSize: 11, color: theme.colors.textSecondary, marginLeft: 4, flex: 1 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF8E1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  ratingText: { marginLeft: 4, fontSize: 11, fontWeight: 'bold', color: '#F57C00' },
   
-  cardLoc: {
-    fontSize: 11,
-    color: theme.colors.textSecondary,
-    marginLeft: 4,
-    flex: 1,
-  },
+  loadingFooter: { paddingVertical: 20, alignItems: 'center' },
+  emptyContainer: { alignItems: 'center', marginTop: 40 },
 
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-
-  ratingText: {
-    marginLeft: 4,
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#F57C00',
-  },
-
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-
-  // ✅ New Popup Modal Styles (Simpler & Smaller)
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-start', // يجعلها تبدأ من الأعلى
-    paddingTop: 120, // مسافة من الأعلى
-    alignItems: 'center',
-  },
-  popupContent: {
-      width: '90%',
-      backgroundColor: theme.colors.white,
-      borderRadius: 16,
-      padding: 16,
-      elevation: 5,
-      shadowColor: '#000',
-      shadowOffset: {width:0, height:2},
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-  },
-  popupHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border + '40',
-      paddingBottom: 8,
-  },
-  popupTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: theme.colors.textPrimary,
-  },
-  popupTitleMain: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.colors.textPrimary,
-  },
-  closeBtn: {
-      padding: 4,
-  },
-  
-  // Selectors inside popup
-  filterBody: {
-      gap: 12,
-      marginBottom: 20,
-  },
-  simpleSelector: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 12,
-      backgroundColor: theme.colors.background,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-  },
-  simpleLabel: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-      marginBottom: 2,
-  },
-  simpleValue: {
-      fontSize: 14,
-      color: theme.colors.textPrimary,
-  },
-  simpleValueSelected: {
-      fontSize: 14,
-      color: theme.colors.primary,
-      fontWeight: '600',
-  },
-
-  // Buttons inside popup
-  popupFooter: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 12,
-      paddingTop: 8,
-  },
-  textBtn: {
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-  },
-  textBtnLabel: {
-      color: theme.colors.textSecondary,
-      fontWeight: '600',
-  },
-  solidBtn: {
-      backgroundColor: theme.colors.primary,
-      paddingVertical: 10,
-      paddingHorizontal: 24,
-      borderRadius: 8,
-  },
-  solidBtnLabel: {
-      color: theme.colors.white,
-      fontWeight: '600',
-  },
-
-  // List Items
-  listItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border + '20',
-  },
-  listItemText: {
-      fontSize: 15,
-      color: theme.colors.textPrimary,
-  },
-  selectedText: {
-      color: theme.colors.primary,
-      fontWeight: 'bold',
-  },
-  backButton: {
-      padding: 4,
-  }
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-start', paddingTop: 120, alignItems: 'center' },
+  popupContent: { width: '90%', backgroundColor: theme.colors.white, borderRadius: 16, padding: 16, elevation: 5, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.25, shadowRadius: 4 },
+  popupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: theme.colors.border + '40', paddingBottom: 8 },
+  popupTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.textPrimary },
+  popupTitleMain: { fontSize: 18, fontWeight: 'bold', color: theme.colors.textPrimary },
+  closeBtn: { padding: 4 },
+  filterBody: { gap: 12, marginBottom: 20 },
+  simpleSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: theme.colors.background, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border },
+  simpleLabel: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 2 },
+  simpleValue: { fontSize: 14, color: theme.colors.textPrimary },
+  simpleValueSelected: { fontSize: 14, color: theme.colors.primary, fontWeight: '600' },
+  popupFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, paddingTop: 8 },
+  textBtn: { paddingVertical: 10, paddingHorizontal: 16 },
+  textBtnLabel: { color: theme.colors.textSecondary, fontWeight: '600' },
+  solidBtn: { backgroundColor: theme.colors.primary, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8 },
+  solidBtnLabel: { color: theme.colors.white, fontWeight: '600' },
+  listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border + '20' },
+  listItemText: { fontSize: 15, color: theme.colors.textPrimary },
+  selectedText: { color: theme.colors.primary, fontWeight: 'bold' },
+  backButton: { padding: 4 }
 });
+
+export default AllDoctorsScreen;

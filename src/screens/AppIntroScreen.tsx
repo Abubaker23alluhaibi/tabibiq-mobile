@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   Dimensions,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -18,92 +19,144 @@ const { width, height } = Dimensions.get('window');
 const AppIntroScreen = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
-
-  const navigateToNext = () => {
-    navigation.navigate('AuthOptionsScreen' as never);
-  };
-
-  const navigateToLogin = () => {
-    navigation.navigate('Login' as never);
-  };
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const slidesRef = useRef(null);
 
   const features = [
     {
-      icon: '🔒',
-      title: t('landing.features.security'),
-      description: t('landing.features.security_desc'),
+      id: '1',
+      icon: 'shield-checkmark', // Ionicons name
+      title: t('landing.features.security') || 'أمان عالي',
+      description: t('landing.features.security_desc') || 'بياناتك مشفرة ومحمية بأحدث التقنيات العالمية لضمان الخصوصية.',
     },
     {
-      icon: '⚡',
-      title: t('landing.features.speed'),
-      description: t('landing.features.speed_desc'),
+      id: '2',
+      icon: 'flash',
+      title: t('landing.features.speed') || 'سرعة في الحجز',
+      description: t('landing.features.speed_desc') || 'احجز موعدك مع طبيبك المفضل في ثوانٍ معدودة وبدون انتظار.',
     },
     {
-      icon: '👨‍⚕️',
-      title: t('landing.features.doctors'),
-      description: t('landing.features.doctors_desc'),
+      id: '3',
+      icon: 'people',
+      title: t('landing.features.doctors') || 'نخبة الأطباء',
+      description: t('landing.features.doctors_desc') || 'مجموعة مختارة من أفضل الأطباء والاستشاريين في كافة التخصصات.',
     },
     {
-      icon: '📱',
-      title: t('landing.features.ease'),
-      description: t('landing.features.ease_desc'),
+      id: '4',
+      icon: 'phone-portrait',
+      title: t('landing.features.ease') || 'سهولة الاستخدام',
+      description: t('landing.features.ease_desc') || 'واجهة مستخدم بسيطة وسهلة تناسب جميع الأعمار.',
     },
   ];
 
-  return (
-    <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>{t('intro.title')}</Text>
-          
-          <View style={styles.placeholder} />
+  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  const scrollToNext = () => {
+    if (currentIndex < features.length - 1) {
+      // @ts-ignore
+      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
+    } else {
+      navigation.navigate('AuthOptionsScreen' as never);
+    }
+  };
+
+  const skip = () => {
+    navigation.navigate('Login' as never);
+  };
+
+  const renderItem = ({ item }: any) => {
+    return (
+      <View style={styles.slide}>
+        <View style={styles.iconContainer}>
+          <Ionicons name={item.icon} size={100} color={theme.colors.primary} />
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.description}>{item.description}</Text>
         </View>
       </View>
+    );
+  };
 
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.introContainer}>
-          {/* Main Title */}
-          <Text style={styles.mainTitle}>
-            {t('intro.main_title')}
-          </Text>
-          
-          <Text style={styles.mainSubtitle}>
-            {t('intro.main_subtitle')}
-          </Text>
+  const Paginator = ({ data, scrollX }: any) => {
+    return (
+      <View style={styles.paginatorContainer}>
+        {data.map((_: any, i: number) => {
+          const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
+          const dotWidth = scrollX.interpolate({
+            inputRange,
+            outputRange: [10, 20, 10],
+            extrapolate: 'clamp',
+          });
+          const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.3, 1, 0.3],
+            extrapolate: 'clamp',
+          });
 
-          {/* Features Grid */}
-          <View style={styles.featuresGrid}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureCard}>
-                <Text style={styles.featureIcon}>{feature.icon}</Text>
-                <Text style={styles.featureTitle}>{feature.title}</Text>
-                <Text style={styles.featureDescription}>{feature.description}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+          return (
+            <Animated.View
+              key={i.toString()}
+              style={[styles.dot, { width: dotWidth, opacity }]}
+            />
+          );
+        })}
+      </View>
+    );
+  };
 
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity style={styles.primaryButton} onPress={navigateToNext}>
-          <Text style={styles.primaryButtonText}>{t('intro.continue')}</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Skip Button */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={skip} style={styles.skipButton}>
+          <Text style={styles.skipText}>{t('intro.skip_to_login') || 'تخطي'}</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.secondaryButton} onPress={navigateToLogin}>
-          <Text style={styles.secondaryButtonText}>{t('intro.skip_to_login')}</Text>
+      </View>
+
+      {/* Slider */}
+      <View style={{ flex: 3 }}>
+        <FlatList
+          ref={slidesRef}
+          data={features}
+          renderItem={renderItem}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          pagingEnabled
+          bounces={false}
+          keyExtractor={(item) => item.id}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+            useNativeDriver: false,
+          })}
+          onViewableItemsChanged={viewableItemsChanged}
+          viewabilityConfig={viewConfig}
+          scrollEventThrottle={32}
+        />
+      </View>
+
+      {/* Bottom Section */}
+      <View style={styles.footer}>
+        <Paginator data={features} scrollX={scrollX} />
+
+        <TouchableOpacity style={styles.nextButton} onPress={scrollToNext}>
+          <Text style={styles.nextButtonText}>
+            {currentIndex === features.length - 1 ? (t('intro.start') || 'ابدأ الآن') : (t('intro.next') || 'التالي')}
+          </Text>
+          <Ionicons 
+            name={currentIndex === features.length - 1 ? "checkmark" : "arrow-forward"} 
+            size={20} 
+            color="#fff" 
+            style={{marginLeft: 8}}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -111,144 +164,99 @@ const AppIntroScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  mainContainer: {
+  container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
-  },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
-  introContainer: {
+  header: {
+    width: '100%',
+    height: 60,
+    marginTop: 40,
     paddingHorizontal: 20,
-    paddingVertical: 30,
+    justifyContent: 'center',
+    alignItems: 'flex-end', // زر التخطي على اليمين (أو اليسار حسب اللغة)
   },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 6,
+  skipButton: {
+    padding: 10,
   },
-  mainSubtitle: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 40,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-    lineHeight: 24,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 40,
-  },
-  featureCard: {
-    width: '48%',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  featureIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-  },
-  featureTitle: {
+  skipText: {
+    color: theme.colors.textSecondary || '#666',
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
   },
-  featureDescription: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  bottomActions: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  slide: {
+    width: width,
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: theme.colors.primary,
     paddingHorizontal: 40,
-    paddingVertical: 16,
-    borderRadius: 25,
+  },
+  iconContainer: {
+    flex: 0.6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 40,
+    width: 200,
+    height: 200,
+    backgroundColor: theme.colors.primary + '10', // لون شفاف خفيف جداً
+    borderRadius: 100,
+  },
+  textContainer: {
+    flex: 0.4,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: theme.colors.textSecondary || '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 10,
+  },
+  footer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 50,
+    width: '100%',
+  },
+  paginatorContainer: {
+    flexDirection: 'row',
+    height: 64,
+  },
+  dot: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary,
+    marginHorizontal: 8,
+  },
+  nextButton: {
+    backgroundColor: theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    paddingVertical: 16,
+    borderRadius: 30,
     shadowColor: theme.colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 8,
-    marginBottom: 16,
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
+  nextButtonText: {
+    color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '500',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    fontWeight: 'bold',
   },
 });
 
