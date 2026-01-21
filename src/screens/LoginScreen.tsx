@@ -12,6 +12,7 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -181,11 +182,11 @@ const LoginScreen = () => {
         // المستخدم غير موجود - توجيه لإنشاء حساب
         console.log('❌ User not found');
         
-        // إظهار رسالة خطأ واضحة
+        // إظهار رسالة خطأ واضحة مع خيارين: إنشاء حساب كمستخدم أو كدكتور
         const inputType = isValidEmail(trimmedInput) ? 'البريد الإلكتروني' : 'رقم الهاتف';
         Alert.alert(
           'حساب غير موجود',
-          `لم يتم العثور على حساب بهذا ${inputType}. يرجى التحقق من ${inputType} أو إنشاء حساب جديد.`,
+          `لم يتم العثور على حساب بهذا ${inputType}. هل تريد إنشاء حساب جديد؟`,
           [
             {
               text: 'إلغاء',
@@ -198,12 +199,21 @@ const LoginScreen = () => {
               },
             },
             {
-              text: 'إنشاء حساب',
+              text: 'إنشاء حساب كمستخدم',
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
                 setUserType(null);
                 navigation.navigate('UserSignUp' as never);
+              },
+            },
+            {
+              text: 'إنشاء حساب كدكتور',
+              onPress: () => {
+                setShowPasswordField(false);
+                setPassword('');
+                setUserType(null);
+                Linking.openURL('https://www.tabib-iq.com/signup-doctor');
               },
             },
           ]

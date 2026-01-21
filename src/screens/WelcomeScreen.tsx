@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -23,6 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { theme } from '../utils/theme';
 import { isRTL, changeLanguage } from '../locales';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ const AnimatedMedicalIcon = ({
 const WelcomeScreen = () => {
   const navigation = useNavigation();
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
 
   // Animation values
   const titleTranslateY = useSharedValue(50);
@@ -96,10 +98,32 @@ const WelcomeScreen = () => {
       buttonScale.value = withSpring(1, { damping: 10, stiffness: 100 });
       buttonOpacity.value = withTiming(1, { duration: 600 });
     }, 600);
+
   }, []);
 
+  // التحقق من حالة تسجيل الدخول عند فتح الصفحة أو العودة إليها
+  useFocusEffect(
+    useCallback(() => {
+      // التحويل التلقائي المباشر للصفحة الرئيسية دائماً
+      // إذا كان المستخدم مسجل دخول كدكتور، أنقله لصفحة الطبيب
+      if (user && user.user_type === 'doctor') {
+        navigation.navigate('DoctorDashboard' as never);
+      } else {
+        // في جميع الحالات الأخرى (مسجل دخول كمستخدم أو غير مسجل)، أنقله للصفحة الرئيسية
+        navigation.navigate('UserHomeStack' as never);
+      }
+    }, [user, navigation])
+  );
+
   const navigateToNext = () => {
-    navigation.navigate('Login' as never);
+    // التحويل دائماً للصفحة الرئيسية
+    // إذا كان المستخدم مسجل دخول كدكتور، أنقله لصفحة الطبيب
+    if (user && user.user_type === 'doctor') {
+      navigation.navigate('DoctorDashboard' as never);
+    } else {
+      // في جميع الحالات الأخرى، أنقله للصفحة الرئيسية
+      navigation.navigate('UserHomeStack' as never);
+    }
   };
 
   const navigateToLogin = () => {

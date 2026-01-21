@@ -2,7 +2,6 @@
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
-  DoctorLogin: undefined;
   UserSignUp: undefined;
   UserHomeStack: undefined;
   DoctorDashboard: undefined;

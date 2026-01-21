@@ -60,7 +60,6 @@ const customTransition = {
 // الشاشات
 import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
-import DoctorLoginScreen from '../screens/DoctorLoginScreen';
 import UserSignUpScreen from '../screens/UserSignUpScreen';
 import UserHomeScreen from '../screens/UserHomeScreen';
 import DoctorDashboardScreen from '../screens/DoctorDashboardScreen';
@@ -320,7 +319,7 @@ const AppNavigator = () => {
       <DeepLinkHandler>
         <Stack.Navigator
           initialRouteName={!user
-            ? (isFirstLaunch ? 'Welcome' : 'Login')
+            ? (isFirstLaunch ? 'Welcome' : 'UserHomeStack')
             : (user.user_type === 'user'
                 ? 'UserHomeStack'
                 : user.user_type === 'doctor'
@@ -329,7 +328,7 @@ const AppNavigator = () => {
                     ? 'UserHomeStack' // الإدارة تستخدم واجهة المستخدم العادي
                     : user.user_type === 'center'
                       ? 'CenterHome'
-                      : 'Login')}
+                      : 'UserHomeStack')}
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.primary,
@@ -363,17 +362,14 @@ const AppNavigator = () => {
                 }}
               />
               <Stack.Screen
-                name="DoctorLogin"
-                component={DoctorLoginScreen}
-                options={{ 
-                  headerShown: false,
-                  ...customTransition,
-                }}
-              />
-              <Stack.Screen
                 name="UserSignUp"
                 component={UserSignUpScreen}
                 options={{ title: t('auth.login') }}
+              />
+              <Stack.Screen
+                name="UserHomeStack"
+                component={UserTabNavigator}
+                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="DoctorDetails"

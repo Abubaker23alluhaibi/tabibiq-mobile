@@ -641,8 +641,23 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
       // فحص إضافي لحالة المستخدم والتوكن
       if (!user?.id) {
-        showError(t('error.title'), 'يجب تسجيل الدخول أولاً');
         setBookingLoading(false);
+        Alert.alert(
+          t('error.title') || 'تسجيل الدخول مطلوب',
+          'يجب تسجيل الدخول أولاً لحجز موعد. هل تريد تسجيل الدخول الآن؟',
+          [
+            {
+              text: 'إلغاء',
+              style: 'cancel',
+            },
+            {
+              text: 'تسجيل الدخول',
+              onPress: () => {
+                navigation.navigate('Login' as never);
+              },
+            },
+          ]
+        );
         return;
       }
 

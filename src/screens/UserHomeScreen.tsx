@@ -149,6 +149,8 @@ const UserHomeScreen = () => {
   const [specialties, setSpecialties] = useState<string[]>(SPECIALTIES);
   const [showAllRecommended, setShowAllRecommended] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showMoreProvinces, setShowMoreProvinces] = useState(false);
+  const [showMoreSpecialties, setShowMoreSpecialties] = useState(false);
 
   // قوائم محسوبة للاستخدام في الواجهة
   const computedProvinces =
@@ -796,38 +798,52 @@ const UserHomeScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.colors.primary}
+        barStyle={user ? "light-content" : "dark-content"}
+        backgroundColor={user ? theme.colors.primary : theme.colors.background}
       />
 
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, user && styles.topBarLoggedIn]}>
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate('Notifications' as never)}
-          >
-            <Ionicons
-              name="notifications"
-              size={24}
-              color={theme.colors.textPrimary}
-            />
-            {notifications.filter(n => !n.isRead).length > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {notifications.filter(n => !n.isRead).length > 9
-                    ? '9+'
-                    : notifications.filter(n => !n.isRead).length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {user ? (
+            // إذا كان مسجل دخول، أظهر الإشعارات والملف الشخصي
+            <>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={() => navigation.navigate('Notifications' as never)}
+              >
+                <Ionicons
+                  name="notifications"
+                  size={24}
+                  color={theme.colors.textPrimary}
+                />
+                {notifications.filter(n => !n.isRead).length > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {notifications.filter(n => !n.isRead).length > 9
+                        ? '9+'
+                        : notifications.filter(n => !n.isRead).length}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => navigation.navigate('UserProfile' as never)}
-          >
-            <Ionicons name="person" size={24} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.profileButton}
+                onPress={() => navigation.navigate('UserProfile' as never)}
+              >
+                <Ionicons name="person" size={24} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            // إذا لم يكن مسجل دخول، أظهر زر تسجيل الدخول
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => navigation.navigate('Login' as never)}
+            >
+              <Ionicons name="log-in" size={20} color={theme.colors.white} />
+              <Text style={styles.loginButtonText}>{t('auth.login') || 'تسجيل الدخول'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -842,6 +858,159 @@ const UserHomeScreen = () => {
 
         {/* إعلانات للمستخدمين */}
         <AdvertisementSlider target="users" style={styles.advertisementSlider} />
+
+        {/* البحث والفلترة */}
+        <View style={styles.searchAndFilterContainer}>
+          {/* حقل البحث */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('search.placeholder') || 'ابحث عن طبيب...'}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  style={styles.clearSearchButton}
+                >
+                  <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* فلتر المدينة */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>{t('filters.province') || 'المدينة'}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterChipsContainer}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedProvince === '' && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedProvince('')}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedProvince === '' && styles.filterChipTextActive,
+                  ]}
+                >
+                  {t('filters.all') || 'الكل'}
+                </Text>
+              </TouchableOpacity>
+              {(showMoreProvinces ? computedProvinces : computedProvinces.slice(0, 3)).map((province) => (
+                <TouchableOpacity
+                  key={province}
+                  style={[
+                    styles.filterChip,
+                    selectedProvince === province && styles.filterChipActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedProvince(selectedProvince === province ? '' : province);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedProvince === province && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {mapProvinceToLocalized(province)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {computedProvinces.length > 3 && (
+                <TouchableOpacity
+                  style={styles.moreChip}
+                  onPress={() => setShowMoreProvinces(!showMoreProvinces)}
+                >
+                  <Text style={styles.moreChipText}>
+                    {showMoreProvinces ? t('common.less') || 'أقل' : t('common.more') || 'مزيد'}
+                  </Text>
+                  <Ionicons
+                    name={showMoreProvinces ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+
+          {/* فلتر التخصص */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>{t('filters.specialty') || 'التخصص'}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterChipsContainer}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedSpecialty === '' && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedSpecialty('')}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    selectedSpecialty === '' && styles.filterChipTextActive,
+                  ]}
+                >
+                  {t('filters.all') || 'الكل'}
+                </Text>
+              </TouchableOpacity>
+              {(showMoreSpecialties ? computedSpecialties : computedSpecialties.slice(0, 3)).map((specialty) => (
+                <TouchableOpacity
+                  key={specialty}
+                  style={[
+                    styles.filterChip,
+                    selectedSpecialty === specialty && styles.filterChipActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedSpecialty(selectedSpecialty === specialty ? '' : specialty);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedSpecialty === specialty && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {mapSpecialtyToLocalized(specialty)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {computedSpecialties.length > 3 && (
+                <TouchableOpacity
+                  style={styles.moreChip}
+                  onPress={() => setShowMoreSpecialties(!showMoreSpecialties)}
+                >
+                  <Text style={styles.moreChipText}>
+                    {showMoreSpecialties ? t('common.less') || 'أقل' : t('common.more') || 'مزيد'}
+                  </Text>
+                  <Ionicons
+                    name={showMoreSpecialties ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={theme.colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
@@ -968,6 +1137,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
+  topBarLoggedIn: {
+    backgroundColor: theme.colors.primary,
+  },
   header: {
     paddingTop: 20,
     paddingBottom: 8,
@@ -1004,7 +1176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     position: 'relative',
-    shadowColor: theme.colors.primary,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1038,6 +1210,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loginButtonText: {
+    color: theme.colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1409,6 +1600,94 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginRight: 8,
+  },
+  searchAndFilterContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.background,
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.textPrimary,
+    padding: 0,
+  },
+  clearSearchButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    marginBottom: 8,
+  },
+  filterChipsContainer: {
+    paddingRight: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  filterChipText: {
+    fontSize: 14,
+    color: theme.colors.textPrimary,
+  },
+  filterChipTextActive: {
+    color: theme.colors.white,
+    fontWeight: '600',
+  },
+  moreChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  moreChipText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 });
 
