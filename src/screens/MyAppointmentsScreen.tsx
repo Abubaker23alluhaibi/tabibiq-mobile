@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native'; // ✅ استيراد useFocusEffect
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,23 +41,25 @@ const MyAppointmentsScreen = () => {
   const [selectedTab, setSelectedTab] = useState<'upcoming' | 'today' | 'archived'>('upcoming');
   const [searchText, setSearchText] = useState('');
 
-  useEffect(() => {
-    if (user?.id) fetchAppointments();
-  }, [user]);
+  // ✅ استخدام useFocusEffect لتحديث البيانات عند العودة للصفحة
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        fetchAppointments();
+      }
+    }, [user?.id])
+  );
 
-  // ✅ دالة معالجة الصور (نفس المستخدمة في الصفحة الرئيسية بالضبط)
   const getImageUrl = (imagePath: string | null | undefined): string | null => {
     if (!imagePath || imagePath === 'null' || imagePath === 'undefined' || imagePath === '') return null;
-    
-    // إذا كان رابط كامل
     if (imagePath.startsWith('http')) return imagePath;
-    
-    // إذا كان مسار من السيرفر
     return `${API_CONFIG.BASE_URL}/${imagePath.replace(/^\/+/, '')}`;
   };
 
   const fetchAppointments = async () => {
-    setLoading(true);
+    // ✅ نجعل التحميل خفياً (بدون شاشة تحميل كاملة) إذا كانت البيانات موجودة مسبقاً
+    if (appointments.length === 0) setLoading(true);
+    
     try {
       if (!user?.id) { setAppointments([]); return; }
       
@@ -65,13 +67,10 @@ const MyAppointmentsScreen = () => {
       
       if (Array.isArray(response)) {
         const formattedAppointments = response.map((appointment: any) => {
-            // استخراج كائن الطبيب (قد يكون doctorId أو doctor)
             const docObj = appointment.doctorId || appointment.doctor || {};
-
-            // ✅✅ التعديل الجوهري: البحث عن جميع مفاتيح الصور المحتملة (imageUrl هو الأهم)
             const rawDoctorImage = 
-                docObj.imageUrl ||       // هذا هو المفتاح المستخدم غالباً في UserHome
-                docObj.image ||          
+                docObj.imageUrl || 
+                docObj.image || 
                 docObj.profile_image || 
                 docObj.profileImage ||
                 null;
@@ -82,10 +81,7 @@ const MyAppointmentsScreen = () => {
                 doctorId: docObj._id || docObj.id,
                 doctorName: appointment.doctorName || docObj.name || t('common.doctor'),
                 doctorSpecialty: docObj.specialty || t('common.general_specialty'),
-                
-                // ✅ حفظ المسار الخام ليتم معالجته لاحقاً
                 doctorImage: rawDoctorImage, 
-                
                 date: appointment.date,
                 time: appointment.time,
                 status: appointment.status || 'pending',
@@ -151,7 +147,6 @@ const MyAppointmentsScreen = () => {
 
   const handleDoctorPress = (appointment: any) => {
     if (!user) {
-      // إغلاق أي مودال مفتوح قبل الانتقال
       hideModal();
       (navigation as any).navigate('Login');
       return;
@@ -173,7 +168,6 @@ const MyAppointmentsScreen = () => {
                 
                 if (result && result.success) {
                     setAppointments(prev => prev.filter(apt => (apt._id || apt.id) !== appointmentId));
-                    // ✅ إغلاق النافذة بنجاح
                     hideModal();
                     showSuccess(t('success.title'), t('appointment.cancel_appointment'));
                     await fetchAppointments();
@@ -205,7 +199,6 @@ const MyAppointmentsScreen = () => {
   };
 
   const renderAppointmentCard = ({ item }: any) => {
-    // ✅ تحويل المسار الخام إلى رابط كامل هنا
     const validImage = getImageUrl(item.doctorImage);
 
     return (
@@ -215,23 +208,19 @@ const MyAppointmentsScreen = () => {
           onPress={() => handleDoctorPress(item)}
         >
           <View style={styles.cardMainRow}>
-            {/* التاريخ */}
             <View style={styles.dateBox}>
               <Text style={styles.dateDayName}>{getDayName(item.date)}</Text>
               <Text style={styles.dateNumber}>{getDayNumber(item.date)}</Text>
               <Text style={styles.dateMonth}>{getMonthName(item.date)}</Text>
             </View>
 
-            {/* المحتوى */}
             <View style={styles.cardContent}>
               <View style={styles.doctorHeader}>
-                {/* ✅ عرض الصورة */}
                 {validImage ? (
                     <Image 
                         source={{ uri: validImage }} 
                         style={styles.avatar} 
                         resizeMode="cover"
-                        // إضافة مفتاح للصورة لإجبار التحديث إذا تغيرت
                         key={validImage} 
                     />
                 ) : (
@@ -353,7 +342,7 @@ const MyAppointmentsScreen = () => {
       </View>
 
       <View style={styles.content}>
-        {loading ? (
+        {loading && appointments.length === 0 ? ( // ✅ تحميل فقط إذا كانت القائمة فارغة
             <View style={styles.centerView}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
@@ -379,7 +368,6 @@ const MyAppointmentsScreen = () => {
 
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       
-      {/* ✅ مودال التأكيد مع دالة الإغلاق */}
       <CustomModal 
         visible={modal.visible} 
         title={modal.title}
