@@ -33,7 +33,7 @@ import {
   SPECIALTIES,
   SPECIALTY_CATEGORIES,
   getSpecialtiesByCategory
-} from '../utils/constants'; // تأكد من وجود هذه الدوال في constants أو ملف منفصل
+} from '../utils/constants'; 
 import AdvertisementSlider from '../components/AdvertisementSlider';
 import { logDebug, logError, logApiCall, logApiResponse } from '../utils/logger';
 
@@ -549,6 +549,8 @@ const UserHomeScreen = () => {
 
       <ScrollView
         style={styles.content}
+        // ✅ هذا هو التعديل الرئيسي: إضافة مسافة سفلية داخلية للمحتوى
+        contentContainerStyle={{ paddingBottom: 150 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -791,7 +793,10 @@ const styles = StyleSheet.create({
   moreChipText: { fontSize: 14, color: theme.colors.primary, fontWeight: '600' },
 
   advertisementSlider: { marginHorizontal: 16, marginVertical: 10 },
-  content: { flex: 1, paddingBottom: 100 },
+  
+  // ✅ التعديل الثاني: إزالة paddingBottom من هنا
+  content: { flex: 1 }, 
+  
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 20, marginBottom: 16,

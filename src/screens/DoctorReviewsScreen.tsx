@@ -11,6 +11,8 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Platform,
+  SafeAreaView
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +24,7 @@ import { API_CONFIG } from '../config/api';
 import StarRating from '../components/StarRating';
 import { mapSpecialtyToLocalized } from '../utils/specialtyMapper';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface Review {
   id: string;
@@ -96,6 +98,18 @@ const DoctorReviewsScreen: React.FC = () => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchDoctorReviews();
+  };
+
+  const handleBookAppointment = () => {
+    if (!user) {
+      Alert.alert(t('login_required.title'), t('login_required.message'), [
+        { text: t('login_required.cancel'), style: 'cancel' },
+        { text: t('login_required.login'), onPress: () => (navigation as any).navigate('Login') },
+      ]);
+      return;
+    }
+    // انتقل لصفحة الحجز
+    (navigation as any).navigate('BookAppointment', { doctorId });
   };
 
   const renderReviewItem = ({ item }: { item: Review }) => (
@@ -237,13 +251,28 @@ const DoctorReviewsScreen: React.FC = () => {
         data={reviews}
         renderItem={renderReviewItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.reviewsList}
+        // ✅ إضافة مسافة سفلية حتى لا يغطي الزر آخر عنصر
+        contentContainerStyle={[styles.reviewsList, { paddingBottom: 100 }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* ✅ زر الحجز الثابت في الأسفل */}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity 
+            style={styles.bookButton} 
+            onPress={handleBookAppointment}
+            activeOpacity={0.8}
+        >
+            <Text style={styles.bookButtonText}>
+                {t('appointment.book_appointment') || 'حجز موعد'}
+            </Text>
+        </TouchableOpacity>
+      </View>
+
     </View>
   );
 };
@@ -361,7 +390,7 @@ const styles = StyleSheet.create({
   },
   reviewsList: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    // paddingBottom removed from here and added to contentContainerStyle inline
   },
   reviewCard: {
     backgroundColor: theme.colors.white,
@@ -431,16 +460,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  
+  // ===========================================
+  // ✅ ستايلات الزر السفلي (الحل للمشكلتين)
+  // ===========================================
+  bottomContainer: {
+      padding: 16,
+      backgroundColor: theme.colors.white,
+      borderTopWidth: 1,
+      borderColor: theme.colors.border + '40',
+      paddingBottom: Platform.OS === 'ios' ? 34 : 16, // دعم الأيفون الحديث
+      position: 'absolute', // تثبيت في الأسفل
+      bottom: 0,
+      left: 0,
+      right: 0,
+      elevation: 20, // ظل قوي ليظهر فوق أي شيء
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+  },
+  bookButton: {
+      backgroundColor: theme.colors.primary,
+      // ✅ الحل الجذري لمشكلة الزر الضخم في الأندرويد هو تحديد الارتفاع
+      height: 56, 
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 4,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+  },
+  bookButtonText: {
+      color: theme.colors.white,
+      fontSize: 16,
+      fontWeight: 'bold',
+  }
 });
 
 export default DoctorReviewsScreen;
-
-
-
-
-
-
-
-
-
-

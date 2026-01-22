@@ -13,7 +13,7 @@ import {
   Dimensions,
   Linking,
   Clipboard,
-  Platform, // ✅ تمت إضافته هنا
+  Platform,
   SafeAreaView,
   StatusBar,
 } from 'react-native';
@@ -57,7 +57,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
   const { toast, showToast, hideToast } = useToast();
   const { modal, showModal, hideModal, showAlert, showError } = useModal();
   
-  // ✅ Ref for ScrollView to handle auto-scrolling
   const scrollViewRef = useRef<ScrollView>(null);
   const [ratingSectionY, setRatingSectionY] = useState(0);
 
@@ -80,7 +79,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
   const [visibleMonthDate, setVisibleMonthDate] = useState<Date>(new Date());
   const [unavailableDays, setUnavailableDays] = useState<any[]>([]);
   
-  // Rating states
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState('');
   const [ratingLoading, setRatingLoading] = useState(false);
@@ -126,7 +124,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     return null;
   };
 
-  // --- Map / Location Logic ---
   const handleOpenLocation = () => {
     if (doctor.mapLocation) {
       Linking.openURL(doctor.mapLocation);
@@ -141,14 +138,12 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     }
   };
 
-  // ✅ Scroll to Reviews Section
   const scrollToReviews = () => {
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ y: ratingSectionY, animated: true });
     }
   };
 
-  // --- Fetching Logic ---
   const fetchUnavailableDays = async () => {
     try {
       try {
@@ -200,8 +195,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       if (response.ok) {
         const doctorData = await response.json();
         const specialty = mapSpecialtyToLocalized(doctorData.specialty || doctorData.category_ar || doctorData.category);
-        
-        // ✅ جلب التقييم الحقيقي بدقة (نفس منطق صفحة كل الأطباء)
         const realRating = Number(
             doctorData.averageRating ?? 
             doctorData.ratingAverage ?? 
@@ -210,22 +203,14 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
             doctorData.rating ?? 
             0
         );
-
-        setDoctor({ 
-            ...doctorData, 
-            specialty,
-            rating: realRating // تحديث التقييم للقيمة الموحدة
-        });
+        setDoctor({ ...doctorData, specialty, rating: realRating });
       } else {
-        // Fallback fetch
         const allRes = await fetch(`${API_CONFIG.BASE_URL}/doctors`);
         if (allRes.ok) {
           const allDocs = await allRes.json();
           const found = allDocs.find((d: any) => d._id === doctorId || d.id === doctorId);
           if (found) {
             const specialty = mapSpecialtyToLocalized(found.specialty || found.category_ar || found.category);
-            
-            // ✅ جلب التقييم الحقيقي لل Fallback أيضاً
             const realRating = Number(
                 found.averageRating ?? 
                 found.ratingAverage ?? 
@@ -234,7 +219,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 found.rating ?? 
                 0
             );
-
             setDoctor({ ...found, specialty, rating: realRating });
           } else {
             showError(t('error.title'), t('error.doctor_not_found'));
@@ -257,7 +241,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     if (doctor) fetchUnavailableDays();
   }, [doctor]);
 
-  // --- Calendar Logic --- (No changes here, kept for functionality)
   const weekdayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
   const normalizeDayToKey = (value: any): string | null => {
@@ -297,16 +280,18 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
   const getMarkedDates = () => {
     const marked: any = {};
-    if (selectedDate) marked[selectedDate] = { selected: true, selectedColor: theme.colors.primary };
+    
+    if (selectedDate) {
+        marked[selectedDate] = { 
+            selected: true, 
+            selectedColor: theme.colors.primary 
+        };
+    }
     
     const today = new Date();
-    const currM = visibleMonthDate.getMonth();
-    const currY = visibleMonthDate.getFullYear();
-
-    for (let i = 1; i <= 31; i++) {
-      const d = new Date(currY, currM, i);
-      if (d < today) continue;
-      if (d.getMonth() !== currM) break;
+    for (let i = 0; i <= 90; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() + i);
       
       const dStr = d.toISOString().split('T')[0];
       const isUnavailable = unavailableDays.some((u: any) => u.date === dStr);
@@ -349,7 +334,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     } catch (e) { setBookedTimes([]); }
   };
 
-  // --- Booking Logic ---
   const bookAppointment = async () => {
     if (!user?.id) {
       Alert.alert(t('error.title'), 'يجب تسجيل الدخول', [
@@ -446,7 +430,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     }
   };
 
-  // --- Rating Logic ---
   const handleSubmitRating = async () => {
     if (!user || !doctorId || userRating === 0) return;
     setRatingLoading(true);
@@ -484,14 +467,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
       
-      <ScrollView 
-        ref={scrollViewRef} // ✅ ربط السكرول
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Header Section */}
         <View style={styles.headerContainer}>
           <View style={styles.headerBackground}>
              <TouchableOpacity style={styles.headerBackButton} onPress={() => navigation.goBack()}>
@@ -523,18 +500,11 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
             </View>
 
             <View style={styles.statsRow}>
-               {/* ✅ Touchable Stats Item for Rating */}
-               <TouchableOpacity 
-                 style={styles.statItem} 
-                 onPress={scrollToReviews} // ✅ عند الضغط ينزل للتقييم
-               >
+               <TouchableOpacity style={styles.statItem} onPress={scrollToReviews}>
                   <View style={[styles.iconBox, {backgroundColor: '#FFF8E1'}]}>
                      <Ionicons name="star" size={18} color="#FFD700" />
                   </View>
-                  {/* ✅ عرض التقييم الحقيقي دائماً */}
-                  <Text style={styles.statValue}>
-                    {doctor.rating ? Number(doctor.rating).toFixed(1) : 'جديد'}
-                  </Text>
+                  <Text style={styles.statValue}>{doctor.rating ? Number(doctor.rating).toFixed(1) : 'جديد'}</Text>
                   <Text style={styles.statLabel}>{t('rating.rating') || 'تقييم'}</Text>
                </TouchableOpacity>
 
@@ -558,10 +528,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
           </View>
         </View>
 
-        {/* Content Section */}
         <View style={styles.contentSection}>
            
-           {/* About */}
            {doctor.about && (
              <View style={styles.infoCard}>
                <Text style={styles.cardTitle}>{t('doctor.about')}</Text>
@@ -569,31 +537,22 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
              </View>
            )}
 
-           {/* Location (Clickable) */}
-           <TouchableOpacity 
-              style={styles.infoCard} 
-              onPress={handleOpenLocation}
-              activeOpacity={0.7}
-           >
+           <TouchableOpacity style={styles.infoCard} onPress={handleOpenLocation} activeOpacity={0.7}>
               <View style={styles.cardHeaderRow}>
                  <Text style={styles.cardTitle}>{t('doctor.clinic_location')}</Text>
                  <Ionicons name="chevron-back" size={18} color={theme.colors.textSecondary} style={{transform: [{ scaleX: -1 }]}}/>
               </View>
-              
               <View style={styles.locationRow}>
                  <View style={styles.locationIconBox}>
                     <Ionicons name="location" size={24} color={theme.colors.primary} />
                  </View>
                  <View style={{flex: 1}}>
                     <Text style={styles.locationTitle}>{doctor.clinicLocation || 'العنوان غير محدد'}</Text>
-                    <Text style={styles.locationSubtitle}>
-                       {mapProvinceToLocalized(doctor.province)}, {doctor.area}
-                    </Text>
+                    <Text style={styles.locationSubtitle}>{mapProvinceToLocalized(doctor.province)}, {doctor.area}</Text>
                  </View>
               </View>
            </TouchableOpacity>
 
-           {/* ✅ Action Buttons (Updated: Map instead of Reviews) */}
            <View style={styles.actionButtonsRow}>
               <TouchableOpacity 
                 style={styles.actionBtnOutline}
@@ -607,30 +566,15 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                  <Text style={styles.actionBtnText}>{t('common.share') || 'مشاركة'}</Text>
               </TouchableOpacity>
 
-              {/* ✅ زر الموقع بدلاً من المراجعات */}
-              <TouchableOpacity 
-                style={styles.actionBtnOutline}
-                onPress={handleOpenLocation}
-              >
+              <TouchableOpacity style={styles.actionBtnOutline} onPress={handleOpenLocation}>
                  <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
                  <Text style={styles.actionBtnText}>{t('doctor.location_map') || 'الموقع'}</Text>
               </TouchableOpacity>
            </View>
 
-           {/* Rating Input & Display */}
-           <View 
-             style={styles.infoCard}
-             onLayout={(event) => {
-               // ✅ التقاط مكان قسم التقييم للنزول إليه
-               const layout = event.nativeEvent.layout;
-               setRatingSectionY(layout.y + 200); // إضافة إزاحة بسيطة
-             }}
-           >
+           <View style={styles.infoCard} onLayout={(event) => { const layout = event.nativeEvent.layout; setRatingSectionY(layout.y + 200); }}>
               <View style={styles.cardHeaderRow}>
-                 <Text style={styles.cardTitle}>
-                    {isEditingRating ? t('rating.update_rating') : t('rating.rate_doctor')}
-                 </Text>
-                 {/* زر عرض كل المراجعات إذا أردته هنا */}
+                 <Text style={styles.cardTitle}>{isEditingRating ? t('rating.update_rating') : t('rating.rate_doctor')}</Text>
                  <TouchableOpacity onPress={() => navigation.navigate('DoctorReviews' as never, { doctorId: doctor.id } as never)}>
                     <Text style={{color: theme.colors.primary, fontSize: 12}}>عرض الكل</Text>
                  </TouchableOpacity>
@@ -639,38 +583,35 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               {user && user.id ? (
                 <>
                   <View style={styles.ratingStarsRow}>
-                     {[1, 2, 3, 4, 5].map((star) => (
-                        <TouchableOpacity key={star} onPress={() => setUserRating(star)}>
-                           <Ionicons name="star" size={36} color={star <= userRating ? "#FFD700" : "#E0E0E0"} />
-                        </TouchableOpacity>
-                     ))}
+                      {[1, 2, 3, 4, 5].map((star) => (
+                         <TouchableOpacity key={star} onPress={() => setUserRating(star)}>
+                            <Ionicons name="star" size={36} color={star <= userRating ? "#FFD700" : "#E0E0E0"} />
+                         </TouchableOpacity>
+                      ))}
                   </View>
                   <TextInput
-                     style={styles.ratingInput}
-                     placeholder={t('rating.comment_placeholder')}
-                     value={userComment}
-                     onChangeText={setUserComment}
-                     multiline
+                      style={styles.ratingInput}
+                      placeholder={t('rating.comment_placeholder')}
+                      value={userComment}
+                      onChangeText={setUserComment}
+                      multiline
                   />
                   <TouchableOpacity 
-                     style={[styles.submitBtn, (!userRating || ratingLoading) && {opacity: 0.6}]}
-                     disabled={!userRating || ratingLoading}
-                     onPress={handleSubmitRating}
+                      style={[styles.submitBtn, (!userRating || ratingLoading) && {opacity: 0.6}]}
+                      disabled={!userRating || ratingLoading}
+                      onPress={handleSubmitRating}
                   >
-                     {ratingLoading ? <ActivityIndicator color="#fff"/> : <Text style={styles.submitBtnText}>{t('rating.submit_rating')}</Text>}
+                      {ratingLoading ? <ActivityIndicator color="#fff"/> : <Text style={styles.submitBtnText}>{t('rating.submit_rating')}</Text>}
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={{textAlign: 'center', color: theme.colors.textSecondary}}>
-                   يجب تسجيل الدخول لتقييم الطبيب
-                </Text>
+                <Text style={{textAlign: 'center', color: theme.colors.textSecondary}}>يجب تسجيل الدخول لتقييم الطبيب</Text>
               )}
            </View>
 
         </View>
       </ScrollView>
 
-      {/* Booking Button */}
       <View style={styles.fixedFooter}>
          <TouchableOpacity 
             style={styles.mainBookingButton} 
@@ -682,7 +623,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
          </TouchableOpacity>
       </View>
 
-      {/* --- Modals --- */}
       <Modal visible={showCalendar} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCalendar(false)}>
          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -697,39 +637,39 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   markedDates={getMarkedDates()}
                   minDate={new Date().toISOString().split('T')[0]}
                   theme={{
-                     selectedDayBackgroundColor: theme.colors.primary,
-                     todayTextColor: theme.colors.primary,
-                     arrowColor: theme.colors.primary,
+                      selectedDayBackgroundColor: theme.colors.primary,
+                      todayTextColor: theme.colors.primary,
+                      arrowColor: theme.colors.primary,
                   }}
                />
                {selectedDate && availableTimes.length > 0 && (
                   <View style={styles.slotsContainer}>
-                     <Text style={styles.slotsTitle}>الأوقات المتاحة:</Text>
-                     <View style={styles.slotsGrid}>
-                        {availableTimes.map((time, idx) => {
-                           const isBooked = bookedTimes.includes(time);
-                           return (
-                              <TouchableOpacity 
-                                 key={idx} 
-                                 style={[
-                                    styles.timeSlot, 
-                                    selectedTime === time && styles.timeSlotSelected,
-                                    isBooked && styles.timeSlotBooked
-                                 ]}
-                                 disabled={isBooked}
-                                 onPress={() => setSelectedTime(time)}
-                              >
-                                 <Text style={[
-                                    styles.timeSlotText, 
-                                    selectedTime === time && {color: '#fff'},
-                                    isBooked && {color: theme.colors.error}
-                                 ]}>
-                                    {time}
-                                 </Text>
-                              </TouchableOpacity>
-                           )
-                        })}
-                     </View>
+                      <Text style={styles.slotsTitle}>الأوقات المتاحة:</Text>
+                      <View style={styles.slotsGrid}>
+                         {availableTimes.map((time, idx) => {
+                            const isBooked = bookedTimes.includes(time);
+                            return (
+                               <TouchableOpacity 
+                                  key={idx} 
+                                  style={[
+                                     styles.timeSlot, 
+                                     selectedTime === time && styles.timeSlotSelected,
+                                     isBooked && styles.timeSlotBooked
+                                  ]}
+                                  disabled={isBooked}
+                                  onPress={() => setSelectedTime(time)}
+                               >
+                                  <Text style={[
+                                     styles.timeSlotText, 
+                                     selectedTime === time && {color: '#fff'},
+                                     isBooked && {color: theme.colors.error}
+                                  ]}>
+                                     {time}
+                                  </Text>
+                               </TouchableOpacity>
+                            )
+                         })}
+                      </View>
                   </View>
                )}
                {selectedDate && availableTimes.length === 0 && (
@@ -738,21 +678,26 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
             </ScrollView>
             {selectedDate && selectedTime && (
                <View style={styles.modalFooter}>
-                  <TouchableOpacity style={styles.confirmBtn} onPress={() => { setShowCalendar(false); setShowBookingModal(true); }}>
-                     <Text style={styles.confirmBtnText}>{t('appointments.confirm_booking')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                     style={[styles.confirmBtn, {backgroundColor: theme.colors.success, marginTop: 10}]} 
-                     onPress={() => { setShowCalendar(false); setShowBookingForOtherModal(true); }}
-                  >
-                     <Text style={styles.confirmBtnText}>{t('booking_for_other.title')}</Text>
-                  </TouchableOpacity>
+                  <View style={styles.footerButtonsRow}>
+                      <TouchableOpacity 
+                         style={[styles.confirmBtn, {backgroundColor: theme.colors.success}]} 
+                         onPress={() => { setShowCalendar(false); setShowBookingForOtherModal(true); }}
+                      >
+                         <Text style={styles.confirmBtnText}>{t('booking_for_other.title')}</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                         style={styles.confirmBtn} 
+                         onPress={() => { setShowCalendar(false); setShowBookingModal(true); }}
+                      >
+                         <Text style={styles.confirmBtnText}>{t('appointments.confirm_booking')}</Text>
+                      </TouchableOpacity>
+                  </View>
                </View>
             )}
          </View>
       </Modal>
 
-      {/* Booking Form Modal */}
       <Modal visible={showBookingModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowBookingModal(false)}>
          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -770,25 +715,13 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
                {!isBookingForOther && (
                   <>
-                     <Text style={styles.label}>{t('validation.patient_age')}</Text>
-                     <TextInput 
-                        style={styles.input} 
-                        value={age} 
-                        onChangeText={setAge} 
-                        keyboardType="numeric" 
-                        placeholder="أدخل العمر"
-                     />
+                      <Text style={styles.label}>{t('validation.patient_age')}</Text>
+                      <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="أدخل العمر" />
                   </>
                )}
 
                <Text style={styles.label}>{t('validation.visit_reason_optional')}</Text>
-               <TextInput 
-                  style={[styles.input, {height: 80}]} 
-                  value={reason} 
-                  onChangeText={setReason} 
-                  multiline 
-                  placeholder="سبب الزيارة..."
-               />
+               <TextInput style={[styles.input, {height: 80}]} value={reason} onChangeText={setReason} multiline placeholder="سبب الزيارة..." />
 
                <TouchableOpacity 
                   style={[styles.mainBookingButton, bookingLoading && {opacity: 0.7}]} 
@@ -801,13 +734,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
          </View>
       </Modal>
 
-      {/* Booking For Other Modal */}
-      <Modal 
-        visible={showBookingForOtherModal} 
-        animationType="slide" 
-        presentationStyle="pageSheet" 
-        onRequestClose={() => setShowBookingForOtherModal(false)}
-      >
+      <Modal visible={showBookingForOtherModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowBookingForOtherModal(false)}>
          <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
            <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
@@ -820,20 +747,13 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                  <View style={styles.formContainer}>
                     <Text style={styles.label}>{t('validation.patient_name')}</Text>
                     <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder="اسم المريض" />
-                    
                     <Text style={styles.label}>{t('validation.patient_phone')}</Text>
                     <TextInput style={styles.input} value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" placeholder="رقم الهاتف" />
-                    
                     <Text style={styles.label}>{t('validation.patient_age')}</Text>
                     <TextInput style={styles.input} value={patientAge} onChangeText={setPatientAge} keyboardType="numeric" placeholder="العمر" />
-
                     <TouchableOpacity 
                         style={[styles.mainBookingButton, {marginTop: 20}]} 
-                        onPress={() => {
-                          setIsBookingForOther(true);
-                          setShowBookingForOtherModal(false);
-                          setShowBookingModal(true);
-                        }}
+                        onPress={() => { setIsBookingForOther(true); setShowBookingForOtherModal(false); setShowBookingModal(true); }}
                     >
                         <Text style={styles.mainBookingText}>{t('common.continue')}</Text>
                     </TouchableOpacity>
@@ -852,117 +772,104 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
   headerContainer: { marginBottom: 10 },
-  headerBackground: {
-    height: 140, backgroundColor: theme.colors.primary,
-    borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30, paddingHorizontal: 20,
-  },
-  headerBackButton: {
-    width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12,
-  },
-  profileCard: {
-    marginHorizontal: 20, marginTop: -60, backgroundColor: '#fff',
-    borderRadius: 20, padding: 20, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 10, elevation: 5,
-  },
+  headerBackground: { height: 140, backgroundColor: theme.colors.primary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingTop: Platform.OS === 'ios' ? 50 : 30, paddingHorizontal: 20 },
+  headerBackButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
+  profileCard: { marginHorizontal: 20, marginTop: -60, backgroundColor: '#fff', borderRadius: 20, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   imageWrapper: { position: 'relative', marginBottom: 12 },
   profileImage: { width: 100, height: 100, borderRadius: 25, borderWidth: 3, borderColor: '#fff' },
-  onlineBadge: {
-    position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8,
-    backgroundColor: theme.colors.success, borderWidth: 2, borderColor: '#fff',
-  },
+  onlineBadge: { position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: theme.colors.success, borderWidth: 2, borderColor: '#fff' },
   doctorName: { fontSize: 20, fontWeight: 'bold', color: theme.colors.textPrimary, textAlign: 'center', marginBottom: 4 },
-  specialtyTag: {
-    backgroundColor: theme.colors.primary + '15', paddingHorizontal: 12, paddingVertical: 4,
-    borderRadius: 20, marginBottom: 16,
-  },
+  specialtyTag: { backgroundColor: theme.colors.primary + '15', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginBottom: 16 },
   specialtyText: { color: theme.colors.primary, fontSize: 14, fontWeight: '600' },
-  
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
   statItem: { alignItems: 'center', flex: 1 },
   iconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
   statValue: { fontSize: 14, fontWeight: 'bold', color: theme.colors.textPrimary },
   statLabel: { fontSize: 12, color: theme.colors.textSecondary },
   divider: { width: 1, height: '80%', backgroundColor: '#F0F0F0', alignSelf: 'center' },
-
   contentSection: { padding: 20, paddingBottom: 100 },
-  infoCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
-  },
+  infoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.textPrimary, marginBottom: 12 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   aboutText: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 22, textAlign: 'left' },
-  
   locationRow: { flexDirection: 'row', alignItems: 'center' },
-  locationIconBox: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: theme.colors.primary + '10',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
+  locationIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   locationTitle: { fontSize: 15, fontWeight: '600', color: theme.colors.textPrimary },
   locationSubtitle: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 },
-  mapButton: { padding: 8 },
-
   actionButtonsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  actionBtnOutline: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, borderWidth: 1, borderColor: theme.colors.primary,
-    borderRadius: 12, backgroundColor: '#fff',
-  },
+  actionBtnOutline: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 12, backgroundColor: '#fff' },
   actionBtnText: { color: theme.colors.primary, fontWeight: '600', marginLeft: 8 },
-
   ratingStarsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },
-  ratingInput: {
-    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, padding: 12, height: 80,
-    textAlignVertical: 'top', marginBottom: 16, backgroundColor: '#F9F9F9',
-  },
+  ratingInput: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, padding: 12, height: 80, textAlignVertical: 'top', marginBottom: 16, backgroundColor: '#F9F9F9' },
   submitBtn: { backgroundColor: theme.colors.primary, padding: 14, borderRadius: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontWeight: 'bold' },
-
-  fixedFooter: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 20,
-    borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  
+  // ✅ Footer Fixed with Better Padding for Android
+  fixedFooter: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    backgroundColor: '#fff', 
+    padding: 20, 
+    borderTopWidth: 1, 
+    borderTopColor: '#F0F0F0', 
+    // تمت زيادة المسافة للأندرويد لرفع الزر عن أزرار النظام
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24 
   },
-  mainBookingButton: {
-    backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: 14,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    shadowColor: theme.colors.primary, shadowOffset: {width:0, height:4},
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  
+  // ✅ Main Booking Button (Fixed Height)
+  mainBookingButton: { 
+    backgroundColor: theme.colors.primary, 
+    // الارتفاع الثابت هو الحل لمنع الزر من أن يكون ضخماً
+    height: 56, 
+    borderRadius: 14, 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    shadowColor: theme.colors.primary, 
+    shadowOffset: {width:0, height:4}, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 8, 
+    elevation: 6 
   },
+  
   mainBookingText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
   modalContainer: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingBottom: 20, paddingTop: Platform.OS === 'android' ? 50 : 20,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 20, paddingTop: Platform.OS === 'android' ? 50 : 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   modalTitle: { fontSize: 18, fontWeight: 'bold' },
   slotsContainer: { padding: 20 },
   slotsTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  timeSlot: {
-    paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10,
-    backgroundColor: '#F0F0F0', minWidth: 80, alignItems: 'center',
-  },
+  timeSlot: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: '#F0F0F0', minWidth: 80, alignItems: 'center' },
   timeSlotSelected: { backgroundColor: theme.colors.primary },
   timeSlotBooked: { backgroundColor: '#FFEBEE', opacity: 0.6 },
   timeSlotText: { fontSize: 14, fontWeight: '500', color: '#333' },
   noSlotsText: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
   modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
-  confirmBtn: { backgroundColor: theme.colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' },
-  confirmBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  footerButtonsRow: { flexDirection: 'row', gap: 12 },
   
+  // ✅ Modal Buttons (Fixed Height & Centered)
+  confirmBtn: { 
+    flex: 1, 
+    backgroundColor: theme.colors.primary, 
+    // إضافة ارتفاع ثابت هنا لمنع التضخم
+    height: 50, 
+    borderRadius: 12, 
+    // التوسيط لمنع النص من الاختلال
+    justifyContent: 'center',
+    alignItems: 'center' 
+  },
+  
+  confirmBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
   formContainer: { padding: 0 },
   summaryCard: { backgroundColor: '#F5F7FA', padding: 16, borderRadius: 12, marginBottom: 20 },
   summaryText: { fontSize: 15, marginBottom: 6, color: '#333' },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12, color: '#333' },
   input: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10, padding: 12, fontSize: 16, backgroundColor: '#fff' },
+  scrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1 }
 });
 
 export default DoctorDetailsScreen;

@@ -12,7 +12,7 @@ import {
   RefreshControl,
   TextInput,
   ActivityIndicator,
-  Platform, // ✅ تم إضافتها هنا لحل المشكلة
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { api, appointmentsAPI } from '../services/api';
+import { API_CONFIG } from '../config/api'; 
 import { mapSpecialtyToLocalized } from '../utils/specialtyMapper';
 import Toast from '../components/Toast';
 import CustomModal from '../components/CustomModal';
@@ -32,7 +33,7 @@ const MyAppointmentsScreen = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast, showToast, hideToast, showSuccess, showError } = useToast();
-  const { modal, showConfirm } = useModal();
+  const { modal, showConfirm, hideModal } = useModal(); 
 
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,32 +45,64 @@ const MyAppointmentsScreen = () => {
     if (user?.id) fetchAppointments();
   }, [user]);
 
+  // ✅ دالة معالجة الصور (نفس المستخدمة في الصفحة الرئيسية بالضبط)
+  const getImageUrl = (imagePath: string | null | undefined): string | null => {
+    if (!imagePath || imagePath === 'null' || imagePath === 'undefined' || imagePath === '') return null;
+    
+    // إذا كان رابط كامل
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // إذا كان مسار من السيرفر
+    return `${API_CONFIG.BASE_URL}/${imagePath.replace(/^\/+/, '')}`;
+  };
+
   const fetchAppointments = async () => {
     setLoading(true);
     try {
       if (!user?.id) { setAppointments([]); return; }
+      
       const response = await api.get(`/user-appointments/${user.id}`);
+      
       if (Array.isArray(response)) {
-        const formattedAppointments = response.map((appointment: any) => ({
-            id: appointment._id || appointment.id,
-            _id: appointment._id || appointment.id,
-            doctorId: appointment.doctorId?._id || appointment.doctorId,
-            doctorName: appointment.doctorName || appointment.doctorId?.name || t('common.doctor'),
-            doctorSpecialty: appointment.doctorId?.specialty || t('common.general_specialty'),
-            doctorImage: appointment.doctorId?.image || appointment.doctorId?.profile_image || 'https://via.placeholder.com/60',
-            date: appointment.date,
-            time: appointment.time,
-            status: appointment.status || 'pending',
-            type: appointment.type || 'consultation',
-            location: appointment.doctorId?.clinicLocation || t('common.clinic_location'),
-            reason: appointment.reason || '',
-            isBookingForOther: appointment.isBookingForOther || false,
-            patientName: appointment.patientName || '',
-            attendance: appointment.attendance || 'not_set',
-        }));
+        const formattedAppointments = response.map((appointment: any) => {
+            // استخراج كائن الطبيب (قد يكون doctorId أو doctor)
+            const docObj = appointment.doctorId || appointment.doctor || {};
+
+            // ✅✅ التعديل الجوهري: البحث عن جميع مفاتيح الصور المحتملة (imageUrl هو الأهم)
+            const rawDoctorImage = 
+                docObj.imageUrl ||       // هذا هو المفتاح المستخدم غالباً في UserHome
+                docObj.image ||          
+                docObj.profile_image || 
+                docObj.profileImage ||
+                null;
+
+            return {
+                id: appointment._id || appointment.id,
+                _id: appointment._id || appointment.id,
+                doctorId: docObj._id || docObj.id,
+                doctorName: appointment.doctorName || docObj.name || t('common.doctor'),
+                doctorSpecialty: docObj.specialty || t('common.general_specialty'),
+                
+                // ✅ حفظ المسار الخام ليتم معالجته لاحقاً
+                doctorImage: rawDoctorImage, 
+                
+                date: appointment.date,
+                time: appointment.time,
+                status: appointment.status || 'pending',
+                type: appointment.type || 'consultation',
+                location: docObj.clinicLocation || t('common.clinic_location'),
+                reason: appointment.reason || '',
+                isBookingForOther: appointment.isBookingForOther || false,
+                patientName: appointment.patientName || '',
+                attendance: appointment.attendance || 'not_set',
+            };
+        });
         setAppointments(formattedAppointments);
       }
-    } catch (error) { setAppointments([]); } 
+    } catch (error) { 
+        console.log("Error fetching appointments:", error);
+        setAppointments([]); 
+    } 
     finally { setLoading(false); }
   };
 
@@ -79,29 +112,18 @@ const MyAppointmentsScreen = () => {
     setRefreshing(false);
   };
 
-  // دوال مساعدة للتاريخ
+  // دوال التاريخ
   const getDayNumber = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.getDate();
-    } catch { return ''; }
+    try { const date = new Date(dateString); return date.getDate(); } catch { return ''; }
   };
-
   const getMonthName = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('ar-IQ', { month: 'short' });
-    } catch { return ''; }
+    try { const date = new Date(dateString); return date.toLocaleDateString('ar-IQ', { month: 'short' }); } catch { return ''; }
   };
-
   const getDayName = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('ar-IQ', { weekday: 'long' });
-    } catch { return ''; }
+    try { const date = new Date(dateString); return date.toLocaleDateString('ar-IQ', { weekday: 'long' }); } catch { return ''; }
   };
 
-  // دوال الفلترة
+  // الفلترة
   const getLocalDateString = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -109,7 +131,6 @@ const MyAppointmentsScreen = () => {
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-
   const isPastAppointment = (dateString: string) => dateString < getLocalDateString();
   const isTodayAppointment = (dateString: string) => dateString === getLocalDateString();
   const isUpcomingAppointment = (dateString: string) => dateString > getLocalDateString();
@@ -130,7 +151,9 @@ const MyAppointmentsScreen = () => {
 
   const handleDoctorPress = (appointment: any) => {
     if (!user) {
-      showConfirm(t('login_required.title'), t('login_required.message'), () => (navigation as any).navigate('Login'));
+      // إغلاق أي مودال مفتوح قبل الانتقال
+      hideModal();
+      (navigation as any).navigate('Login');
       return;
     }
     const resolvedDoctorId = appointment.doctorId; 
@@ -145,15 +168,21 @@ const MyAppointmentsScreen = () => {
         t('appointment.confirm_cancel'),
         async () => {
             try {
+                showToast(t('common.loading'), 'info');
                 const result = await appointmentsAPI.cancelAppointment(appointmentId);
+                
                 if (result && result.success) {
                     setAppointments(prev => prev.filter(apt => (apt._id || apt.id) !== appointmentId));
+                    // ✅ إغلاق النافذة بنجاح
+                    hideModal();
                     showSuccess(t('success.title'), t('appointment.cancel_appointment'));
                     await fetchAppointments();
                 } else {
+                    hideModal();
                     showError(t('error.title'), t('error.message'));
                 }
             } catch (err) {
+                hideModal();
                 showError(t('error.title'), t('error.message'));
             }
         }
@@ -175,81 +204,97 @@ const MyAppointmentsScreen = () => {
       return status;
   };
 
-  // ==========================================
-  // ✅ التصميم الجديد للكارت (Modern Card)
-  // ==========================================
-  const renderAppointmentCard = ({ item }: any) => (
-    <TouchableOpacity 
-      style={styles.cardContainer} 
-      activeOpacity={0.9}
-      onPress={() => handleDoctorPress(item)}
-    >
-      <View style={styles.cardMainRow}>
-        {/* التاريخ */}
-        <View style={styles.dateBox}>
-          <Text style={styles.dateDayName}>{getDayName(item.date)}</Text>
-          <Text style={styles.dateNumber}>{getDayNumber(item.date)}</Text>
-          <Text style={styles.dateMonth}>{getMonthName(item.date)}</Text>
-        </View>
+  const renderAppointmentCard = ({ item }: any) => {
+    // ✅ تحويل المسار الخام إلى رابط كامل هنا
+    const validImage = getImageUrl(item.doctorImage);
 
-        {/* المحتوى */}
-        <View style={styles.cardContent}>
-          <View style={styles.doctorHeader}>
-            <Image source={{ uri: item.doctorImage }} style={styles.avatar} />
-            <View style={styles.doctorTextInfo}>
-              <Text style={styles.cardDoctorName} numberOfLines={1}>{item.doctorName}</Text>
-              <Text style={styles.cardSpecialty} numberOfLines={1}>{mapSpecialtyToLocalized(item.doctorSpecialty)}</Text>
+    return (
+        <TouchableOpacity 
+          style={styles.cardContainer} 
+          activeOpacity={0.9}
+          onPress={() => handleDoctorPress(item)}
+        >
+          <View style={styles.cardMainRow}>
+            {/* التاريخ */}
+            <View style={styles.dateBox}>
+              <Text style={styles.dateDayName}>{getDayName(item.date)}</Text>
+              <Text style={styles.dateNumber}>{getDayNumber(item.date)}</Text>
+              <Text style={styles.dateMonth}>{getMonthName(item.date)}</Text>
+            </View>
+
+            {/* المحتوى */}
+            <View style={styles.cardContent}>
+              <View style={styles.doctorHeader}>
+                {/* ✅ عرض الصورة */}
+                {validImage ? (
+                    <Image 
+                        source={{ uri: validImage }} 
+                        style={styles.avatar} 
+                        resizeMode="cover"
+                        // إضافة مفتاح للصورة لإجبار التحديث إذا تغيرت
+                        key={validImage} 
+                    />
+                ) : (
+                    <Image 
+                        source={require('../../assets/icon.png')} 
+                        style={styles.avatar} 
+                        resizeMode="cover"
+                    />
+                )}
+                
+                <View style={styles.doctorTextInfo}>
+                  <Text style={styles.cardDoctorName} numberOfLines={1}>{item.doctorName}</Text>
+                  <Text style={styles.cardSpecialty} numberOfLines={1}>{mapSpecialtyToLocalized(item.doctorSpecialty)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.metaContainer}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
+                  <Text style={styles.metaText}>{item.time}</Text>
+                </View>
+                <View style={styles.metaItem}>
+                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                    <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+                        {getStatusText(item.status)}
+                    </Text>
+                </View>
+              </View>
+              
+              {item.isBookingForOther && (
+                 <View style={styles.patientBadge}>
+                    <Ionicons name="person" size={12} color={theme.colors.primary} />
+                    <Text style={styles.patientBadgeText}>{item.patientName}</Text>
+                 </View>
+              )}
             </View>
           </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color={theme.colors.textSecondary} />
-              <Text style={styles.metaText}>{item.time}</Text>
-            </View>
-            <View style={styles.metaItem}>
-                <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
-                <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-                    {getStatusText(item.status)}
-                </Text>
-            </View>
-          </View>
-          
-          {item.isBookingForOther && (
-             <View style={styles.patientBadge}>
-                <Ionicons name="person" size={12} color={theme.colors.primary} />
-                <Text style={styles.patientBadgeText}>{item.patientName}</Text>
-             </View>
-          )}
-        </View>
-      </View>
-
-      {/* الأزرار */}
-      <View style={styles.cardActions}>
-        {item.status !== 'cancelled' && !isPastAppointment(item.date) && (
-            <TouchableOpacity 
-                style={styles.actionBtnSecondary}
-                onPress={() => onCancelByUser(item._id || item.id)}
-            >
-                <Text style={styles.actionBtnTextSecondary}>{t('appointment.cancel')}</Text>
+          <View style={styles.cardActions}>
+            {item.status !== 'cancelled' && !isPastAppointment(item.date) && (
+                <TouchableOpacity 
+                    style={styles.actionBtnSecondary}
+                    onPress={() => onCancelByUser(item._id || item.id)}
+                >
+                    <Text style={styles.actionBtnTextSecondary}>{t('appointment.cancel')}</Text>
+                </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity style={styles.actionBtnPrimary}>
+                <Text style={styles.actionBtnTextPrimary}>{t('appointment.details')}</Text>
+                <Ionicons name="arrow-back" size={16} color="#fff" style={{transform: [{rotate: '180deg'}], marginLeft: 4}} /> 
             </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity style={styles.actionBtnPrimary}>
-            <Text style={styles.actionBtnTextPrimary}>{t('appointment.details')}</Text>
-            <Ionicons name="arrow-back" size={16} color="#fff" style={{transform: [{rotate: '180deg'}], marginLeft: 4}} /> 
+          </View>
         </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
       
-      {/* Header */}
       <View style={styles.headerContainer}>
         <LinearGradient
             colors={[theme.colors.primary, theme.colors.primaryDark]}
@@ -270,7 +315,6 @@ const MyAppointmentsScreen = () => {
         </LinearGradient>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabsContainer}>
          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
             {[
@@ -291,7 +335,6 @@ const MyAppointmentsScreen = () => {
          </ScrollView>
       </View>
 
-      {/* Search */}
       <View style={styles.searchSection}>
          <View style={styles.searchBox}>
             <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
@@ -309,7 +352,6 @@ const MyAppointmentsScreen = () => {
          </View>
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         {loading ? (
             <View style={styles.centerView}>
@@ -336,7 +378,17 @@ const MyAppointmentsScreen = () => {
       </View>
 
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
-      <CustomModal visible={modal.visible} {...modal} onClose={modal.onClose || (() => {})} />
+      
+      {/* ✅ مودال التأكيد مع دالة الإغلاق */}
+      <CustomModal 
+        visible={modal.visible} 
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        buttons={modal.buttons}
+        onClose={hideModal} 
+        showCloseButton={modal.showCloseButton}
+      />
     </View>
   );
 };
@@ -382,7 +434,6 @@ const styles = StyleSheet.create({
   bookNowBtn: { backgroundColor: theme.colors.primary, paddingHorizontal: 30, paddingVertical: 12, borderRadius: 25 },
   bookNowText: { color: '#fff', fontWeight: 'bold' },
 
-  // Card Styles
   cardContainer: {
       backgroundColor: '#fff', borderRadius: 16, marginBottom: 16,
       shadowColor: '#000', shadowOffset: {width:0, height: 2}, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
