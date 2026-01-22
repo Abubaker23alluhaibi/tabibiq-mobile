@@ -12,12 +12,11 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
-  Linking,
   I18nManager,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
@@ -38,20 +37,13 @@ import { changeLanguage } from '../locales';
 
 const { width } = Dimensions.get('window');
 
-// مكون الأيقونة المتحركة
 const AnimatedMedicalIcon = ({
   iconName,
   iconSize,
   style,
   rotation,
   scale,
-}: {
-  iconName: any;
-  iconSize: number;
-  style: any;
-  rotation: Animated.SharedValue<number>;
-  scale: Animated.SharedValue<number>;
-}) => {
+}: any) => {
   const rotationStyle = useAnimatedStyle(() => ({
     transform: [
       { rotate: `${rotation.value}deg` },
@@ -80,7 +72,6 @@ const LoginScreen = () => {
   const [showPasswordField, setShowPasswordField] = useState(false);
   const [userType, setUserType] = useState<'user' | 'doctor' | null>(null);
 
-  // قيم التحريك (3 أيقونات)
   const iconRotations = Array.from({ length: 3 }, () => useSharedValue(0));
   const iconScales = Array.from({ length: 3 }, () => useSharedValue(0));
 
@@ -96,7 +87,7 @@ const LoginScreen = () => {
     });
   }, []);
 
-  const checkUserExists = async (input: string): Promise<{ exists: boolean; userType?: 'user' | 'doctor' }> => {
+  const checkUserExists = async (input: string) => {
     try {
       const trimmedInput = input.trim();
       const isEmail = isValidEmail(trimmedInput);
@@ -128,7 +119,7 @@ const LoginScreen = () => {
     }
 
     if (!isValidEmail(emailOrPhone) && !isValidPhone(emailOrPhone)) {
-      Alert.alert(t('common.error'), t('validation.email_invalid')); // أو رسالة عامة
+      Alert.alert(t('common.error'), t('validation.email_invalid'));
       return;
     }
 
@@ -142,36 +133,17 @@ const LoginScreen = () => {
         setUserType(checkResult.userType || 'user');
         setShowPasswordField(true);
       } else {
-        const inputType = isValidEmail(trimmedInput) ? t('auth.email') : t('auth.phone');
         Alert.alert(
-          t('auth.account_not_found'), // "حساب غير موجود"
-          t('auth.account_not_found_message', { type: inputType }), // رسالة مع المتغير
+          t('auth.account_not_found'),
+          t('auth.account_not_found_message'),
           [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: t('common.cancel'),
-              style: 'cancel',
+              text: t('auth.signup'),
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
-                setUserType(null);
-              },
-            },
-            {
-              text: t('auth.create_patient_account'), // "إنشاء حساب مريض"
-              onPress: () => {
-                setShowPasswordField(false);
-                setPassword('');
-                setUserType(null);
                 navigation.navigate('UserSignUp' as never);
-              },
-            },
-            {
-              text: t('auth.create_doctor_account'), // "إنشاء حساب طبيب"
-              onPress: () => {
-                setShowPasswordField(false);
-                setPassword('');
-                setUserType(null);
-                Linking.openURL('https://www.tabib-iq.com/signup-doctor');
               },
             },
           ]
@@ -184,6 +156,7 @@ const LoginScreen = () => {
     }
   };
 
+  // ✅✅ التعديل الجوهري هنا: تبسيط المنطق لمنع الانتقال عند الخطأ
   const handleLogin = async () => {
     if (!password.trim()) {
       Alert.alert(t('common.error'), t('auth.enter_password'));
@@ -193,42 +166,21 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
+      // نستخدم النوع الذي اكتشفناه سابقاً، ولا نجرب غيره
       const loginType = userType || 'user';
+      
       const result = await signIn(emailOrPhone.trim(), password, loginType);
       
       if (result.error) {
-        // محاولة النوع البديل في حال الفشل
-        const alternativeType = loginType === 'user' ? 'doctor' : 'user';
-        const alternativeResult = await signIn(emailOrPhone.trim(), password, alternativeType);
-        
-        if (alternativeResult.error) {
-          Alert.alert(
-            t('common.error'),
-            t('auth.login_error_message'),
-            [
-              {
-                text: t('common.cancel'),
-                style: 'cancel',
-                onPress: () => {
-                  setShowPasswordField(false);
-                  setPassword('');
-                },
-              },
-              {
-                text: t('auth.signup'),
-                onPress: () => navigation.navigate('UserSignUp' as never),
-              },
-            ]
-          );
-        } else {
-          setUserType(alternativeType);
-          await markAppAsLaunched();
-        }
+        // ❌ في حالة الخطأ: نعرض رسالة فقط ونتوقف هنا
+        // لا يوجد أي كود انتقال (Navigation) أو (markAppAsLaunched) هنا
+        Alert.alert(t('common.error'), t('auth.login_error_message') || 'كلمة المرور غير صحيحة');
       } else {
+        // ✅ في حالة النجاح فقط: ننتقل للرئيسية
         await markAppAsLaunched();
       }
     } catch (error) {
-      Alert.alert(t('common.error'), t('auth.login_error_message'));
+      Alert.alert(t('common.error'), 'حدث خطأ غير متوقع');
     } finally {
       setLoading(false);
     }
@@ -238,7 +190,6 @@ const LoginScreen = () => {
     <View style={styles.mainContainer}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Welcome' as never)}>
@@ -262,7 +213,6 @@ const LoginScreen = () => {
         </View>
       </View>
 
-      {/* Content */}
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -270,10 +220,9 @@ const LoginScreen = () => {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Medical Icons Section */}
           <View style={styles.medicalIconsContainer}>
             <View style={styles.iconsGrid}>
               <AnimatedMedicalIcon iconName="heart" iconSize={40} style={styles.gridIcon} rotation={iconRotations[0]} scale={iconScales[0]} />
@@ -284,10 +233,8 @@ const LoginScreen = () => {
             <Text style={styles.subWelcomeText}>{t('auth.login_subtitle')}</Text>
           </View>
 
-          {/* Form Container */}
           <View style={styles.formContainer}>
             <View style={styles.form}>
-              {/* Email/Phone Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="mail-outline" size={22} color={theme.colors.primary} style={styles.inputIcon} />
@@ -300,7 +247,6 @@ const LoginScreen = () => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     textAlign={I18nManager.isRTL ? "right" : "left"}
-                    autoCorrect={false}
                     returnKeyType="next"
                     editable={!checkingUser && !loading}
                     onSubmitEditing={handleContinue}
@@ -308,7 +254,6 @@ const LoginScreen = () => {
                 </View>
               </View>
 
-              {/* Password Input */}
               {showPasswordField && (
                 <View style={styles.inputContainer}>
                   <View style={styles.inputWrapper}>
@@ -320,8 +265,6 @@ const LoginScreen = () => {
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
                       textAlign={I18nManager.isRTL ? "right" : "left"}
                       returnKeyType="done"
                       onSubmitEditing={handleLogin}
@@ -341,7 +284,6 @@ const LoginScreen = () => {
                 </View>
               )}
 
-              {/* Continue/Login Button */}
               <TouchableOpacity
                 style={[
                   styles.continueButton,
@@ -361,7 +303,6 @@ const LoginScreen = () => {
             </View>
           </View>
 
-          {/* Privacy & Terms */}
           <View style={styles.privacySection}>
             <View style={styles.privacyLinks}>
               <PrivacyPolicyButton
@@ -399,6 +340,8 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingBottom: 20,
     paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerContent: {
     flexDirection: 'row',
@@ -503,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 12,
     paddingHorizontal: 16,
-    height: 56, // ارتفاع أفضل للمس
+    height: 56,
   },
   inputIcon: {
     marginRight: 12,
@@ -540,7 +483,7 @@ const styles = StyleSheet.create({
   },
   privacySection: {
     alignItems: 'center',
-    marginTop: 'auto', // يدفع القسم للأسفل
+    marginTop: 'auto',
     paddingHorizontal: 20,
   },
   privacyLinks: {

@@ -46,8 +46,8 @@ const Tab = createMaterialTopTabNavigator();
 // --- إعدادات التاب بار المشتركة ---
 const commonTabOptions = (insets: any) => ({
   tabBarPosition: 'bottom',
-  swipeEnabled: true, // ✅ تم تفعيل السحب هنا (مثل انستغرام)
-  animationEnabled: true, // تفعيل الأنيميشن عند السحب
+  swipeEnabled: true, // ✅ تم تفعيل السحب هنا
+  animationEnabled: true,
   tabBarBounces: true,
   
   tabBarShowLabel: false, 
@@ -58,19 +58,27 @@ const commonTabOptions = (insets: any) => ({
     backgroundColor: 'transparent',
   },
 
+  // ✅ إصلاح مشكلة الأزرار المنخفضة
   tabBarStyle: {
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#eeeeee',
     elevation: 10, 
     shadowOpacity: 0.05,
-    // ضبط الارتفاع ليكون مناسباً
-    height: Platform.OS === 'android' ? 65 : 50 + insets.bottom, 
-    paddingBottom: Platform.OS === 'android' ? 10 : insets.bottom,
-    paddingTop: 10,
+    // ضبط الارتفاع ليكون مناسباً ولا يدفع الأيقونات للأسفل
+    height: Platform.OS === 'android' ? 60 : 50 + insets.bottom, 
+    // تقليل البادينغ السفلي لرفع الأيقونات قليلاً
+    paddingBottom: Platform.OS === 'android' ? 0 : insets.bottom - 10,
   },
   
-  tabBarPressColor: 'transparent', // إزالة لون الضغط المزعج في الأندرويد
+  tabBarPressColor: 'transparent',
+  // ضمان توسيط الأيقونات
+  tabBarIconStyle: { 
+    height: 30,
+    width: 30,
+    justifyContent: 'center',
+    alignItems: 'center', 
+  },
 });
 
 // --- شريط المريض ---
@@ -88,16 +96,29 @@ const UserTabNavigator = () => {
           let iconName: any = 'help-outline';
           let label = '';
 
-          if (route.name === 'UserHome') { iconName = focused ? 'home' : 'home-outline'; label = t('user_home.title'); }
-          else if (route.name === 'TopRatedDoctors') { iconName = focused ? 'star' : 'star-outline'; label = t('rating.top_rated_doctors'); }
-          else if (route.name === 'MyAppointments') { iconName = focused ? 'calendar' : 'calendar-outline'; label = t('appointments.title'); }
-          else if (route.name === 'AllDoctors') { iconName = focused ? 'people' : 'people-outline'; label = t('common.see_all'); }
-          else if (route.name === 'MedicineReminder') { iconName = focused ? 'medical' : 'medical-outline'; label = t('medicine_reminder.title'); }
+          if (route.name === 'UserHome') {
+            iconName = focused ? 'home' : 'home-outline';
+            label = t('user_home.title');
+          } else if (route.name === 'TopRatedDoctors') {
+            iconName = focused ? 'star' : 'star-outline';
+            label = t('rating.top_rated_doctors');
+          } else if (route.name === 'MyAppointments') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+            label = t('appointments.title');
+          } else if (route.name === 'AllDoctors') {
+            iconName = focused ? 'people' : 'people-outline';
+            label = t('common.see_all');
+          } else if (route.name === 'MedicineReminder') {
+            iconName = focused ? 'medical' : 'medical-outline';
+            label = t('medicine_reminder.title');
+          }
 
           return (
-            <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-              <Ionicons name={iconName} size={24} color={color} style={{ marginBottom: 4 }} />
-              <Text style={{ fontSize: 10, color: color, fontWeight: focused ? 'bold' : 'normal' }}>{label}</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Ionicons name={iconName} size={24} color={color} />
+              <Text style={{ fontSize: 9, color: color, marginTop: 2, fontWeight: focused ? 'bold' : 'normal' }}>
+                {label}
+              </Text>
             </View>
           );
         },
@@ -129,14 +150,23 @@ const DoctorTabNavigator = () => {
           let iconName: any = 'help-outline';
           let label = '';
 
-          if (route.name === 'DoctorDashboard') { iconName = focused ? 'home' : 'home-outline'; label = t('doctor.profile'); }
-          else if (route.name === 'DoctorAppointments') { iconName = focused ? 'calendar' : 'calendar-outline'; label = t('appointments.title'); }
-          else if (route.name === 'DoctorCalendar') { iconName = focused ? 'calendar-number' : 'calendar-number-outline'; label = t('doctor.calendar'); }
+          if (route.name === 'DoctorDashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+            label = t('doctor.profile');
+          } else if (route.name === 'DoctorAppointments') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+            label = t('appointments.title');
+          } else if (route.name === 'DoctorCalendar') {
+            iconName = focused ? 'calendar-number' : 'calendar-number-outline';
+            label = t('doctor.calendar');
+          }
 
           return (
-            <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-              <Ionicons name={iconName} size={24} color={color} style={{ marginBottom: 4 }} />
-              <Text style={{ fontSize: 10, color: color, fontWeight: focused ? 'bold' : 'normal' }}>{label}</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Ionicons name={iconName} size={24} color={color} />
+              <Text style={{ fontSize: 9, color: color, marginTop: 2, fontWeight: focused ? 'bold' : 'normal' }}>
+                {label}
+              </Text>
             </View>
           );
         },
