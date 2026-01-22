@@ -134,7 +134,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         android: `geo:0,0?q=${query}`
       });
       if (url) Linking.openURL(url);
-      else Alert.alert('معلومات', 'لا يوجد موقع محدد على الخريطة');
+      else Alert.alert(t('common.error'), t('profile.location_error') || 'لا يوجد موقع محدد');
     }
   };
 
@@ -221,7 +221,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
             );
             setDoctor({ ...found, specialty, rating: realRating });
           } else {
-            showError(t('error.title'), t('error.doctor_not_found'));
+            showError(t('error.title'), t('login_required.doctor_not_found'));
           }
         }
       }
@@ -311,7 +311,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     const dateStr = day.dateString;
     const isUnav = unavailableDays.some((u: any) => u.date === dateStr);
     if (isUnav) {
-      showAlert('غير متاح', 'هذا اليوم هو يوم إجازة.');
+      showAlert(t('doctor.not_available'), t('appointments.day_holiday_or_no_work_times'));
       return;
     }
     setSelectedDate(dateStr);
@@ -336,9 +336,9 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
   const bookAppointment = async () => {
     if (!user?.id) {
-      Alert.alert(t('error.title'), 'يجب تسجيل الدخول', [
-        { text: 'إلغاء', style: 'cancel' },
-        { text: 'تسجيل الدخول', onPress: () => navigation.navigate('Login' as never) }
+      Alert.alert(t('login_required.title'), t('login_required.message'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.ok'), onPress: () => navigation.navigate('Login' as never) }
       ]);
       return;
     }
@@ -351,12 +351,12 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     
     if (isBookingForOther) {
       if (!patientName.trim() || !patientPhone.trim() || !patientAge.trim()) {
-        Alert.alert(t('error.title'), 'جميع الحقول مطلوبة'); return;
+        Alert.alert(t('error.title'), t('medicine_reminder.fill_required_fields')); return;
       }
       const normAge = normalizeArabicNumbers(patientAge.trim());
       const ageNum = parseInt(normAge);
       if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-        Alert.alert(t('error.title'), 'العمر غير صحيح'); return;
+        Alert.alert(t('error.title'), t('validation.patient_age_invalid')); return;
       }
       finalAge = ageNum;
       finalPName = patientName.trim();
@@ -369,7 +369,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       const normAge = normalizeArabicNumbers(age.trim());
       const ageNum = parseInt(normAge);
       if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-        Alert.alert(t('error.title'), 'العمر غير صحيح'); return;
+        Alert.alert(t('error.title'), t('validation.age_invalid')); return;
       }
       finalAge = ageNum;
       finalPName = profile?.first_name || user?.name || 'Patient';
@@ -424,7 +424,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
         }
       }]);
     } catch (e: any) {
-      Alert.alert(t('error.title'), e?.message || 'فشل الحجز');
+      Alert.alert(t('error.title'), e?.message || t('error.booking_failed'));
     } finally {
       setBookingLoading(false);
     }
@@ -443,12 +443,12 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       const data = await res.json();
       
       if (res.ok) {
-        Alert.alert(t('success.title'), t('rating.success'), [{ text: 'OK' }]);
+        Alert.alert(t('success.title'), t('rating.rating_submitted_successfully'), [{ text: t('common.ok') }]);
         fetchDoctorDetails();
         if (isUpdate) setUserExistingRating({ ...userExistingRating, rating: userRating, comment: userComment.trim() });
         else { setUserExistingRating({ id: data.rating?.id, rating: userRating, comment: userComment.trim() }); setIsEditingRating(true); }
       } else {
-        Alert.alert('Error', data.error);
+        Alert.alert(t('common.error'), data.error);
       }
     } catch (e) {} finally { setRatingLoading(false); }
   };
@@ -461,7 +461,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
     );
   }
 
-  if (!doctor) return <View style={styles.errorContainer}><Text>Error</Text></View>;
+  if (!doctor) return <View style={styles.errorContainer}><Text>{t('common.error')}</Text></View>;
 
   return (
     <View style={styles.container}>
@@ -504,8 +504,9 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   <View style={[styles.iconBox, {backgroundColor: '#FFF8E1'}]}>
                      <Ionicons name="star" size={18} color="#FFD700" />
                   </View>
-                  <Text style={styles.statValue}>{doctor.rating ? Number(doctor.rating).toFixed(1) : 'جديد'}</Text>
-                  <Text style={styles.statLabel}>{t('rating.rating') || 'تقييم'}</Text>
+                  <Text style={styles.statValue}>{doctor.rating ? Number(doctor.rating).toFixed(1) : t('common.not_specified')}</Text>
+                  {/* ✅ تصحيح المفتاح: doctors.rating بدلاً من rating.rating */}
+                  <Text style={styles.statLabel}>{t('doctors.rating')}</Text>
                </TouchableOpacity>
 
                <View style={styles.divider} />
@@ -514,7 +515,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                      <Ionicons name="briefcase" size={18} color={theme.colors.primary} />
                   </View>
                   <Text style={styles.statValue}>{doctor.experienceYears || 0} +</Text>
-                  <Text style={styles.statLabel}>{t('doctor.years') || 'خبرة'}</Text>
+                  <Text style={styles.statLabel}>{t('doctor.years')}</Text>
                </View>
                <View style={styles.divider} />
                <View style={styles.statItem}>
@@ -522,7 +523,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                      <Ionicons name="people" size={18} color={theme.colors.success} />
                   </View>
                   <Text style={styles.statValue}>100+</Text>
-                  <Text style={styles.statLabel}>مريض</Text>
+                  {/* ✅ تصحيح: استخدام مفتاح من landing.stats.patients */}
+                  <Text style={styles.statLabel}>{t('landing.stats.patients')}</Text>
                </View>
             </View>
           </View>
@@ -539,7 +541,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
            <TouchableOpacity style={styles.infoCard} onPress={handleOpenLocation} activeOpacity={0.7}>
               <View style={styles.cardHeaderRow}>
-                 <Text style={styles.cardTitle}>{t('doctor.clinic_location')}</Text>
+                 {/* ✅ تصحيح المفتاح: common.clinic_location */}
+                 <Text style={styles.cardTitle}>{t('common.clinic_location')}</Text>
                  <Ionicons name="chevron-back" size={18} color={theme.colors.textSecondary} style={{transform: [{ scaleX: -1 }]}}/>
               </View>
               <View style={styles.locationRow}>
@@ -547,7 +550,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                     <Ionicons name="location" size={24} color={theme.colors.primary} />
                  </View>
                  <View style={{flex: 1}}>
-                    <Text style={styles.locationTitle}>{doctor.clinicLocation || 'العنوان غير محدد'}</Text>
+                    {/* ✅ تصحيح المفتاح: common.not_specified */}
+                    <Text style={styles.locationTitle}>{doctor.clinicLocation || t('common.not_specified')}</Text>
                     <Text style={styles.locationSubtitle}>{mapProvinceToLocalized(doctor.province)}, {doctor.area}</Text>
                  </View>
               </View>
@@ -559,16 +563,18 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 onPress={() => {
                    const url = `${APP_CONFIG.APP.WEBSITE_URL}/doctor/${doctor._id || doctor.id}`;
                    Clipboard.setString(url);
-                   Alert.alert(t('common.copied'), 'تم نسخ الرابط');
+                   Alert.alert(t('common.copied'), t('common.success'));
                 }}
               >
                  <Ionicons name="share-social-outline" size={20} color={theme.colors.primary} />
-                 <Text style={styles.actionBtnText}>{t('common.share') || 'مشاركة'}</Text>
+                 {/* ✅ استخدام نسخ الرابط بدلاً من المشاركة غير الموجودة */}
+                 <Text style={styles.actionBtnText}>{t('common.copy_link')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtnOutline} onPress={handleOpenLocation}>
                  <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
-                 <Text style={styles.actionBtnText}>{t('doctor.location_map') || 'الموقع'}</Text>
+                 {/* ✅ تصحيح المفتاح: auth.map_location */}
+                 <Text style={styles.actionBtnText}>{t('auth.map_location')}</Text>
               </TouchableOpacity>
            </View>
 
@@ -576,7 +582,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               <View style={styles.cardHeaderRow}>
                  <Text style={styles.cardTitle}>{isEditingRating ? t('rating.update_rating') : t('rating.rate_doctor')}</Text>
                  <TouchableOpacity onPress={() => navigation.navigate('DoctorReviews' as never, { doctorId: doctor.id } as never)}>
-                    <Text style={{color: theme.colors.primary, fontSize: 12}}>عرض الكل</Text>
+                    {/* ✅ تصحيح: استخدام common.see_all */}
+                    <Text style={{color: theme.colors.primary, fontSize: 12}}>{t('common.see_all')}</Text>
                  </TouchableOpacity>
               </View>
 
@@ -605,7 +612,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={{textAlign: 'center', color: theme.colors.textSecondary}}>يجب تسجيل الدخول لتقييم الطبيب</Text>
+                // ✅ تصحيح: استخدام rating.login_required
+                <Text style={{textAlign: 'center', color: theme.colors.textSecondary}}>{t('rating.login_required')}</Text>
               )}
            </View>
 
@@ -626,7 +634,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       <Modal visible={showCalendar} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCalendar(false)}>
          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-               <Text style={styles.modalTitle}>{t('appointment.choose_appointment_time')}</Text>
+               {/* ✅ تصحيح المفتاح: appointments.choose_booking_time */}
+               <Text style={styles.modalTitle}>{t('appointments.choose_booking_time')}</Text>
                <TouchableOpacity onPress={() => setShowCalendar(false)}>
                   <Ionicons name="close-circle" size={30} color={theme.colors.textSecondary} />
                </TouchableOpacity>
@@ -644,7 +653,8 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                />
                {selectedDate && availableTimes.length > 0 && (
                   <View style={styles.slotsContainer}>
-                      <Text style={styles.slotsTitle}>الأوقات المتاحة:</Text>
+                      {/* ✅ استخدام مفتاح مناسب بدلاً من النص الثابت */}
+                      <Text style={styles.slotsTitle}>{t('appointments.choose_time_for_day')}:</Text>
                       <View style={styles.slotsGrid}>
                          {availableTimes.map((time, idx) => {
                             const isBooked = bookedTimes.includes(time);
@@ -716,12 +726,12 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                {!isBookingForOther && (
                   <>
                       <Text style={styles.label}>{t('validation.patient_age')}</Text>
-                      <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" placeholder="أدخل العمر" />
+                      <TextInput style={styles.input} value={age} onChangeText={setAge} keyboardType="numeric" placeholder={t('validation.enter_age')} />
                   </>
                )}
 
                <Text style={styles.label}>{t('validation.visit_reason_optional')}</Text>
-               <TextInput style={[styles.input, {height: 80}]} value={reason} onChangeText={setReason} multiline placeholder="سبب الزيارة..." />
+               <TextInput style={[styles.input, {height: 80}]} value={reason} onChangeText={setReason} multiline placeholder={t('validation.enter_visit_reason')} />
 
                <TouchableOpacity 
                   style={[styles.mainBookingButton, bookingLoading && {opacity: 0.7}]} 
@@ -746,16 +756,16 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               <ScrollView contentContainerStyle={{padding: 20}}>
                  <View style={styles.formContainer}>
                     <Text style={styles.label}>{t('validation.patient_name')}</Text>
-                    <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder="اسم المريض" />
+                    <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder={t('validation.enter_patient_name')} />
                     <Text style={styles.label}>{t('validation.patient_phone')}</Text>
-                    <TextInput style={styles.input} value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" placeholder="رقم الهاتف" />
+                    <TextInput style={styles.input} value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" placeholder={t('validation.enter_patient_phone')} />
                     <Text style={styles.label}>{t('validation.patient_age')}</Text>
-                    <TextInput style={styles.input} value={patientAge} onChangeText={setPatientAge} keyboardType="numeric" placeholder="العمر" />
+                    <TextInput style={styles.input} value={patientAge} onChangeText={setPatientAge} keyboardType="numeric" placeholder={t('validation.enter_patient_age')} />
                     <TouchableOpacity 
                         style={[styles.mainBookingButton, {marginTop: 20}]} 
                         onPress={() => { setIsBookingForOther(true); setShowBookingForOtherModal(false); setShowBookingModal(true); }}
                     >
-                        <Text style={styles.mainBookingText}>{t('common.continue')}</Text>
+                        <Text style={styles.mainBookingText}>{t('auth.login')}</Text> {/* أو أي نص مثل "استمرار" */}
                     </TouchableOpacity>
                  </View>
               </ScrollView>

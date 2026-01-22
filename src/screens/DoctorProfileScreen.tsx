@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
+  StatusBar,
+  SafeAreaView,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -15,9 +19,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { mapSpecialtyToLocalized } from '../utils/specialtyMapper';
 import { changeLanguage } from '../locales/index';
-import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Linking } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 const DoctorProfileScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -28,21 +33,13 @@ const DoctorProfileScreen: React.FC = () => {
   // استخدام البيانات الشخصية من AuthContext مباشرة
   const profile = authProfile || user;
 
-  // لا نحتاج لجلب البيانات من API لأنها موجودة في AuthContext
-
   const handleLogout = () => {
     Alert.alert(
       t('auth.logout'),
       t('auth.logout_confirm'),
       [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('common.confirm'),
-          onPress: signOut,
-        },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: signOut, style: 'destructive' },
       ]
     );
   };
@@ -68,328 +65,435 @@ const DoctorProfileScreen: React.FC = () => {
     );
   }
 
+  // مكون لعرض صف المعلومات بشكل أنيق
+  const InfoRow = ({ icon, text, onPress, isLink = false }: any) => (
+    <TouchableOpacity 
+      style={styles.infoRowCard} 
+      onPress={onPress} 
+      disabled={!onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '10' }]}>
+        <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.infoRowText, isLink && styles.linkText]} numberOfLines={1}>
+        {text}
+      </Text>
+      {isLink && <Ionicons name="open-outline" size={16} color={theme.colors.textSecondary} />}
+    </TouchableOpacity>
+  );
+
+  // مكون لأزرار القائمة
+  const MenuButton = ({ icon, title, onPress, color = theme.colors.primary }: any) => (
+    <TouchableOpacity style={styles.menuButton} onPress={onPress}>
+      <View style={[styles.menuIconBox, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon} size={22} color={color} />
+      </View>
+      <Text style={[styles.menuText, { color: color === theme.colors.error ? theme.colors.error : theme.colors.textPrimary }]}>
+        {title}
+      </Text>
+      <Ionicons name="chevron-forward" size={18} color="#CCC" />
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+      
+      {/* الخلفية العلوية */}
+      <View style={styles.headerBackground}>
+        <SafeAreaView>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>{t('profile.title')}</Text>
+          </View>
+        </SafeAreaView>
       </View>
 
-      <View style={styles.content}>
-        {/* صورة الطبيب */}
-        <View style={styles.imageContainer}>
-          {profile?.profile_image ? (
-            <Image source={{ uri: profile.profile_image }} style={styles.doctorImage} />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Ionicons name="person" size={64} color={theme.colors.textSecondary} />
-            </View>
-          )}
-          <TouchableOpacity style={styles.editImageButton}>
-            <Ionicons name="camera" size={20} color={theme.colors.white} />
-          </TouchableOpacity>
-        </View>
-
-        {/* معلومات الطبيب */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.doctorName}>{profile?.name || t('common.not_specified')}</Text>
-          <Text style={styles.doctorSpecialty}>{mapSpecialtyToLocalized(profile?.specialty) || t('specialties.cardiology')}</Text>
-          <Text style={styles.doctorEmail}>{profile?.email || t('common.not_specified')}</Text>
-          <Text style={styles.doctorPhone}>{profile?.phone || t('common.not_specified')}</Text>
-          <Text style={styles.doctorProvince}>{profile?.province || t('common.not_specified')}</Text>
-          <Text style={styles.doctorArea}>{profile?.area || t('common.not_specified')}</Text>
-          <Text style={styles.doctorLocation}>{profile?.clinicLocation || t('common.not_specified')}</Text>
-          
-          {profile?.phone && (
-            <View style={styles.infoRow}>
-              <Ionicons name="call" size={20} color={theme.colors.primary} />
-              <Text style={styles.infoText}>{profile.phone}</Text>
-            </View>
-          )}
-
-          {profile?.clinicLocation && (
-            <View style={styles.infoRow}>
-              <Ionicons name="location" size={20} color={theme.colors.primary} />
-              <Text style={styles.infoText}>{profile.clinicLocation}</Text>
-            </View>
-          )}
-
-          {profile?.mapLocation && (
-            <TouchableOpacity 
-              style={styles.infoRow}
-              onPress={() => handleOpenMapLocation(profile.mapLocation)}
-            >
-              <Ionicons name="map" size={20} color={theme.colors.primary} />
-              <Text style={[styles.infoText, styles.linkText]}>{t('profile.open_location')}</Text>
-              <Ionicons name="open" size={16} color={theme.colors.primary} />
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* بطاقة الملف الشخصي الرئيسية */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarContainer}>
+            {profile?.profile_image ? (
+              <Image source={{ uri: profile.profile_image }} style={styles.avatar} />
+            ) : (
+              <View style={styles.placeholderAvatar}>
+                <Ionicons name="person" size={50} color={theme.colors.textSecondary} />
+              </View>
+            )}
+            <TouchableOpacity style={styles.editBadge} onPress={handleEditProfile}>
+              <Ionicons name="pencil" size={14} color="#FFF" />
             </TouchableOpacity>
-          )}
+          </View>
 
-          {profile?.experience && (
-            <View style={styles.infoRow}>
-              <Ionicons name="time" size={20} color={theme.colors.primary} />
-              <Text style={styles.infoText}>
-                {t('doctor.experience')}: {profile.experience} {t('doctor.years')}
-              </Text>
-            </View>
-          )}
-
-          {profile?.work_times && (
-            <View style={styles.infoRow}>
-              <Ionicons name="calendar" size={20} color={theme.colors.primary} />
-              <Text style={styles.infoText}>{profile.work_times}</Text>
-            </View>
-          )}
-
-          {profile?.appointment_duration && (
-            <View style={styles.infoRow}>
-              <Ionicons name="timer" size={20} color={theme.colors.primary} />
-              <Text style={styles.infoText}>
-                {t('doctor.appointment_duration')}: {profile.appointment_duration} {t('doctor.minutes')}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.nameText}>{profile?.name || t('common.not_specified')}</Text>
+          <Text style={styles.specialtyText}>
+            {mapSpecialtyToLocalized(profile?.specialty) || t('specialties.cardiology')}
+          </Text>
+          
+          <View style={styles.locationTag}>
+            <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
+            <Text style={styles.locationText}>
+              {profile?.province}, {profile?.area}
+            </Text>
+          </View>
         </View>
 
-        {/* خيارات الملف الشخصي */}
-        <View style={styles.optionsContainer}>
-          {/* تغيير اللغة */}
-          <View style={styles.languageRow}>
-            <Text style={styles.optionText}>{t('profile.change_language')}</Text>
-            <View style={{ flexDirection: 'row' }}>
-              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ar')}><Text style={styles.langBtnText}>AR</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('en')}><Text style={styles.langBtnText}>EN</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.langBtn} onPress={() => changeLanguage('ku')}><Text style={styles.langBtnText}>KU</Text></TouchableOpacity>
+        {/* قسم المعلومات */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>{t('profile.basic_info')}</Text>
+          
+          {profile?.phone && <InfoRow icon="call" text={profile.phone} />}
+          {profile?.email && <InfoRow icon="mail" text={profile.email} />}
+          {profile?.clinicLocation && <InfoRow icon="medkit" text={profile.clinicLocation} />}
+          
+          {profile?.mapLocation && (
+            <InfoRow 
+              icon="map" 
+              text={t('profile.open_location')} 
+              onPress={() => handleOpenMapLocation(profile.mapLocation)}
+              isLink
+            />
+          )}
+
+          <View style={styles.rowStats}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>{t('doctor.experience')}</Text>
+              <Text style={styles.statValue}>{profile?.experience || 0} {t('doctor.years')}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>{t('doctor.appointment_duration')}</Text>
+              <Text style={styles.statValue}>{profile?.appointment_duration || 30} {t('doctor.minutes')}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.optionButton} onPress={handleEditProfile}>
-            <Ionicons name="create" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('profile.edit')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.optionButton}
-            onPress={() => {
-              navigation.navigate('ChangePassword' as never);
-            }}
-          >
-            <Ionicons name="lock-closed" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('auth.change_password')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.optionButton}
-            onPress={() => navigation.navigate('AppointmentDurationEditor' as never)}
-          >
-            <Ionicons name="timer" size={24} color={theme.colors.primary} />
-            <Text style={styles.optionText}>{t('doctor.appointment_duration_editor')}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-
         </View>
 
-        {/* زر تسجيل الخروج */}
+        {/* قسم الإعدادات */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>{t('profile.privacy_settings')}</Text>
+
+          {/* اللغة */}
+          <View style={styles.languageContainer}>
+            <Text style={styles.menuText}>{t('profile.change_language')}</Text>
+            <View style={styles.langButtonsRow}>
+              {['ar', 'en', 'ku'].map((lang) => (
+                <TouchableOpacity 
+                  key={lang} 
+                  style={styles.langChip} 
+                  onPress={() => changeLanguage(lang)}
+                >
+                  <Text style={styles.langChipText}>{lang.toUpperCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <MenuButton 
+            icon="create-outline" 
+            title={t('profile.edit')} 
+            onPress={handleEditProfile} 
+          />
+          
+          <MenuButton 
+            icon="time-outline" 
+            title={t('doctor.appointment_duration_editor')} 
+            onPress={() => navigation.navigate('AppointmentDurationEditor' as never)} 
+          />
+
+          <MenuButton 
+            icon="lock-closed-outline" 
+            title={t('auth.change_password')} 
+            onPress={() => navigation.navigate('ChangePassword' as never)} 
+          />
+        </View>
+
+        {/* زر الخروج */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out" size={20} color={theme.colors.error} />
-          <Text style={styles.logoutButtonText}>{t('auth.logout')}</Text>
+          <Text style={styles.logoutText}>{t('auth.logout')}</Text>
+          <Ionicons name="log-out-outline" size={20} color="#FFF" />
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        <Text style={styles.versionText}>TabibiQ v1.0.2</Text>
+
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F5F7FA', // خلفية رمادية فاتحة جداً
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F5F7FA',
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
+    fontSize: 14,
     color: theme.colors.textSecondary,
   },
-  header: {
+  
+  // Header Styles
+  headerBackground: {
     backgroundColor: theme.colors.primary,
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    height: 160,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingTop: Platform.OS === 'android' ? 40 : 10,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerContent: {
     alignItems: 'center',
+    paddingVertical: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.white,
+    color: '#FFF',
   },
-  content: {
+
+  // ScrollView
+  scrollView: {
+    flex: 1,
+    marginTop: -80, // تداخل مع الهيدر
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+
+  // Profile Card
+  profileCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
     padding: 20,
-  },
-  imageContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  avatarContainer: {
     position: 'relative',
+    marginBottom: 12,
   },
-  doctorImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: '#FFF',
   },
-  placeholderImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.colors.border,
+  placeholderAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#FFF',
   },
-  editImageButton: {
+  editBadge: {
     position: 'absolute',
     bottom: 0,
-    right: '35%',
+    right: 0,
     backgroundColor: theme.colors.primary,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: theme.colors.white,
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
-  infoContainer: {
-    marginBottom: 32,
-  },
-  doctorName: {
-    fontSize: 24,
+  nameText: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
-  doctorSpecialty: {
-    fontSize: 18,
+  specialtyText: {
+    fontSize: 16,
     color: theme.colors.primary,
     marginBottom: 8,
-    textAlign: 'center',
+    fontWeight: '500',
   },
-  doctorEmail: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  doctorPhone: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  doctorProvince: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  doctorArea: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  doctorLocation: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  infoRow: {
+  locationTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 20,
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  infoText: {
+  locationText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
+  },
+
+  // Section Styles
+  sectionContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  sectionTitle: {
     fontSize: 16,
+    fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginLeft: 12,
+    marginBottom: 16,
+  },
+
+  // Info Row Styles
+  infoRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoRowText: {
     flex: 1,
+    fontSize: 15,
+    color: theme.colors.textPrimary,
   },
-  optionsContainer: {
-    marginBottom: 32,
+  linkText: {
+    color: theme.colors.primary,
+    fontWeight: '500',
   },
-  languageRow: {
+
+  // Stats Row
+  rowStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+  },
+
+  // Menu Button Styles
+  menuButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  menuIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+
+  // Language Styles
+  languageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
   },
-  langBtn: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginLeft: 6,
-  },
-  langBtnText: {
-    color: theme.colors.white,
-    fontWeight: 'bold',
-  },
-  optionButton: {
+  langButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: theme.colors.white,
+    gap: 8,
+  },
+  langChip: {
+    backgroundColor: theme.colors.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '30',
   },
-  optionText: {
-    fontSize: 16,
-    color: theme.colors.textPrimary,
-    marginLeft: 12,
-    flex: 1,
+  langChipText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
   },
+
+  // Logout Button
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFEBEE',
     paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: theme.colors.error,
-    borderRadius: 12,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
   },
-  logoutButtonText: {
-    color: theme.colors.white,
-    fontSize: 18,
+  logoutText: {
+    color: theme.colors.error,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginRight: 8,
   },
-  linkText: {
-    color: theme.colors.primary,
-    textDecorationLine: 'underline',
+  
+  versionText: {
+    textAlign: 'center',
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    opacity: 0.6,
   },
 });
 
-export default DoctorProfileScreen; 
+export default DoctorProfileScreen;

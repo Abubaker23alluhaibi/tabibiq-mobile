@@ -8,6 +8,10 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
+  Dimensions,
+  SafeAreaView,
+  Platform, // ✅ تمت إضافتها هنا (كانت ناقصة)
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +37,8 @@ interface Analytics {
   attendanceRate: number; // نسبة الحضور
 }
 
+const { width } = Dimensions.get('window');
+
 const DoctorAnalyticsScreen: React.FC = () => {
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -54,7 +60,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
       setLoading(true);
       const response = await api.get(`/doctor-appointments/${profile._id}`);
 
-      // التأكد من أن البيانات موجودة
       if (response && Array.isArray(response)) {
         const analyticsData = getAnalytics(response, selectedPeriod);
         setAnalytics(analyticsData);
@@ -75,7 +80,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  // دالة للحصول على التاريخ المحلي بصيغة YYYY-MM-DD
   const getLocalDateString = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -88,18 +92,12 @@ const DoctorAnalyticsScreen: React.FC = () => {
     const now = new Date();
     const today = getLocalDateString();
     
-    // ملاحظة مهمة: جميع الإحصائيات (الأيام، الأسابيع، الأشهر، الساعات) 
-    // تعتمد على المواعيد المحجوزة وليس على الحضور
-    // فقط إحصائيات الحضور تعتمد على حالة الحضور الفعلية
-    
-    // تصفية المواعيد حسب الفترة المحددة
     let filteredAppointments = appointments;
     let periodStart = new Date();
     let periodEnd = new Date();
     
     if (period === 'week') {
-      // الأسبوع الحالي (من الأحد إلى السبت)
-      const currentDay = now.getDay(); // 0 = الأحد، 6 = السبت
+      const currentDay = now.getDay();
       const daysFromSunday = currentDay === 0 ? 0 : currentDay;
       periodStart.setDate(now.getDate() - daysFromSunday);
       periodStart.setHours(0, 0, 0, 0);
@@ -111,7 +109,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
         return aptDate >= periodStart && aptDate <= periodEnd;
       });
     } else if (period === 'month') {
-      // الشهر الحالي
       periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
       periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
@@ -120,7 +117,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
         return aptDate >= periodStart && aptDate <= periodEnd;
       });
     } else if (period === 'year') {
-      // السنة الحالية
       periodStart = new Date(now.getFullYear(), 0, 1);
       periodEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
       
@@ -130,18 +126,15 @@ const DoctorAnalyticsScreen: React.FC = () => {
       });
     }
 
-    // حساب إحصائيات الحضور
     const totalAttended = filteredAppointments.filter(apt => apt.attendance === 'present').length;
     const totalNotAttended = filteredAppointments.filter(apt => !apt.attendance || apt.attendance !== 'present').length;
     const totalAppointments = filteredAppointments.length;
     const attendanceRate = totalAppointments > 0 ? Math.round((totalAttended / totalAppointments) * 100) : 0;
 
-    // حساب إحصائيات الأيام بناءً على المواعيد (الحجز) وليس الحضور
     const appointmentsByDay: Record<string, number> = {};
     const appointmentsByMonth: Record<string, number> = {};
     const appointmentsByTime: Record<string, number> = {};
     
-    // لجميع الفترات: إظهار أيام الأسبوع (الأحد، الاثنين، الثلاثاء...)
     const weekDays = [
       t('analytics.week_days.sunday'),
       t('analytics.week_days.monday'),
@@ -155,16 +148,12 @@ const DoctorAnalyticsScreen: React.FC = () => {
       appointmentsByDay[day] = 0;
     });
     
-    // تهيئة الساعات
     for (let i = 8; i <= 20; i++) {
       appointmentsByTime[`${i}:00`] = 0;
     }
     
-    // حساب الإحصائيات حسب جميع المواعيد (الحجز) وليس فقط الحضور
     filteredAppointments.forEach(apt => {
-      // إحصائيات أيام الأسبوع/الشهر/السنة (بناءً على الحجز)
-      // إحصائيات أيام الأسبوع (لجميع الفترات: أسبوع، شهر، سنة)
-      const dayIndex = new Date(apt.date).getDay(); // 0 = الأحد، 6 = السبت
+      const dayIndex = new Date(apt.date).getDay();
       const weekDays = [
         t('analytics.week_days.sunday'),
         t('analytics.week_days.monday'),
@@ -179,7 +168,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
         appointmentsByDay[day]++;
       }
       
-      // إحصائيات الساعات (بناءً على الحجز)
       const hour = apt.time?.split(':')[0] || '8';
       const timeKey = `${hour}:00`;
       if (appointmentsByTime[timeKey] !== undefined) {
@@ -187,13 +175,8 @@ const DoctorAnalyticsScreen: React.FC = () => {
       }
     });
 
-    // أكثر يوم/أسبوع/شهر ازدحاماً (بناءً على الحجز)
-    const mostBusyDay = Object.entries(appointmentsByDay)
-      .sort(([, a], [, b]) => b - a)[0] || null;
-
-    // أكثر ساعة ازدحاماً (بناءً على الحجز)
-    const mostBusyTime = Object.entries(appointmentsByTime)
-      .sort(([, a], [, b]) => b - a)[0] || null;
+    const mostBusyDay = Object.entries(appointmentsByDay).sort(([, a], [, b]) => b - a)[0] || null;
+    const mostBusyTime = Object.entries(appointmentsByTime).sort(([, a], [, b]) => b - a)[0] || null;
 
     return {
       totalAppointments: filteredAppointments.length,
@@ -207,7 +190,6 @@ const DoctorAnalyticsScreen: React.FC = () => {
       mostBusyTime,
       averageAppointmentsPerDay: Math.round(filteredAppointments.length / (period === 'week' ? 7 : period === 'month' ? 30 : 365)),
       totalPatients: new Set(filteredAppointments.map(apt => apt.patient_id || apt.userId?._id)).size,
-      // إحصائيات الحضور
       totalAttended,
       totalNotAttended,
       attendanceRate,
@@ -216,16 +198,37 @@ const DoctorAnalyticsScreen: React.FC = () => {
 
   const getPeriodText = (period: string) => {
     switch (period) {
-      case 'week':
-        return t('analytics.week');
-      case 'month':
-        return t('analytics.month');
-      case 'year':
-        return t('analytics.year');
-      default:
-        return t('analytics.week');
+      case 'week': return t('analytics.week');
+      case 'month': return t('analytics.month');
+      case 'year': return t('analytics.year');
+      default: return t('analytics.week');
     }
   };
+
+  const StatCard = ({ icon, color, number, label }: { icon: any, color: string, number: number, label: string }) => (
+    <View style={styles.statCard}>
+      <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+      <Text style={styles.statNumber}>{number}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+
+  const AnalysisItem = ({ title, value, subtext, icon, color }: any) => (
+    <View style={styles.analysisItemContainer}>
+      <View style={[styles.analysisIconBox, { backgroundColor: color + '15' }]}>
+         <Ionicons name={icon} size={22} color={color} />
+      </View>
+      <View style={styles.analysisContentBox}>
+         <Text style={styles.analysisItemTitle}>{title}</Text>
+         <View style={{flexDirection: 'row', alignItems: 'baseline'}}>
+            <Text style={styles.analysisItemValue}>{value}</Text>
+            <Text style={styles.analysisItemSubtext}> {subtext}</Text>
+         </View>
+      </View>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -238,23 +241,32 @@ const DoctorAnalyticsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+      
+      {/* Modern Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('analytics.title')}</Text>
-        <Text style={styles.headerSubtitle}>
-          {t('analytics.subtitle')} - {getPeriodText(selectedPeriod)}
-        </Text>
+        <SafeAreaView>
+          <View style={styles.headerContent}>
+             <View>
+                <Text style={styles.headerTitle}>{t('analytics.title')}</Text>
+                <Text style={styles.headerSubtitle}>{t('analytics.subtitle')}</Text>
+             </View>
+             <View style={styles.headerIcon}>
+                <Ionicons name="stats-chart" size={28} color="rgba(255,255,255,0.9)" />
+             </View>
+          </View>
+        </SafeAreaView>
       </View>
 
       <ScrollView
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Period Selector */}
-        <View style={styles.periodSelector}>
-          <Text style={styles.periodLabel}>{t('analytics.period_selector')}</Text>
-          <View style={styles.periodButtons}>
+        {/* Period Selector (Floating Pill) */}
+        <View style={styles.periodContainer}>
+          <View style={styles.periodSelectorWrapper}>
             {['week', 'month', 'year'].map(period => (
               <TouchableOpacity
                 key={period}
@@ -277,246 +289,166 @@ const DoctorAnalyticsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Period Info */}
-        <View style={styles.periodInfo}>
-          <Ionicons
-            name="information-circle"
-            size={20}
-            color={theme.colors.primary}
+        <Text style={styles.sectionHeader}>{t('analytics.dashboard')}</Text>
+
+        {/* Main Stats Grid */}
+        <View style={styles.gridContainer}>
+          <StatCard 
+            icon="calendar" 
+            color={theme.colors.primary} 
+            number={analytics?.totalAppointments || 0} 
+            label={t('analytics.stats.total_appointments')} 
           />
-          <Text style={styles.periodInfoText}>
-            {selectedPeriod === 'week' && t('analytics.period_info.week')}
-            {selectedPeriod === 'month' && t('analytics.period_info.month')}
-            {selectedPeriod === 'year' && t('analytics.period_info.year')}
-          </Text>
+          <StatCard 
+            icon="today" 
+            color="#FF9800" 
+            number={analytics?.todayAppointments || 0} 
+            label={t('analytics.stats.today_appointments')} 
+          />
+          <StatCard 
+            icon="time" 
+            color="#2196F3" 
+            number={analytics?.upcomingAppointments || 0} 
+            label={t('analytics.stats.upcoming_appointments')} 
+          />
+          <StatCard 
+            icon="checkmark-circle" 
+            color="#4CAF50" 
+            number={analytics?.pastAppointments || 0} 
+            label={t('analytics.stats.completed_appointments')} 
+          />
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar" size={32} color={theme.colors.primary} />
-            <Text style={styles.statNumber}>
-              {analytics?.totalAppointments || 0}
-            </Text>
-            <Text style={styles.statLabel}>{t('analytics.stats.total_appointments')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="today" size={32} color={theme.colors.warning} />
-            <Text style={styles.statNumber}>
-              {analytics?.todayAppointments || 0}
-            </Text>
-            <Text style={styles.statLabel}>{t('analytics.stats.today_appointments')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="time" size={32} color={theme.colors.info} />
-            <Text style={styles.statNumber}>
-              {analytics?.upcomingAppointments || 0}
-            </Text>
-            <Text style={styles.statLabel}>{t('analytics.stats.upcoming_appointments')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons
-              name="checkmark-circle"
-              size={32}
-              color={theme.colors.success}
-            />
-            <Text style={styles.statNumber}>
-              {analytics?.pastAppointments || 0}
-            </Text>
-            <Text style={styles.statLabel}>{t('analytics.stats.completed_appointments')}</Text>
-          </View>
+        {/* Highlights Section */}
+        <View style={styles.rowContainer}>
+           <View style={[styles.highlightCard, { backgroundColor: '#E3F2FD' }]}>
+              <View style={styles.highlightHeader}>
+                  <Text style={styles.highlightNumber}>{analytics?.totalPatients || 0}</Text>
+                  <Ionicons name="people" size={20} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.highlightLabel}>{t('analytics.stats.total_patients')}</Text>
+           </View>
+
+           <View style={[styles.highlightCard, { backgroundColor: '#E8F5E9' }]}>
+              <View style={styles.highlightHeader}>
+                  <Text style={[styles.highlightNumber, {color: theme.colors.success}]}>{analytics?.averageAppointmentsPerDay || 0}</Text>
+                  <Ionicons name="trending-up" size={20} color={theme.colors.success} />
+              </View>
+              <Text style={styles.highlightLabel}>{t('analytics.stats.average_per_day')}</Text>
+           </View>
         </View>
 
-        {/* Additional Stats */}
-        <View style={styles.additionalStatsContainer}>
-          <View style={styles.additionalStatCard}>
-            <Ionicons name="people" size={24} color={theme.colors.primary} />
-            <View style={styles.additionalStatContent}>
-              <Text style={styles.additionalStatNumber}>
-                {analytics?.totalPatients || 0}
-              </Text>
-              <Text style={styles.additionalStatLabel}>{t('analytics.stats.total_patients')}</Text>
-            </View>
-          </View>
-          <View style={styles.additionalStatCard}>
-            <Ionicons
-              name="trending-up"
-              size={24}
-              color={theme.colors.success}
-            />
-            <View style={styles.additionalStatContent}>
-              <Text style={styles.additionalStatNumber}>
-                {analytics?.averageAppointmentsPerDay || 0}
-              </Text>
-              <Text style={styles.additionalStatLabel}>{t('analytics.stats.average_per_day')}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Attendance Statistics */}
-        <View style={styles.attendanceStatsContainer}>
-          <Text style={styles.attendanceStatsTitle}>{t('analytics.attendance.title')}</Text>
-          <View style={styles.attendanceStatsGrid}>
-            <View style={styles.attendanceStatCard}>
-              <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
-              <Text style={styles.attendanceStatNumber}>
-                {analytics?.totalAttended || 0}
-              </Text>
-              <Text style={styles.attendanceStatLabel}>{t('analytics.attendance.present')}</Text>
-            </View>
-            <View style={styles.attendanceStatCard}>
-              <Ionicons name="close-circle" size={24} color={theme.colors.error} />
-              <Text style={styles.attendanceStatNumber}>
-                {analytics?.totalNotAttended || 0}
-              </Text>
-              <Text style={styles.attendanceStatLabel}>{t('analytics.attendance.not_present')}</Text>
-            </View>
+        {/* Attendance Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+             <Text style={styles.cardTitle}>{t('analytics.attendance.title')}</Text>
+             <View style={styles.attendanceBadge}>
+                <Text style={styles.attendanceBadgeText}>{analytics?.attendanceRate || 0}%</Text>
+             </View>
           </View>
           
-          {/* نسبة الحضور */}
-          <View style={styles.attendanceRateContainer}>
-            <Text style={styles.attendanceRateLabel}>{t('analytics.attendance.rate')}</Text>
-            <Text style={styles.attendanceRateValue}>
-              {analytics?.attendanceRate || 0}%
-            </Text>
+          <View style={styles.attendanceRow}>
+             <View style={styles.attendanceItem}>
+                <Text style={[styles.attendanceValue, {color: theme.colors.success}]}>{analytics?.totalAttended || 0}</Text>
+                <Text style={styles.attendanceLabel}>{t('analytics.attendance.present')}</Text>
+             </View>
+             <View style={styles.verticalDivider} />
+             <View style={styles.attendanceItem}>
+                <Text style={[styles.attendanceValue, {color: theme.colors.error}]}>{analytics?.totalNotAttended || 0}</Text>
+                <Text style={styles.attendanceLabel}>{t('analytics.attendance.not_present')}</Text>
+             </View>
+          </View>
+          
+          {/* Progress Bar Visual */}
+          <View style={styles.progressBarContainer}>
+             <View style={[styles.progressBarFill, { width: `${analytics?.attendanceRate || 0}%` }]} />
           </View>
         </View>
 
-        {/* Busy Day Analysis */}
-        {analytics?.mostBusyDay && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.busiest_day')}</Text>
-            <View style={styles.analysisContent}>
-              <Ionicons
-                name="calendar"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <View style={styles.analysisText}>
-                <Text style={styles.analysisValue}>
-                  {analytics.mostBusyDay[0]}
-                </Text>
-                <Text style={styles.analysisSubtext}>
-                  {analytics.mostBusyDay[1]} {analytics.mostBusyDay[1] === 1 ? t('analytics.analysis.appointment') : t('analytics.analysis.appointments')}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Smart Analysis Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionHeader}>{t('analytics.analysis.title') || 'تحليلات ذكية'}</Text>
+          
+          {analytics?.mostBusyDay && (
+             <AnalysisItem 
+               title={t('analytics.analysis.busiest_day')}
+               value={analytics.mostBusyDay[0]}
+               subtext={`(${analytics.mostBusyDay[1]} ${analytics.mostBusyDay[1] === 1 ? t('analytics.analysis.appointment') : t('analytics.analysis.appointments')})`}
+               icon="calendar"
+               color={theme.colors.primary}
+             />
+          )}
 
-        {/* Busy Time Analysis */}
-        {analytics?.mostBusyTime && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.busiest_time')}</Text>
-            <View style={styles.analysisContent}>
-              <Ionicons name="time" size={24} color={theme.colors.warning} />
-              <View style={styles.analysisText}>
-                <Text style={styles.analysisValue}>
-                  {analytics.mostBusyTime[0]}
-                </Text>
-                <Text style={styles.analysisSubtext}>
-                  {analytics.mostBusyTime[1]} {analytics.mostBusyTime[1] === 1 ? t('analytics.analysis.appointment') : t('analytics.analysis.appointments')}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
+          {analytics?.mostBusyTime && (
+             <AnalysisItem 
+               title={t('analytics.analysis.busiest_time')}
+               value={analytics.mostBusyTime[0]}
+               subtext={`(${analytics.mostBusyTime[1]} ${analytics.mostBusyTime[1] === 1 ? t('analytics.analysis.appointment') : t('analytics.analysis.appointments')})`}
+               icon="time"
+               color="#FF9800"
+             />
+          )}
+        </View>
 
-        {/* Appointments by Day */}
+        {/* Charts Section */}
         {Object.keys(analytics?.appointmentsByDay || {}).length > 0 && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.by_day')}</Text>
-            {Object.entries(analytics?.appointmentsByDay || {})
-              .filter(([, count]) => count > 0) // عرض الأيام التي لديها مواعيد فقط
-              .sort(([, a], [, b]) => b - a) // ترتيب تنازلي
-              .slice(0, selectedPeriod === 'week' ? 7 : selectedPeriod === 'month' ? 31 : 50) // تحديد عدد الأيام المعروضة
-              .map(([day, count]) => {
-                const maxCount = Math.max(...Object.values(analytics?.appointmentsByDay || {}));
-                const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                
-                // اسم اليوم هو نفسه لجميع الفترات
-                const dayLabel = day;
-                
-                return (
-                  <View key={day} style={styles.dayAnalysis}>
-                    <Text style={styles.dayName}>{dayLabel}</Text>
-                    <View style={styles.dayBar}>
-                      <View
-                        style={[
-                          styles.dayBarFill,
-                          {
-                            width: `${barWidth}%`,
-                          },
-                        ]}
-                      />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t('analytics.analysis.by_day')}</Text>
+            <View style={styles.chartContainer}>
+              {Object.entries(analytics?.appointmentsByDay || {})
+                .filter(([, count]) => count > 0)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, selectedPeriod === 'week' ? 7 : 5)
+                .map(([day, count]) => {
+                  const maxCount = Math.max(...Object.values(analytics?.appointmentsByDay || {}));
+                  const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                  
+                  return (
+                    <View key={day} style={styles.chartRow}>
+                      <Text style={styles.chartLabel} numberOfLines={1}>{day}</Text>
+                      <View style={styles.chartBarBackground}>
+                        <View style={[styles.chartBarFill, { width: `${barWidth}%`, backgroundColor: theme.colors.primary }]} />
+                      </View>
+                      <Text style={styles.chartValue}>{count}</Text>
                     </View>
-                    <Text style={styles.dayCount}>{count}</Text>
-                  </View>
-                );
-              })}
-            {Object.values(analytics?.appointmentsByDay || {}).every(count => count === 0) && (
-              <Text style={styles.noDataText}>
-                {t('analytics.no_appointments_for_period')}
-              </Text>
-            )}
+                  );
+                })}
+            </View>
           </View>
         )}
 
-        {/* No Appointments Message */}
-        {(!analytics || Object.keys(analytics.appointmentsByDay || {}).length === 0) && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.by_day')}</Text>
-            <Text style={styles.noDataText}>
-              {t('analytics.no_appointments_for_period')}
-            </Text>
-          </View>
-        )}
-
-        {/* Appointments by Time */}
         {Object.keys(analytics?.appointmentsByTime || {}).length > 0 && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.by_time')}</Text>
-            {Object.entries(analytics?.appointmentsByTime || {})
-              .sort(([, a], [, b]) => b - a)
-              .slice(0, 5)
-              .map(([time, count]) => {
-                const maxCount = Math.max(...Object.values(analytics?.appointmentsByTime || {}));
-                const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                
-                return (
-                  <View key={time} style={styles.timeAnalysis}>
-                    <Text style={styles.timeValue}>{time}</Text>
-                    <View style={styles.timeBar}>
-                      <View
-                        style={[
-                          styles.timeBarFill,
-                          {
-                            width: `${barWidth}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.timeCount}>{count}</Text>
-                  </View>
-                );
-              })}
-            {Object.values(analytics?.appointmentsByTime || {}).every(count => count === 0) && (
-              <Text style={styles.noDataText}>
-                {t('analytics.no_appointments_for_period')}
-              </Text>
-            )}
-          </View>
+           <View style={styles.card}>
+             <Text style={styles.cardTitle}>{t('analytics.analysis.by_time')}</Text>
+             <View style={styles.chartContainer}>
+               {Object.entries(analytics?.appointmentsByTime || {})
+                 .sort(([, a], [, b]) => b - a)
+                 .slice(0, 5)
+                 .map(([time, count]) => {
+                   const maxCount = Math.max(...Object.values(analytics?.appointmentsByTime || {}));
+                   const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                   
+                   return (
+                     <View key={time} style={styles.chartRow}>
+                       <Text style={styles.chartLabel}>{time}</Text>
+                       <View style={styles.chartBarBackground}>
+                         <View style={[styles.chartBarFill, { width: `${barWidth}%`, backgroundColor: '#FF9800' }]} />
+                       </View>
+                       <Text style={styles.chartValue}>{count}</Text>
+                     </View>
+                   );
+                 })}
+             </View>
+           </View>
         )}
 
-        {/* No Appointments Message for Time */}
-        {(!analytics || Object.keys(analytics.appointmentsByTime || {}).length === 0) && (
-          <View style={styles.analysisCard}>
-            <Text style={styles.analysisTitle}>{t('analytics.analysis.by_time')}</Text>
-            <Text style={styles.noDataText}>
-              {t('analytics.no_appointments_for_period')}
-            </Text>
-          </View>
+        {(!analytics || (Object.keys(analytics.appointmentsByDay || {}).every(k => analytics.appointmentsByDay[k] === 0))) && (
+           <View style={styles.emptyState}>
+              <Ionicons name="bar-chart-outline" size={48} color={theme.colors.textSecondary + '50'} />
+              <Text style={styles.emptyStateText}>{t('analytics.no_appointments_for_period')}</Text>
+           </View>
         )}
+
       </ScrollView>
     </View>
   );
@@ -525,399 +457,335 @@ const DoctorAnalyticsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F7F9FC',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F7F9FC',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
+  
+  // Header Styles
   header: {
     backgroundColor: theme.colors.primary,
-    padding: 20,
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'android' ? 40 : 10,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 5,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: theme.colors.white,
-    marginBottom: 4,
+    color: '#fff',
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: theme.colors.white,
-    opacity: 0.8,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
   },
+  headerIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   content: {
     flex: 1,
     padding: 16,
+    marginTop: -20, // To pull content up slightly
   },
-  periodSelector: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+
+  // Period Selector Styles
+  periodContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  periodLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    marginBottom: 12,
-  },
-  periodButtons: {
+  periodSelectorWrapper: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    padding: 4,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    width: '100%',
+    maxWidth: 320,
   },
   periodButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   periodButtonActive: {
     backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
   },
   periodButtonText: {
     fontSize: 14,
-    textAlign: 'center',
     color: theme.colors.textSecondary,
+    fontWeight: '600',
   },
   periodButtonTextActive: {
-    color: theme.colors.white,
+    color: '#fff',
     fontWeight: 'bold',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginHorizontal: 4,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  analyticsContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
+
+  sectionHeader: {
     fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
-  analyticsCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
+
+  // Grid Stats
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    width: (width - 44) / 2, // 2 columns
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    alignItems: 'flex-start',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  statusItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  statusInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 14,
-    color: theme.colors.textPrimary,
-  },
-  statusCount: {
-    fontSize: 16,
+  statNumber: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
+    marginBottom: 4,
   },
-  demographicItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+  statLabel: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
-  demographicLabel: {
-    fontSize: 14,
-    color: theme.colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  demographicValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-  },
-  revenueItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  revenueLabel: {
-    fontSize: 14,
-    color: theme.colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  revenueValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.success,
-  },
-  metricItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  metricLabel: {
-    fontSize: 14,
-    color: theme.colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  metricValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-  },
-  additionalStatsContainer: {
+
+  // Highlight Row
+  rowContainer: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 20,
   },
-  additionalStatCard: {
+  highlightCard: {
     flex: 1,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: 'center',
   },
-  additionalStatContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  additionalStatNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  additionalStatLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  analysisCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  analysisTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 16,
-  },
-  analysisContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  analysisText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  analysisValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  analysisSubtext: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  dayAnalysis: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dayName: {
-    width: 80,
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  dayBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
-    marginHorizontal: 12,
-  },
-  dayBarFill: {
-    height: '100%',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 4,
-  },
-  dayCount: {
-    width: 30,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    textAlign: 'right',
-  },
-  timeAnalysis: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  timeValue: {
-    width: 60,
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  timeBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
-    marginHorizontal: 12,
-  },
-  timeBarFill: {
-    height: '100%',
-    backgroundColor: theme.colors.warning,
-    borderRadius: 4,
-  },
-  timeCount: {
-    width: 30,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    textAlign: 'right',
-  },
-  periodInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
-  },
-  periodInfoText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
-  },
-  attendanceStatsContainer: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    elevation: 2,
-  },
-  attendanceStatsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  attendanceStatsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  attendanceStatCard: {
-    alignItems: 'center',
-  },
-  attendanceStatNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    marginTop: 8,
-  },
-  attendanceStatLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-  },
-  attendanceRateContainer: {
+  highlightHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginBottom: 6,
   },
-  attendanceRateLabel: {
+  highlightNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  highlightLabel: {
+    fontSize: 13,
+    color: theme.colors.textPrimary,
+    opacity: 0.8,
+  },
+
+  // General Card
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+  },
+  attendanceBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  attendanceBadgeText: {
+    color: theme.colors.success,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  attendanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  attendanceItem: {
+    alignItems: 'center',
+  },
+  verticalDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#EEEEEE',
+  },
+  attendanceValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  attendanceLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: theme.colors.success,
+    borderRadius: 4,
+  },
+
+  // Analysis Item
+  sectionContainer: {
+    marginBottom: 20,
+  },
+  analysisItemContainer: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    elevation: 1,
+  },
+  analysisIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  analysisContentBox: {
+    flex: 1,
+  },
+  analysisItemTitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  analysisItemValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
   },
-  attendanceRateValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  noDataText: {
-    fontSize: 14,
+  analysisItemSubtext: {
+    fontSize: 13,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginTop: 16,
   },
+
+  // Chart Styles
+  chartContainer: {
+    marginTop: 8,
+  },
+  chartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartLabel: {
+    width: 60,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontWeight: '500',
+  },
+  chartBarBackground: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 5,
+    marginHorizontal: 10,
+    overflow: 'hidden',
+  },
+  chartBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  chartValue: {
+    width: 30,
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+    textAlign: 'right',
+  },
+  
+  emptyState: {
+     padding: 40,
+     alignItems: 'center',
+     justifyContent: 'center',
+     opacity: 0.6
+  },
+  emptyStateText: {
+     marginTop: 10,
+     color: theme.colors.textSecondary,
+     fontSize: 14
+  }
 });
 
 export default DoctorAnalyticsScreen;
