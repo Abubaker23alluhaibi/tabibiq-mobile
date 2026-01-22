@@ -13,6 +13,7 @@ import {
   ScrollView,
   Dimensions,
   Linking,
+  I18nManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -28,16 +29,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
-import { isValidEmail, isValidPhone, formatPhone, normalizePhone } from '../utils/helpers';
+import { isValidEmail, isValidPhone, normalizePhone } from '../utils/helpers';
 import { API_CONFIG } from '../config/api';
 import { theme } from '../utils/theme';
 import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
 import TermsOfServiceButton from '../components/TermsOfServiceButton';
-import { isRTL, changeLanguage } from '../locales';
+import { changeLanguage } from '../locales';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// Animated Icon Component
+// مكون الأيقونة المتحركة
 const AnimatedMedicalIcon = ({
   iconName,
   iconSize,
@@ -79,12 +80,11 @@ const LoginScreen = () => {
   const [showPasswordField, setShowPasswordField] = useState(false);
   const [userType, setUserType] = useState<'user' | 'doctor' | null>(null);
 
-  // Animation values - 3 icons only
+  // قيم التحريك (3 أيقونات)
   const iconRotations = Array.from({ length: 3 }, () => useSharedValue(0));
   const iconScales = Array.from({ length: 3 }, () => useSharedValue(0));
 
   useEffect(() => {
-    // Medical icons animations - 3 icons only
     iconRotations.forEach((rotation, index) => {
       setTimeout(() => {
         rotation.value = withSequence(
@@ -96,67 +96,39 @@ const LoginScreen = () => {
     });
   }, []);
 
-  // استخدام دالة normalizePhone من helpers مباشرة (تم إزالة التعريف المحلي)
-
-  // دالة للتحقق من وجود المستخدم ونوعه
-  const checkUserExists = async (emailOrPhone: string): Promise<{ exists: boolean; userType?: 'user' | 'doctor' }> => {
+  const checkUserExists = async (input: string): Promise<{ exists: boolean; userType?: 'user' | 'doctor' }> => {
     try {
-      const trimmedInput = emailOrPhone.trim();
+      const trimmedInput = input.trim();
       const isEmail = isValidEmail(trimmedInput);
       const isPhone = isValidPhone(trimmedInput);
       
-      console.log('🔍 checkUserExists called with:', {
-        input: trimmedInput,
-        isEmail,
-        isPhone,
-        normalizedPhone: isPhone ? normalizePhone(trimmedInput) : 'N/A'
-      });
+      if (!isEmail && !isPhone) return { exists: false };
       
-      if (!isEmail && !isPhone) {
-        console.log('❌ Invalid input format');
-        return { exists: false };
-      }
-      
-      // استخدام الـ endpoint الجديد للتحقق من وجود المستخدم
       const queryParam = isEmail ? `email=${encodeURIComponent(trimmedInput)}` : `phone=${encodeURIComponent(trimmedInput)}`;
       const checkUrl = `${API_CONFIG.BASE_URL}/api/check-user-exists?${queryParam}`;
       
-      try {
-        console.log('🔍 Checking user existence via API...');
-        const response = await fetch(checkUrl, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      const response = await fetch(checkUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-        if (response.ok) {
-          const result = await response.json();
-          console.log('✅ Check result:', result);
-          return result;
-        } else {
-          console.log('❌ Check API response not OK:', response.status);
-          return { exists: false };
-        }
-      } catch (e) {
-        console.error('❌ Error checking user existence:', e);
-        return { exists: false };
+      if (response.ok) {
+        return await response.json();
       }
+      return { exists: false };
     } catch (error) {
-      console.error('Error checking user:', error);
       return { exists: false };
     }
   };
 
   const handleContinue = async () => {
-    // التحقق من صحة المدخل
     if (!emailOrPhone.trim()) {
-      Alert.alert('خطأ', 'يرجى إدخال البريد الإلكتروني أو رقم الهاتف');
+      Alert.alert(t('common.error'), t('auth.enter_email_or_phone'));
       return;
     }
 
     if (!isValidEmail(emailOrPhone) && !isValidPhone(emailOrPhone)) {
-      Alert.alert('خطأ', 'يرجى إدخال بريد إلكتروني أو رقم هاتف صحيح');
+      Alert.alert(t('common.error'), t('validation.email_invalid')); // أو رسالة عامة
       return;
     }
 
@@ -164,42 +136,28 @@ const LoginScreen = () => {
 
     try {
       const trimmedInput = emailOrPhone.trim();
-      console.log('🔍 Checking user exists for:', trimmedInput);
-      console.log('📱 Is phone?', isValidPhone(trimmedInput));
-      console.log('📧 Is email?', isValidEmail(trimmedInput));
-      
-      // فحص وجود المستخدم ونوعه
       const checkResult = await checkUserExists(trimmedInput);
       
-      console.log('✅ Check result:', checkResult);
-
       if (checkResult.exists) {
-        // المستخدم موجود - عرض حقل كلمة المرور مع تحديد نوع المستخدم
         setUserType(checkResult.userType || 'user');
         setShowPasswordField(true);
-        console.log('✅ User exists, type:', checkResult.userType);
       } else {
-        // المستخدم غير موجود - توجيه لإنشاء حساب
-        console.log('❌ User not found');
-        
-        // إظهار رسالة خطأ واضحة مع خيارين: إنشاء حساب كمستخدم أو كدكتور
-        const inputType = isValidEmail(trimmedInput) ? 'البريد الإلكتروني' : 'رقم الهاتف';
+        const inputType = isValidEmail(trimmedInput) ? t('auth.email') : t('auth.phone');
         Alert.alert(
-          'حساب غير موجود',
-          `لم يتم العثور على حساب بهذا ${inputType}. هل تريد إنشاء حساب جديد؟`,
+          t('auth.account_not_found'), // "حساب غير موجود"
+          t('auth.account_not_found_message', { type: inputType }), // رسالة مع المتغير
           [
             {
-              text: 'إلغاء',
+              text: t('common.cancel'),
               style: 'cancel',
               onPress: () => {
-                // إعادة تعيين الحقول
                 setShowPasswordField(false);
                 setPassword('');
                 setUserType(null);
               },
             },
             {
-              text: 'إنشاء حساب كمستخدم',
+              text: t('auth.create_patient_account'), // "إنشاء حساب مريض"
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
@@ -208,7 +166,7 @@ const LoginScreen = () => {
               },
             },
             {
-              text: 'إنشاء حساب كدكتور',
+              text: t('auth.create_doctor_account'), // "إنشاء حساب طبيب"
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
@@ -220,23 +178,7 @@ const LoginScreen = () => {
         );
       }
     } catch (error) {
-      console.error('❌ Error in handleContinue:', error);
-      
-      // في حالة الخطأ (مشكلة في الاتصال)، نعرض رسالة واضحة
-      Alert.alert(
-        'خطأ في الاتصال',
-        'حدث خطأ أثناء التحقق من الحساب. يرجى المحاولة مرة أخرى أو التحقق من الاتصال بالإنترنت.',
-        [
-          {
-            text: 'حسناً',
-            onPress: () => {
-              setShowPasswordField(false);
-              setPassword('');
-              setUserType(null);
-            },
-          },
-        ]
-      );
+      Alert.alert(t('common.error'), t('common.error'));
     } finally {
       setCheckingUser(false);
     }
@@ -244,88 +186,52 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!password.trim()) {
-      Alert.alert('خطأ', 'يرجى إدخال كلمة المرور');
+      Alert.alert(t('common.error'), t('auth.enter_password'));
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('Attempting login with:', {
-        emailOrPhone: emailOrPhone.trim(),
-        userType: userType || 'user',
-        isEmail: isValidEmail(emailOrPhone.trim()),
-        isPhone: isValidPhone(emailOrPhone.trim()),
-      });
-
-      // استخدام نوع المستخدم الذي تم تحديده من checkUserExists
       const loginType = userType || 'user';
-      
       const result = await signIn(emailOrPhone.trim(), password, loginType);
       
-      console.log('Login result:', result);
-      
       if (result.error) {
-        console.log('Login failed with type:', loginType, 'Error:', result.error);
-        
-        // إذا فشل مع النوع المحدد، جرب النوع الآخر
+        // محاولة النوع البديل في حال الفشل
         const alternativeType = loginType === 'user' ? 'doctor' : 'user';
-        console.log('Trying alternative type:', alternativeType);
-        
         const alternativeResult = await signIn(emailOrPhone.trim(), password, alternativeType);
         
-        console.log('Alternative login result:', alternativeResult);
-        
         if (alternativeResult.error) {
-          // إذا فشل كلا النوعين، عرض خيار إنشاء حساب
           Alert.alert(
-            'فشل تسجيل الدخول',
-            result.error || 'البريد الإلكتروني أو كلمة المرور غير صحيحة. هل تريد إنشاء حساب جديد؟',
+            t('common.error'),
+            t('auth.login_error_message'),
             [
               {
-                text: 'إلغاء',
+                text: t('common.cancel'),
                 style: 'cancel',
                 onPress: () => {
                   setShowPasswordField(false);
                   setPassword('');
-                  setUserType(null);
                 },
               },
               {
-                text: 'إنشاء حساب',
-                onPress: () => {
-                  setShowPasswordField(false);
-                  setPassword('');
-                  setUserType(null);
-                  navigation.navigate('UserSignUp' as never);
-                },
+                text: t('auth.signup'),
+                onPress: () => navigation.navigate('UserSignUp' as never),
               },
             ]
           );
         } else {
-          // نجح مع النوع البديل
           setUserType(alternativeType);
           await markAppAsLaunched();
         }
       } else {
-        // نجح مع النوع المحدد
-        console.log('Login successful with type:', loginType);
         await markAppAsLaunched();
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('خطأ', `حدث خطأ أثناء تسجيل الدخول: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`);
+      Alert.alert(t('common.error'), t('auth.login_error_message'));
     } finally {
       setLoading(false);
     }
-  };
-
-  const navigateToSignUp = () => {
-    navigation.navigate('UserSignUp' as never);
-  };
-
-  const navigateToWelcome = () => {
-    navigation.navigate('Welcome' as never);
   };
 
   return (
@@ -335,11 +241,11 @@ const LoginScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.backButton} onPress={navigateToWelcome}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Welcome' as never)}>
+            <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.white} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('auth.login') || 'تسجيل الدخول'}</Text>
+          <Text style={styles.headerTitle}>{t('auth.login_title')}</Text>
 
           <TouchableOpacity
             style={styles.languageButton}
@@ -360,152 +266,124 @@ const LoginScreen = () => {
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
-        enabled={true}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="always"
           contentContainerStyle={styles.scrollContent}
         >
-        {/* Medical Icons Section - 3 icons only */}
-        <View style={styles.medicalIconsContainer}>
-          <View style={styles.iconsGrid}>
-            <AnimatedMedicalIcon
-              iconName="heart"
-              iconSize={40}
-              style={styles.gridIcon}
-              rotation={iconRotations[0]}
-              scale={iconScales[0]}
-            />
-            <AnimatedMedicalIcon
-              iconName="medical"
-              iconSize={45}
-              style={styles.gridIcon}
-              rotation={iconRotations[1]}
-              scale={iconScales[1]}
-            />
-            <AnimatedMedicalIcon
-              iconName="pulse"
-              iconSize={40}
-              style={styles.gridIcon}
-              rotation={iconRotations[2]}
-              scale={iconScales[2]}
-            />
-          </View>
-        </View>
-
-        {/* Form Container */}
-        <View style={styles.formContainer}>
-          <View style={styles.form}>
-            {/* Email/Phone Input */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="mail-outline"
-                  size={22}
-                  color={theme.colors.primary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('auth.enter_email_or_phone') || 'أدخل البريد الإلكتروني أو رقم الهاتف'}
-                  placeholderTextColor={theme.colors.textSecondary}
-                  value={emailOrPhone}
-                  onChangeText={setEmailOrPhone}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  textAlign="right"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  editable={!checkingUser && !loading}
-                  onSubmitEditing={handleContinue}
-                />
-              </View>
+          {/* Medical Icons Section */}
+          <View style={styles.medicalIconsContainer}>
+            <View style={styles.iconsGrid}>
+              <AnimatedMedicalIcon iconName="heart" iconSize={40} style={styles.gridIcon} rotation={iconRotations[0]} scale={iconScales[0]} />
+              <AnimatedMedicalIcon iconName="medkit" iconSize={45} style={styles.gridIcon} rotation={iconRotations[1]} scale={iconScales[1]} />
+              <AnimatedMedicalIcon iconName="pulse" iconSize={40} style={styles.gridIcon} rotation={iconRotations[2]} scale={iconScales[2]} />
             </View>
+            <Text style={styles.welcomeText}>{t('auth.welcome_back')}</Text>
+            <Text style={styles.subWelcomeText}>{t('auth.login_subtitle')}</Text>
+          </View>
 
-            {/* Password Input - يظهر فقط بعد التحقق من وجود المستخدم */}
-            {showPasswordField && (
+          {/* Form Container */}
+          <View style={styles.formContainer}>
+            <View style={styles.form}>
+              {/* Email/Phone Input */}
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={22}
-                    color={theme.colors.primary}
-                    style={styles.inputIcon}
-                  />
+                  <Ionicons name="mail-outline" size={22} color={theme.colors.primary} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder={t('auth.enter_password') || 'أدخل كلمة المرور'}
+                    placeholder={t('auth.enter_email_or_phone')}
                     placeholderTextColor={theme.colors.textSecondary}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
+                    value={emailOrPhone}
+                    onChangeText={setEmailOrPhone}
+                    keyboardType="email-address"
                     autoCapitalize="none"
+                    textAlign={I18nManager.isRTL ? "right" : "left"}
                     autoCorrect={false}
-                    textAlign="right"
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
-                    editable={!loading}
+                    returnKeyType="next"
+                    editable={!checkingUser && !loading}
+                    onSubmitEditing={handleContinue}
                   />
-                  <TouchableOpacity
-                    style={styles.passwordToggle}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={22}
-                      color={theme.colors.textSecondary}
-                    />
-                  </TouchableOpacity>
                 </View>
               </View>
-            )}
 
-            {/* Continue/Login Button */}
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                (checkingUser || loading) && styles.continueButtonDisabled,
-              ]}
-              onPress={showPasswordField ? handleLogin : handleContinue}
-              disabled={checkingUser || loading}
-            >
-              {checkingUser || loading ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <Text style={styles.continueButtonText}>
-                  {showPasswordField ? (t('auth.login') || 'تسجيل الدخول') : (t('common.continue') || 'متابعة')}
-                </Text>
+              {/* Password Input */}
+              {showPasswordField && (
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={22} color={theme.colors.primary} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder={t('auth.enter_password')}
+                      placeholderTextColor={theme.colors.textSecondary}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      textAlign={I18nManager.isRTL ? "right" : "left"}
+                      returnKeyType="done"
+                      onSubmitEditing={handleLogin}
+                      editable={!loading}
+                    />
+                    <TouchableOpacity
+                      style={styles.passwordToggle}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={22}
+                        color={theme.colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
-            </TouchableOpacity>
 
+              {/* Continue/Login Button */}
+              <TouchableOpacity
+                style={[
+                  styles.continueButton,
+                  (checkingUser || loading) && styles.continueButtonDisabled,
+                ]}
+                onPress={showPasswordField ? handleLogin : handleContinue}
+                disabled={checkingUser || loading}
+              >
+                {checkingUser || loading ? (
+                  <ActivityIndicator color={theme.colors.white} />
+                ) : (
+                  <Text style={styles.continueButtonText}>
+                    {showPasswordField ? t('auth.login') : t('common.next')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* سياسة الخصوصية وشروط الاستخدام */}
-        <View style={styles.privacySection}>
-          <View style={styles.privacyLinks}>
-            <PrivacyPolicyButton
-              variant="text"
-              size="small"
-              showIcon={false}
-              style={styles.privacyButton}
-              textStyle={styles.privacyLinkText}
-            />
-            <Text style={styles.privacySeparator}> • </Text>
-            <TermsOfServiceButton
-              variant="text"
-              size="small"
-              showIcon={false}
-              style={styles.termsButton}
-              textStyle={styles.privacyLinkText}
-            />
+          {/* Privacy & Terms */}
+          <View style={styles.privacySection}>
+            <View style={styles.privacyLinks}>
+              <PrivacyPolicyButton
+                variant="text"
+                size="small"
+                showIcon={false}
+                style={styles.privacyButton}
+                textStyle={styles.privacyLinkText}
+              />
+              <Text style={styles.privacySeparator}> • </Text>
+              <TermsOfServiceButton
+                variant="text"
+                size="small"
+                showIcon={false}
+                style={styles.termsButton}
+                textStyle={styles.privacyLinkText}
+              />
+            </View>
+            <Text style={styles.disclaimerText}>
+              {t('common.medical_disclaimer')}
+            </Text>
           </View>
-          <Text style={styles.disclaimerText}>
-            {t('common.medical_disclaimer') || 'هذا التطبيق للأغراض الطبية العامة ولا يغني عن استشارة الطبيب'}
-          </Text>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -518,17 +396,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingBottom: 20,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
   },
   backButton: {
     width: 40,
@@ -539,7 +414,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: theme.colors.white,
     textAlign: 'center',
@@ -557,19 +432,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 4,
     fontSize: 14,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
     backgroundColor: theme.colors.primary,
   },
   scrollContent: {
-    flex: 1,
-    justifyContent: 'space-between',
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingVertical: 40,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   medicalIconsContainer: {
-    marginTop: 20,
     marginBottom: 30,
     alignItems: 'center',
     width: '100%',
@@ -579,36 +454,41 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 20,
-    width: '100%',
+    gap: 25,
+    marginBottom: 20,
   },
   medicalIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 20,
     padding: 12,
-    borderWidth: 0,
-    shadowColor: 'transparent',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
   },
   gridIcon: {
     width: 70,
     height: 70,
   },
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.white,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  subWelcomeText: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 5,
+    textAlign: 'center',
+  },
   formContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
     width: '100%',
     marginBottom: 20,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   form: {
     width: '100%',
@@ -620,12 +500,10 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 12,
-    borderWidth: 0,
     paddingHorizontal: 16,
-    paddingVertical: 0,
-    minHeight: 48,
+    height: 56, // ارتفاع أفضل للمس
   },
   inputIcon: {
     marginRight: 12,
@@ -635,27 +513,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: theme.colors.textPrimary,
-    textAlign: 'right',
-    paddingVertical: 12,
-    paddingHorizontal: 0,
-    margin: 0,
+    textAlign: I18nManager.isRTL ? "right" : "left",
+    height: '100%',
   },
   passwordToggle: {
-    marginLeft: 12,
-    padding: 4,
+    padding: 8,
   },
   continueButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: 25,
     paddingVertical: 16,
-    paddingHorizontal: 40,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    minHeight: 52,
-    marginTop: 8,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   continueButtonDisabled: {
     opacity: 0.6,
@@ -663,17 +536,18 @@ const styles = StyleSheet.create({
   continueButtonText: {
     color: theme.colors.white,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   privacySection: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 'auto', // يدفع القسم للأسفل
     paddingHorizontal: 20,
   },
   privacyLinks: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 10,
   },
   privacyButton: {
     marginBottom: 0,
@@ -683,15 +557,17 @@ const styles = StyleSheet.create({
   },
   privacyLinkText: {
     color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   privacySeparator: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 12,
+    marginHorizontal: 5,
   },
   disclaimerText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 16,
   },

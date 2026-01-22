@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,9 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Modal,
   ScrollView,
+  ActivityIndicator,
+  I18nManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -21,22 +22,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../types';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-interface FormData {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-  confirmPassword: string;
-}
-
-interface FormErrors {
-  [key: string]: string;
-}
+// ✅ الحل: تعريف المكون خارج الدالة الرئيسية لمنع إعادة إنشائه مع كل تحديث
+const InputField = ({ 
+  label, 
+  value, 
+  onChangeText, 
+  placeholder, 
+  icon, 
+  error, 
+  secureTextEntry = false, 
+  keyboardType = 'default' 
+}: any) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <View style={[styles.inputWrapper, error && styles.inputError]}>
+      <Ionicons name={icon} size={20} color={theme.colors.primary} style={styles.inputIcon} />
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.textSecondary}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        textAlign={I18nManager.isRTL ? 'right' : 'left'}
+        autoCapitalize="none"
+      />
+    </View>
+    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+  </View>
+);
 
 const UserSignUpScreen = () => {
   const navigation = useNavigation();
@@ -44,7 +62,7 @@ const UserSignUpScreen = () => {
   const { signUp } = useAuth();
   const { markAppAsLaunched } = useApp();
   
-  const [form, setForm] = useState<FormData>({
+  const [form, setForm] = useState({
     name: '',
     email: '',
     phone: '',
@@ -52,65 +70,35 @@ const UserSignUpScreen = () => {
     confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-
-  // استخدام useRef لمنع إعادة الرندر
-  const formRef = useRef<FormData>(form);
-  formRef.current = form;
-
-  const handleChange = useCallback((field: string, value: string) => {
+  const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
-  }, []);
-
-
-
-  const formatDateForDisplay = useCallback((dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ar-EG', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  }, []);
-
-
-
-  const validateForm = useCallback(() => {
-    const newErrors: FormErrors = {};
-
-    if (!form.name.trim()) {
-      newErrors.name = t('validation.name_required');
+    // مسح الخطأ عند الكتابة
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
 
-    if (!form.email.trim()) {
-      newErrors.email = t('validation.email_required');
-    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
-      newErrors.email = t('validation.email_invalid');
-    }
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
 
-    if (!form.phone.trim()) {
-      newErrors.phone = t('validation.phone_required');
-    }
+    if (!form.name.trim()) newErrors.name = t('validation.name_required');
+    if (!form.email.trim()) newErrors.email = t('validation.email_required');
+    else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = t('validation.email_invalid');
+    
+    if (!form.phone.trim()) newErrors.phone = t('validation.phone_required');
+    
+    if (!form.password) newErrors.password = t('validation.password_required');
+    else if (form.password.length < 6) newErrors.password = t('validation.password_length');
 
-
-
-    if (!form.password) {
-      newErrors.password = t('validation.password_required');
-    } else if (form.password.length < 6) {
-      newErrors.password = t('validation.password_length');
-    }
-
-    if (form.password !== form.confirmPassword) {
-      newErrors.confirmPassword = t('validation.password_mismatch');
-    }
+    if (form.password !== form.confirmPassword) newErrors.confirmPassword = t('validation.password_mismatch');
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [form, t]);
+  };
 
-  const handleSignUp = useCallback(async () => {
+  const handleSignUp = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
@@ -120,7 +108,6 @@ const UserSignUpScreen = () => {
         user_type: 'user',
       });
       
-      
       if (result.error) {
         throw new Error(result.error);
       }
@@ -129,359 +116,265 @@ const UserSignUpScreen = () => {
         await markAppAsLaunched();
         
         if (result.autoLogin) {
-          // تم تسجيل الدخول تلقائياً - توجيه إلى صفحة الدخول
-          Alert.alert(
-            t('auth.signup_success') || 'تم التسجيل بنجاح',
-            t('auth.signup_auto_login_success') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
-            [{ 
-              text: t('common.ok') || 'حسناً', 
-              onPress: () => {
-                // تمرير بيانات المستخدم إلى صفحة الدخول
-                (navigation as any).navigate('Login', {
-                  prefilledEmail: form.email,
-                  prefilledPassword: form.password,
-                  prefilledLoginType: 'user'
-                });
-              }
-            }]
-          );
-        } else if (result.requiresManualLogin) {
-          // يحتاج لتسجيل دخول يدوي - توجيه إلى صفحة الدخول مع حفظ البيانات
-          Alert.alert(
-            t('auth.signup_success') || 'تم التسجيل بنجاح',
-            t('auth.signup_manual_login_required') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
-            [{ 
-              text: t('common.ok') || 'حسناً', 
-              onPress: () => {
-                // تمرير بيانات المستخدم إلى صفحة الدخول
-                (navigation as any).navigate('Login', {
-                  prefilledEmail: form.email,
-                  prefilledPassword: form.password,
-                  prefilledLoginType: 'user'
-                });
-              }
-            }]
-          );
+          // التوجيه التلقائي سيحدث عبر AuthContext
+          console.log('تم التسجيل والدخول تلقائياً');
         } else {
-          // الحالة العادية - توجيه إلى صفحة الدخول مع حفظ البيانات
-          Alert.alert(
-            t('auth.signup_success') || 'تم التسجيل بنجاح',
-            t('auth.signup_success_message') || 'تم إنشاء حسابك بنجاح، يرجى تسجيل الدخول الآن',
-            [{ 
-              text: t('common.ok') || 'حسناً', 
-              onPress: () => {
-                // تمرير بيانات المستخدم إلى صفحة الدخول
-                (navigation as any).navigate('Login', {
-                  prefilledEmail: form.email,
-                  prefilledPassword: form.password,
-                  prefilledLoginType: 'user'
-                });
-              }
-            }]
+           Alert.alert(
+            t('auth.signup_success'),
+            t('auth.signup_success_message'),
+            [{ text: t('common.ok'), onPress: () => (navigation as any).navigate('Login') }]
           );
         }
-      } else {
-        throw new Error('فشل في إنشاء الحساب');
       }
     } catch (error: any) {
-      Alert.alert(
-        t('auth.signup_error') || 'خطأ في التسجيل', 
-        error.message || t('auth.signup_error_message') || 'حدث خطأ أثناء التسجيل'
-      );
+      Alert.alert(t('common.error'), error.message || t('auth.signup_error_message'));
     } finally {
       setLoading(false);
     }
-  }, [form, t, signUp, markAppAsLaunched, navigation]);
-
-  const InputField = useMemo(() => React.memo(({ 
-    label, 
-    field, 
-    value, 
-    placeholder, 
-    secureTextEntry = false,
-    keyboardType = 'default',
-    icon,
-    returnKeyType = 'next',
-    onSubmitEditing 
-  }: {
-    label: string;
-    field: string;
-    value: string;
-    placeholder: string;
-    secureTextEntry?: boolean;
-    keyboardType?: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    returnKeyType?: 'next' | 'done' | 'go' | 'search' | 'send';
-    onSubmitEditing?: () => void;
-  }) => {
-    const handleTextChange = useCallback((text: string) => {
-      handleChange(field, text);
-    }, [field]);
-
-    return (
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <View style={[styles.inputWrapper, errors[field] && styles.inputError]}>
-          <Ionicons name={icon} size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            value={value}
-            onChangeText={handleTextChange}
-            placeholder={placeholder}
-            placeholderTextColor={theme.colors.textSecondary}
-            secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType as any}
-            returnKeyType={returnKeyType}
-            blurOnSubmit={false}
-            autoCorrect={false}
-            autoCapitalize="none"
-            textAlign="right"
-            onSubmitEditing={onSubmitEditing}
-            editable={!loading}
-            contextMenuHidden={true}
-            textContentType="none"
-            autoComplete="off"
-            spellCheck={false}
-            importantForAutofill="no"
-            passwordRules=""
-          />
-        </View>
-        {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
-      </View>
-    );
-  }), [handleChange, errors, loading]);
-
-  const handleBackPress = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  const handleLoginPress = useCallback(() => {
-    navigation.navigate('Login' as never);
-  }, [navigation]);
+  };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
-      enabled={true}
-    >
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
       
+      {/* Header */}
       <LinearGradient
-        colors={['rgba(0, 150, 136, 0.9)', 'rgba(0, 105, 92, 0.9)']}
-        style={styles.headerGradient}
+        colors={[theme.colors.primary, theme.colors.primaryDark]}
+        style={styles.header}
       >
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={handleBackPress}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.white} />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('auth.signup')}</Text>
+        <Text style={styles.headerTitle}>{t('auth.create_account')}</Text>
       </LinearGradient>
 
-      <ScrollView 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="none"
-        contentContainerStyle={styles.scrollContent}
-        nestedScrollEnabled={true}
-        removeClippedSubviews={false}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
       >
-        <View style={styles.formContainer}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled" // مهم لإخفاء الكيبورد عند الضغط خارج الحقول
+        >
+          {/* Logo Section */}
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/icon.png')} 
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.logoTitle}>{t('auth.create_account')}</Text>
-            <Text style={styles.logoSubtitle}>{t('auth.join_tabibiq')}</Text>
+            <View style={styles.logoCircle}>
+              <Image 
+                source={require('../../assets/icon.png')} 
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.welcomeText}>{t('auth.join_tabibiq')}</Text>
           </View>
 
-          <InputField
-            label={t('auth.full_name') || 'الاسم الكامل'}
-            field="name"
-            value={form.name}
-            placeholder={t('auth.enter_full_name') || 'أدخل اسمك الكامل'}
-            icon="person"
-            returnKeyType="next"
-          />
+          {/* Form Section */}
+          <View style={styles.formCard}>
+            <InputField 
+              label={t('auth.full_name')} 
+              value={form.name}
+              onChangeText={(text: string) => handleChange('name', text)}
+              error={errors.name}
+              placeholder={t('auth.enter_full_name')} 
+              icon="person-outline" 
+            />
+            
+            <InputField 
+              label={t('auth.email')} 
+              value={form.email}
+              onChangeText={(text: string) => handleChange('email', text)}
+              error={errors.email}
+              placeholder={t('auth.enter_email')} 
+              icon="mail-outline" 
+              keyboardType="email-address" 
+            />
+            
+            <InputField 
+              label={t('auth.phone')} 
+              value={form.phone}
+              onChangeText={(text: string) => handleChange('phone', text)}
+              error={errors.phone}
+              placeholder={t('auth.enter_phone')} 
+              icon="call-outline" 
+              keyboardType="phone-pad" 
+            />
+            
+            <InputField 
+              label={t('auth.password')} 
+              value={form.password}
+              onChangeText={(text: string) => handleChange('password', text)}
+              error={errors.password}
+              placeholder={t('auth.enter_password')} 
+              icon="lock-closed-outline" 
+              secureTextEntry 
+            />
+            
+            <InputField 
+              label={t('auth.confirm_password')} 
+              value={form.confirmPassword}
+              onChangeText={(text: string) => handleChange('confirmPassword', text)}
+              error={errors.confirmPassword}
+              placeholder={t('auth.confirm_password')} 
+              icon="shield-checkmark-outline" 
+              secureTextEntry 
+            />
 
-          <InputField
-            label={t('auth.email') || 'البريد الإلكتروني'}
-            field="email"
-            value={form.email}
-            placeholder={t('auth.enter_email') || 'أدخل بريدك الإلكتروني'}
-            icon="mail"
-            keyboardType="email-address"
-            returnKeyType="next"
-          />
+            <TouchableOpacity 
+              style={styles.signUpButton} 
+              onPress={handleSignUp}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.signUpButtonText}>{t('auth.signup')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-          <InputField
-            label={t('auth.phone') || 'رقم الهاتف'}
-            field="phone"
-            value={form.phone}
-            placeholder={t('auth.enter_phone') || 'أدخل رقم هاتفك'}
-            icon="call"
-            keyboardType="phone-pad"
-            returnKeyType="next"
-          />
-
-
-
-          <InputField
-            label={t('auth.password') || 'كلمة المرور'}
-            field="password"
-            value={form.password}
-            placeholder={t('auth.enter_password') || 'أدخل كلمة المرور'}
-            icon="lock-closed"
-            secureTextEntry={false}
-            returnKeyType="next"
-          />
-
-          <InputField
-            label={t('auth.confirm_password') || 'تأكيد كلمة المرور'}
-            field="confirmPassword"
-            value={form.confirmPassword}
-            placeholder={t('auth.confirm_password') || 'أعد إدخال كلمة المرور'}
-            icon="lock-closed"
-            secureTextEntry={false}
-            returnKeyType="done"
-            onSubmitEditing={handleSignUp}
-          />
-
-          <TouchableOpacity
-            style={[styles.signUpButton, loading && styles.signUpButtonDisabled]}
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            <Text style={styles.signUpButtonText}>
-              {loading ? t('auth.creating_account') : t('auth.signup')}
-            </Text>
-          </TouchableOpacity>
-
+          {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>{t('auth.already_have_account')}</Text>
-            <TouchableOpacity onPress={handleLoginPress}>
+            <TouchableOpacity onPress={() => (navigation as any).navigate('Login')}>
               <Text style={styles.loginLink}>{t('auth.login')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
 
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F5F7FA',
   },
-  headerGradient: {
-    paddingTop: 50,
-    paddingBottom: 20,
+  header: {
+    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingBottom: 30,
     paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButton: {
     position: 'absolute',
-    top: 50,
     left: 20,
-    zIndex: 1,
+    top: Platform.OS === 'android' ? 40 : 60,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#009688',
-    textAlign: 'center',
-    marginBottom: 10,
+    color: '#FFF',
   },
   content: {
     flex: 1,
-    paddingBottom: 150, // إضافة مساحة أكبر في الأسفل للتمرير
   },
   scrollContent: {
-    flexGrow: 1,
-  },
-  formContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: -30,
+    marginBottom: 20,
   },
-  logoImage: {
+  logoCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    marginBottom: 16,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    marginBottom: 10,
   },
-  logoTitle: {
-    fontSize: 24,
+  logoImage: {
+    width: 50,
+    height: 50,
+  },
+  welcomeText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: theme.colors.textPrimary,
-    marginBottom: 8,
   },
-  logoSubtitle: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
+  formCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: theme.colors.textPrimary,
     marginBottom: 8,
+    textAlign: 'right',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#F9F9F9',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: '#EEEEEE',
+    paddingHorizontal: 12,
+    height: 50,
   },
   inputError: {
     borderColor: theme.colors.error,
+    backgroundColor: '#FFF5F5',
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: theme.colors.textPrimary,
-    textAlign: 'right',
+    height: '100%',
   },
   errorText: {
     color: theme.colors.error,
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 4,
+    textAlign: 'right',
   },
   signUpButton: {
-    backgroundColor: '#009688',
-    borderRadius: 8,
-    paddingVertical: 16,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    height: 54,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#009688',
+    marginTop: 10,
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
-  signUpButtonDisabled: {
-    opacity: 0.6,
-  },
   signUpButtonText: {
-    color: theme.colors.white,
+    color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -489,18 +382,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
+    marginTop: 20,
   },
   loginText: {
-    fontSize: 16,
     color: theme.colors.textSecondary,
+    fontSize: 14,
   },
   loginLink: {
-    fontSize: 16,
-    color: '#009688',
+    color: theme.colors.primary,
     fontWeight: 'bold',
-    marginLeft: 8,
+    fontSize: 14,
+    marginLeft: 6,
   },
 });
 
-export default UserSignUpScreen; 
+export default UserSignUpScreen;

@@ -43,33 +43,11 @@ import { RootStackParamList } from '../types';
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createMaterialTopTabNavigator();
 
-// --- دالة مساعدة لإنشاء أيقونة مع نص ---
-const renderTab = (focused: boolean, color: string, routeName: string, label: string) => {
-  let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
-
-  // تحديد الأيقونة حسب اسم الشاشة
-  if (routeName === 'UserHome' || routeName === 'DoctorDashboard') iconName = focused ? 'home' : 'home-outline';
-  else if (routeName === 'TopRatedDoctors') iconName = focused ? 'star' : 'star-outline';
-  else if (routeName === 'MyAppointments' || routeName === 'DoctorAppointments') iconName = focused ? 'calendar' : 'calendar-outline';
-  else if (routeName === 'AllDoctors') iconName = focused ? 'people' : 'people-outline';
-  else if (routeName === 'MedicineReminder') iconName = focused ? 'medical' : 'medical-outline';
-  else if (routeName === 'DoctorCalendar') iconName = focused ? 'calendar-number' : 'calendar-number-outline';
-
-  return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-      <Ionicons name={iconName} size={26} color={color} style={{ marginBottom: 2 }} />
-      <Text style={{ fontSize: 10, color: color, fontWeight: focused ? 'bold' : 'normal' }}>
-        {label}
-      </Text>
-    </View>
-  );
-};
-
-// --- إعدادات التاب بار المشتركة (معدلة للأيفون) ---
+// --- إعدادات التاب بار المشتركة ---
 const commonTabOptions = (insets: any) => ({
   tabBarPosition: 'bottom',
-  swipeEnabled: true,       
-  animationEnabled: true,
+  swipeEnabled: true, // ✅ تم تفعيل السحب هنا (مثل انستغرام)
+  animationEnabled: true, // تفعيل الأنيميشن عند السحب
   tabBarBounces: true,
   
   tabBarShowLabel: false, 
@@ -86,15 +64,14 @@ const commonTabOptions = (insets: any) => ({
     borderTopColor: '#eeeeee',
     elevation: 10, 
     shadowOpacity: 0.05,
-    // ✅ تم تعديل الارتفاع هنا ليكون مناسباً للأيفون (50 + insets) وللأندرويد (70)
-    height: Platform.OS === 'android' ? 70 : 50 + insets.bottom, 
-    paddingBottom: Platform.OS === 'android' ? 5 : insets.bottom,
-    paddingTop: 8,
+    // ضبط الارتفاع ليكون مناسباً
+    height: Platform.OS === 'android' ? 65 : 50 + insets.bottom, 
+    paddingBottom: Platform.OS === 'android' ? 10 : insets.bottom,
+    paddingTop: 10,
   },
   
-  tabBarPressColor: 'transparent',
+  tabBarPressColor: 'transparent', // إزالة لون الضغط المزعج في الأندرويد
 });
-
 
 // --- شريط المريض ---
 const UserTabNavigator = () => {
@@ -108,14 +85,21 @@ const UserTabNavigator = () => {
       screenOptions={({ route }) => ({
         ...commonTabOptions(insets),
         tabBarIcon: ({ focused, color }) => {
+          let iconName: any = 'help-outline';
           let label = '';
-          if (route.name === 'UserHome') label = t('user_home.title');
-          else if (route.name === 'TopRatedDoctors') label = t('rating.top_rated_doctors');
-          else if (route.name === 'MyAppointments') label = t('appointments.title');
-          else if (route.name === 'AllDoctors') label = t('common.see_all');
-          else if (route.name === 'MedicineReminder') label = t('medicine_reminder.title');
 
-          return renderTab(focused, color, route.name, label);
+          if (route.name === 'UserHome') { iconName = focused ? 'home' : 'home-outline'; label = t('user_home.title'); }
+          else if (route.name === 'TopRatedDoctors') { iconName = focused ? 'star' : 'star-outline'; label = t('rating.top_rated_doctors'); }
+          else if (route.name === 'MyAppointments') { iconName = focused ? 'calendar' : 'calendar-outline'; label = t('appointments.title'); }
+          else if (route.name === 'AllDoctors') { iconName = focused ? 'people' : 'people-outline'; label = t('common.see_all'); }
+          else if (route.name === 'MedicineReminder') { iconName = focused ? 'medical' : 'medical-outline'; label = t('medicine_reminder.title'); }
+
+          return (
+            <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+              <Ionicons name={iconName} size={24} color={color} style={{ marginBottom: 4 }} />
+              <Text style={{ fontSize: 10, color: color, fontWeight: focused ? 'bold' : 'normal' }}>{label}</Text>
+            </View>
+          );
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: '#9e9e9e',
@@ -142,12 +126,19 @@ const DoctorTabNavigator = () => {
       screenOptions={({ route }) => ({
         ...commonTabOptions(insets),
         tabBarIcon: ({ focused, color }) => {
+          let iconName: any = 'help-outline';
           let label = '';
-          if (route.name === 'DoctorDashboard') label = t('doctor.profile');
-          else if (route.name === 'DoctorAppointments') label = t('appointments.title');
-          else if (route.name === 'DoctorCalendar') label = t('doctor.calendar');
 
-          return renderTab(focused, color, route.name, label);
+          if (route.name === 'DoctorDashboard') { iconName = focused ? 'home' : 'home-outline'; label = t('doctor.profile'); }
+          else if (route.name === 'DoctorAppointments') { iconName = focused ? 'calendar' : 'calendar-outline'; label = t('appointments.title'); }
+          else if (route.name === 'DoctorCalendar') { iconName = focused ? 'calendar-number' : 'calendar-number-outline'; label = t('doctor.calendar'); }
+
+          return (
+            <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+              <Ionicons name={iconName} size={24} color={color} style={{ marginBottom: 4 }} />
+              <Text style={{ fontSize: 10, color: color, fontWeight: focused ? 'bold' : 'normal' }}>{label}</Text>
+            </View>
+          );
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: '#9e9e9e',
@@ -168,11 +159,21 @@ const AppNavigator = () => {
   const { loadNotificationsForUser } = useNotifications();
 
   useEffect(() => {
-    const init = async () => { try { await loadNotificationsForUser(); } catch {} };
+    const init = async () => { 
+      if (user) {
+        try { await loadNotificationsForUser(); } catch {} 
+      }
+    };
     init();
-  }, []);
+  }, [user]);
 
-  if (authLoading || appLoading) return null;
+  if (authLoading || appLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <Text style={{ color: theme.colors.primary }}>{t('common.loading')}</Text>
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer
@@ -194,6 +195,7 @@ const AppNavigator = () => {
     >
       <DeepLinkHandler>
         <Stack.Navigator
+          key={user ? 'user-stack' : 'guest-stack'} 
           initialRouteName={!user ? (isFirstLaunch ? 'Welcome' : 'UserHomeStack') : (user.user_type === 'doctor' ? 'DoctorDashboard' : 'UserHomeStack')}
           screenOptions={{
             headerStyle: { backgroundColor: theme.colors.primary, height: Platform.OS === 'ios' ? 60 : 56 },
@@ -243,16 +245,6 @@ const AppNavigator = () => {
               {user.user_type === 'admin' && (
                 <>
                   <Stack.Screen name="UserHomeStack" component={UserTabNavigator} options={{ headerShown: false }} />
-                  <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: t('profile.title') }} />
-                  <Stack.Screen name="DoctorDetails" component={DoctorDetailsScreen} options={{ title: t('doctor.details'), headerShown: true }} />
-                  <Stack.Screen name="AllDoctors" component={AllDoctorsScreen} options={{ title: t('user_home.recommended_doctors') }} />
-                  <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ headerShown: false }} />
-                  <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-                  <Stack.Screen name="UserProfileEdit" component={UserProfileEditScreen} options={{ title: t('profile.edit_profile') }} />
-                  <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: t('auth.change_password') }} />
-                  <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} options={{ title: t('privacy.settings') }} />
-                  <Stack.Screen name="TopRatedDoctors" component={TopRatedDoctorsScreen} options={{ headerShown: false }} />
-                  <Stack.Screen name="DoctorReviews" component={DoctorReviewsScreen} options={{ headerShown: false }} />
                 </>
               )}
               {user.user_type === 'center' && (
