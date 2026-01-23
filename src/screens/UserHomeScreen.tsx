@@ -14,6 +14,7 @@ import {
   ScrollView,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -78,9 +79,12 @@ const UserHomeScreen = () => {
   const [currentScrollIndex, setCurrentScrollIndex] = useState(0);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]); // جميع الأطباء للبحث
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
@@ -98,6 +102,24 @@ const UserHomeScreen = () => {
       registerForNotifications();
     }
   }, [t]);
+
+  // Debounce للبحث
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // جلب جميع الأطباء عند البحث
+  useEffect(() => {
+    if (debouncedSearchQuery.trim()) {
+      fetchAllDoctorsForSearch();
+    } else {
+      setAllDoctors([]);
+      setIsSearching(false);
+    }
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     const featuredDoctors = filteredDoctors.slice(0, 6);
@@ -191,9 +213,83 @@ const UserHomeScreen = () => {
     }
   };
 
+  const fetchAllDoctorsForSearch = async () => {
+    setIsSearching(true);
+    try {
+      let url = `${API_CONFIG.BASE_URL}/doctors`;
+      
+      // إضافة معاملات البحث والفلاتر
+      const params = new URLSearchParams();
+      if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
+      if (selectedProvince) params.append('province', selectedProvince);
+      if (selectedSpecialty) params.append('specialty', selectedSpecialty);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      logApiCall(url, 'GET');
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const doctorsData = await response.json();
+      logApiResponse(url, response.status);
+
+      const processedDoctors = doctorsData
+        .filter((doctor: any) => {
+          const isApproved = doctor.status === 'approved';
+          const isActive = doctor.active !== false && doctor.active !== 'false';
+          const isNotDeleted = !doctor.deleted;
+          const isNotDisabled = !doctor.disabled;
+          return isApproved && isActive && isNotDeleted && isNotDisabled;
+        })
+        .map((doctor: any) => {
+          let specialty = mapSpecialtyToLocalized(
+            doctor.specialty || doctor.category_ar || doctor.category
+          );
+
+          const processedDoctor: Doctor = {
+            id: doctor._id || doctor.id,
+            name: doctor.name || t('common.unknown_doctor'),
+            specialty: specialty,
+            province: doctor.province || t('common.not_specified'),
+            area: doctor.area || t('common.not_specified'),
+            rating: doctor.rating || doctor.averageRating || 0,
+            experience: doctor.experienceYears
+              ? `${doctor.experienceYears} ${t('common.years')}`
+              : t('common.not_specified'),
+            image: getImageUrl(
+              doctor.imageUrl || doctor.profile_image || doctor.profileImage || doctor.image
+            ),
+            available: doctor.status === 'approved' && doctor.active !== false,
+            about: doctor.about || '',
+            clinicLocation: doctor.clinicLocation || '',
+            phone: doctor.phone || '',
+            email: doctor.email || '',
+            isFeatured: !!(doctor.isFeatured || doctor.is_featured),
+            status: doctor.status || 'pending',
+          };
+          return processedDoctor;
+        });
+
+      setAllDoctors(processedDoctors);
+    } catch (error) {
+      logError('Error fetching all doctors for search', error);
+      setAllDoctors([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchDoctors();
+    if (debouncedSearchQuery.trim()) {
+      await fetchAllDoctorsForSearch();
+    }
     setRefreshing(false);
   };
 
@@ -206,13 +302,17 @@ const UserHomeScreen = () => {
     return arr;
   };
 
-  const filteredDoctors = doctors.filter(doctor => {
+  // استخدام جميع الأطباء عند البحث، والأطباء المحدودة عند عدم البحث
+  const doctorsToFilter = debouncedSearchQuery.trim() ? allDoctors : doctors;
+  
+  const filteredDoctors = doctorsToFilter.filter(doctor => {
+    // عند البحث، النتائج تأتي من السيرفر مع الفلاتر، لكن نضيف فلترة إضافية محلية للتأكد
     const matchesSearch =
-      !searchQuery ||
-      doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.province.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.area.toLowerCase().includes(searchQuery.toLowerCase());
+      !debouncedSearchQuery ||
+      doctor.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      doctor.specialty.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      doctor.province.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      doctor.area.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
 
     const matchesProvince = !selectedProvince || doctor.province === selectedProvince;
     const matchesSpecialty = !selectedSpecialty || doctor.specialty === selectedSpecialty;
@@ -560,9 +660,19 @@ const UserHomeScreen = () => {
                 onBlur={() => setIsSearchFocused(false)}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setSearchQuery('');
+                    setDebouncedSearchQuery('');
+                    setAllDoctors([]);
+                  }} 
+                  style={styles.clearSearchButton}
+                >
                   <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
+              )}
+              {isSearching && (
+                <ActivityIndicator size="small" color={theme.colors.primary} style={styles.searchLoader} />
               )}
             </View>
           </View>
@@ -627,7 +737,10 @@ const UserHomeScreen = () => {
             <View style={styles.emptyContainer}>
               <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
               <Text style={styles.emptyText}>
-                {loading ? t('common.loading') : t('user_home.no_doctors_available')}
+                {isSearching ? t('common.loading') : loading ? t('common.loading') : 
+                 debouncedSearchQuery.trim() ? 
+                 (t('search.no_results') || 'لم يتم العثور على نتائج') : 
+                 t('user_home.no_doctors_available')}
               </Text>
             </View>
           }
@@ -752,6 +865,7 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 12 },
   searchInput: { flex: 1, fontSize: 16, color: theme.colors.textPrimary, padding: 0 },
   clearSearchButton: { marginLeft: 8, padding: 4 },
+  searchLoader: { marginLeft: 8 },
   
   filterSection: { marginBottom: 16 },
   filterLabel: { fontSize: 14, fontWeight: '600', color: theme.colors.textPrimary, marginBottom: 8 },

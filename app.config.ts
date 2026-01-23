@@ -42,7 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     package: 'com.tabibiq.platform',
-    versionCode: 14,
+    versionCode: 15,
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
@@ -76,29 +76,28 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     url: 'https://u.expo.dev/be4c2514-ccbb-47d6-bcee-23b74a2ec333'
   },
   runtimeVersion: '1.0.2',
- // ... (بقية الكود كما هو)
-
- extra: {
-  eas: {
-    projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
+  extra: {
+    eas: {
+      projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
+    },
+    apiUrl: 'https://web-production-78766.up.railway.app',
+    environment: 'production',
   },
-  apiUrl: 'https://web-production-78766.up.railway.app',
-  environment: 'production',
-},
-// هنا التغيير المهم 👇
-plugins: [
-  "expo-font",
-  "expo-secure-store",
-  [
-    "expo-build-properties",
-    {
-      "android": {
-        "compileSdkVersion": 34,
-        "targetSdkVersion": 34,
-        "buildToolsVersion": "34.0.0"
+  plugins: [
+    "expo-font",
+    "expo-secure-store",
+    [
+      "expo-build-properties",
+      {
+        "android": {
+          "compileSdkVersion": 35,
+          "targetSdkVersion": 35,
+          "minSdkVersion": 24, 
+          "buildToolsVersion": "35.0.0",
+          "kotlinVersion": "1.9.24"
+        }
       }
-    }
-  ]
-],
-scheme: 'tabibiq',
+    ]
+  ],
+  scheme: 'tabibiq',
 });

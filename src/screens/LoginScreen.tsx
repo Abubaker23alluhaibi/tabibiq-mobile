@@ -139,11 +139,21 @@ const LoginScreen = () => {
           [
             { text: t('common.cancel'), style: 'cancel' },
             {
-              text: t('auth.signup'),
+              text: t('auth.create_user_account'),
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
                 navigation.navigate('UserSignUp' as never);
+              },
+            },
+            {
+              text: t('auth.create_doctor_account'),
+              onPress: () => {
+                setShowPasswordField(false);
+                setPassword('');
+                Linking.openURL('https://www.tabib-iq.com/signup-doctor').catch(() => {
+                  Alert.alert(t('common.error'), 'فشل في فتح الرابط');
+                });
               },
             },
           ]
@@ -304,6 +314,20 @@ const LoginScreen = () => {
           </View>
 
           <View style={styles.privacySection}>
+            <TouchableOpacity
+              style={styles.doctorSignupButton}
+              onPress={() => {
+                Linking.openURL('https://www.tabib-iq.com/signup-doctor').catch(() => {
+                  Alert.alert(t('common.error'), 'فشل في فتح الرابط');
+                });
+              }}
+            >
+              <Ionicons name="medical-outline" size={20} color={theme.colors.white} />
+              <Text style={styles.doctorSignupButtonText}>
+                {t('auth.create_doctor_account')}
+              </Text>
+            </TouchableOpacity>
+            
             <View style={styles.privacyLinks}>
               <PrivacyPolicyButton
                 variant="text"
@@ -485,6 +509,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 'auto',
     paddingHorizontal: 20,
+  },
+  doctorSignupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  doctorSignupButtonText: {
+    color: theme.colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   privacyLinks: {
     flexDirection: 'row',
