@@ -18,6 +18,17 @@ allprojects {
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
+
+  // --- بداية التعديل: إجبار المكتبات على نسخ قديمة تدعم SDK 34 ---
+  configurations.all {
+    resolutionStrategy {
+      // إجبار مكتبة core ومكتبة splashscreen على استخدام إصدارات تعمل مع Android 34
+      force 'androidx.core:core:1.13.1'
+      force 'androidx.core:core-ktx:1.13.1'
+      force 'androidx.core:core-splashscreen:1.0.1'
+    }
+  }
+  // --- نهاية التعديل ---
 }
 
 apply plugin: "expo-root-project"

@@ -76,16 +76,29 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     url: 'https://u.expo.dev/be4c2514-ccbb-47d6-bcee-23b74a2ec333'
   },
   runtimeVersion: '1.0.2',
-  extra: {
-    eas: {
-      projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
-    },
-    apiUrl: 'https://web-production-78766.up.railway.app',
-    environment: 'production',
+ // ... (بقية الكود كما هو)
+
+ extra: {
+  eas: {
+    projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
   },
-  plugins: [
-    "expo-font",
-    "expo-secure-store"
-  ],
-  scheme: 'tabibiq',
+  apiUrl: 'https://web-production-78766.up.railway.app',
+  environment: 'production',
+},
+// هنا التغيير المهم 👇
+plugins: [
+  "expo-font",
+  "expo-secure-store",
+  [
+    "expo-build-properties",
+    {
+      "android": {
+        "compileSdkVersion": 34,
+        "targetSdkVersion": 34,
+        "buildToolsVersion": "34.0.0"
+      }
+    }
+  ]
+],
+scheme: 'tabibiq',
 });

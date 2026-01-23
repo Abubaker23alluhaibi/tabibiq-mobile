@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -46,7 +46,7 @@ const Tab = createMaterialTopTabNavigator();
 // --- إعدادات التاب بار المشتركة ---
 const commonTabOptions = (insets: any) => ({
   tabBarPosition: 'bottom',
-  swipeEnabled: true, // ✅ تم تفعيل السحب هنا
+  swipeEnabled: true,
   animationEnabled: true,
   tabBarBounces: true,
   
@@ -58,21 +58,20 @@ const commonTabOptions = (insets: any) => ({
     backgroundColor: 'transparent',
   },
 
-  // ✅ إصلاح مشكلة الأزرار المنخفضة
   tabBarStyle: {
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#eeeeee',
     elevation: 10, 
     shadowOpacity: 0.05,
-    // ضبط الارتفاع ليكون مناسباً ولا يدفع الأيقونات للأسفل
-    height: Platform.OS === 'android' ? 60 : 50 + insets.bottom, 
-    // تقليل البادينغ السفلي لرفع الأيقونات قليلاً
-    paddingBottom: Platform.OS === 'android' ? 0 : insets.bottom - 10,
+    // حساب الارتفاع ليشمل منطقة الأزرار السفلية
+    height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
+    // رفع المحتوى عن منطقة الأزرار
+    paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+    paddingTop: 10,
   },
   
   tabBarPressColor: 'transparent',
-  // ضمان توسيط الأيقونات
   tabBarIconStyle: { 
     height: 30,
     width: 30,
@@ -114,9 +113,20 @@ const UserTabNavigator = () => {
           }
 
           return (
-            <View style={{ alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            // تم التعديل: زيادة عرض الحاوية وتوسيط العناصر
+            <View style={{ alignItems: 'center', justifyContent: 'center', width: 100 }}>
               <Ionicons name={iconName} size={24} color={color} />
-              <Text style={{ fontSize: 9, color: color, marginTop: 2, fontWeight: focused ? 'bold' : 'normal' }}>
+              <Text 
+                numberOfLines={1} // ✅ يجبر النص يكون سطر واحد
+                style={{ 
+                  fontSize: 9, // حجم خط مناسب
+                  color: color, 
+                  marginTop: 2, 
+                  fontWeight: focused ? 'bold' : 'normal',
+                  textAlign: 'center', // ✅ توسيط النص
+                  width: '100%', // ✅ يأخذ العرض المتاح
+                }}
+              >
                 {label}
               </Text>
             </View>
@@ -162,9 +172,20 @@ const DoctorTabNavigator = () => {
           }
 
           return (
-            <View style={{ alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            // تم التعديل هنا أيضاً
+            <View style={{ alignItems: 'center', justifyContent: 'center', width: 100 }}>
               <Ionicons name={iconName} size={24} color={color} />
-              <Text style={{ fontSize: 9, color: color, marginTop: 2, fontWeight: focused ? 'bold' : 'normal' }}>
+              <Text 
+                numberOfLines={1} // ✅ يجبر النص يكون سطر واحد
+                style={{ 
+                  fontSize: 9, 
+                  color: color, 
+                  marginTop: 2, 
+                  fontWeight: focused ? 'bold' : 'normal',
+                  textAlign: 'center', // ✅ توسيط النص
+                  width: '100%',
+                }}
+              >
                 {label}
               </Text>
             </View>

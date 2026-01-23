@@ -31,19 +31,17 @@ import {
 import {
   PROVINCES,
   SPECIALTIES,
-  SPECIALTY_CATEGORIES,
   getSpecialtiesByCategory
 } from '../utils/constants'; 
 import AdvertisementSlider from '../components/AdvertisementSlider';
-import { logDebug, logError, logApiCall, logApiResponse } from '../utils/logger';
+import { logError, logApiCall, logApiResponse } from '../utils/logger';
 
-// نحتاج استيراد الفئات الجديدة إذا كانت مفصولة
 import { SPECIALTY_CATEGORIES as NEW_SPECIALTY_CATEGORIES } from '../utils/medicalSpecialties'; 
 
 const { width } = Dimensions.get('window');
+// حساب دقيق لعرض الكارت ليكون متناسقاً
 const GRID_CARD_WIDTH = Math.floor((width - 32 - 12) / 2); 
 
-// تعريف نوع البيانات للطبيب
 interface Doctor {
   id: string;
   name: string;
@@ -76,7 +74,6 @@ const UserHomeScreen = () => {
     registerForNotifications,
   } = useNotifications();
 
-  // Refs for Auto Scrolling
   const featuredListRef = useRef<FlatList>(null);
   const [currentScrollIndex, setCurrentScrollIndex] = useState(0);
 
@@ -85,7 +82,6 @@ const UserHomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Filter States
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -103,7 +99,6 @@ const UserHomeScreen = () => {
     }
   }, [t]);
 
-  // Auto Scroll Effect for Featured Doctors
   useEffect(() => {
     const featuredDoctors = filteredDoctors.slice(0, 6);
     if (featuredDoctors.length <= 1) return;
@@ -249,9 +244,6 @@ const UserHomeScreen = () => {
     setSelectedProvince('');
   };
 
-  // ==========================================
-  // ✅ نافذة الفلترة المنبثقة (Popup)
-  // ==========================================
   const renderFilterContent = () => {
     switch (filterViewMode) {
       case 'PROVINCE':
@@ -370,7 +362,6 @@ const UserHomeScreen = () => {
             </View>
 
             <View style={styles.filterBody}>
-                {/* 1. Province */}
                 <TouchableOpacity 
                   style={styles.simpleSelector}
                   onPress={() => setFilterViewMode('PROVINCE')}
@@ -384,7 +375,6 @@ const UserHomeScreen = () => {
                   <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
 
-                {/* 2. Category (Optional) */}
                 <TouchableOpacity 
                   style={styles.simpleSelector}
                   onPress={() => setFilterViewMode('CATEGORY')}
@@ -398,7 +388,6 @@ const UserHomeScreen = () => {
                    <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
 
-                {/* 3. Specialty */}
                 <TouchableOpacity 
                   style={styles.simpleSelector}
                   onPress={() => setFilterViewMode('SPECIALTY')}
@@ -442,7 +431,6 @@ const UserHomeScreen = () => {
             source={{ uri: item.image }}
             style={styles.doctorImage}
             resizeMode="cover"
-            defaultSource={require('../../assets/icon.png')}
           />
         ) : (
           <Image
@@ -477,7 +465,7 @@ const UserHomeScreen = () => {
         </View>
 
         <View style={styles.doctorLocation}>
-          <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
+          <Ionicons name="location-outline" size={10} color={theme.colors.textSecondary} />
           <Text style={styles.doctorLocationText} numberOfLines={1}>
             {mapProvinceToLocalized(item.province)}, {item.area}
           </Text>
@@ -485,10 +473,10 @@ const UserHomeScreen = () => {
 
         {(item.rating && item.rating > 0) ? (
           <View style={styles.ratingPill}>
-            <Ionicons name="star" size={10} color="#FFD700" />
+            <Ionicons name="star" size={9} color="#FFD700" />
             <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
           </View>
-        ) : <View style={{height: 15}} />} 
+        ) : <View style={{height: 12}} />} 
       </View>
 
       <View style={styles.cardActions}>
@@ -549,14 +537,15 @@ const UserHomeScreen = () => {
 
       <ScrollView
         style={styles.content}
-        // ✅ هذا هو التعديل الرئيسي: إضافة مسافة سفلية داخلية للمحتوى
         contentContainerStyle={{ paddingBottom: 150 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <AdvertisementSlider target="users" style={styles.advertisementSlider} />
+        {/* ✅ التعديل هنا: تم توسيط الإعلانات */}
+        <View style={{ alignItems: 'center', width: '100%' }}>
+            <AdvertisementSlider target="users" style={styles.advertisementSlider} />
+        </View>
 
-        {/* البحث والفلترة */}
         <View style={styles.searchAndFilterContainer}>
           <View style={styles.searchContainer}>
             <View style={styles.searchInputWrapper}>
@@ -578,12 +567,9 @@ const UserHomeScreen = () => {
             </View>
           </View>
 
-          {/* ✅ الفلترة المبسطة: صف واحد، عناصر قليلة */}
           <View style={styles.filterSection}>
             <Text style={styles.filterLabel}>{t('suggestions', 'اقتراحات سريعة')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsContainer}>
-              
-              {/* عنصر واحد للمحافظة */}
               <TouchableOpacity
                 style={[styles.filterChip, selectedProvince === PROVINCES[0] && styles.filterChipActive]}
                 onPress={() => setSelectedProvince(selectedProvince === PROVINCES[0] ? '' : PROVINCES[0])}
@@ -593,7 +579,6 @@ const UserHomeScreen = () => {
                 </Text>
               </TouchableOpacity>
               
-              {/* عنصر واحد للتخصص */}
               <TouchableOpacity
                 style={[styles.filterChip, selectedSpecialty === (typeof SPECIALTIES[0] === 'string' ? SPECIALTIES[0] : (SPECIALTIES[0] as any).value) && styles.filterChipActive]}
                 onPress={() => {
@@ -606,7 +591,6 @@ const UserHomeScreen = () => {
                 </Text>
               </TouchableOpacity>
 
-              {/* ✅ زر المزيد يفتح المودال (Popup) بدلاً من الذهاب للصفحة الأخرى */}
               <TouchableOpacity
                 style={styles.moreChip}
                 onPress={() => {
@@ -628,7 +612,6 @@ const UserHomeScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* ✅ Animated List for Featured Doctors */}
         <FlatList
           ref={featuredListRef}
           data={filteredDoctors.slice(0, 6)}
@@ -703,7 +686,6 @@ const UserHomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* ✅ المودال المنبثق (Popup) */}
       <Modal
         visible={showFilters}
         transparent={true}
@@ -756,7 +738,6 @@ const styles = StyleSheet.create({
   },
   loginButtonText: { color: theme.colors.white, fontSize: 14, fontWeight: '600', marginLeft: 6 },
   
-  // Search & Filters
   searchAndFilterContainer: {
     paddingHorizontal: 16, paddingVertical: 12,
     backgroundColor: theme.colors.background,
@@ -792,9 +773,13 @@ const styles = StyleSheet.create({
   },
   moreChipText: { fontSize: 14, color: theme.colors.primary, fontWeight: '600' },
 
-  advertisementSlider: { marginHorizontal: 16, marginVertical: 10 },
+  // ✅ تعديل ستايل الإعلان للتوسيط ومنع الميلان
+  advertisementSlider: { 
+    marginVertical: 10,
+    alignSelf: 'center', // يجعل العنصر يتوسط الشاشة
+    width: width - 32, // عرض محدد لضمان عدم الخروج عن الحواف
+  },
   
-  // ✅ التعديل الثاني: إزالة paddingBottom من هنا
   content: { flex: 1 }, 
   
   sectionHeader: {
@@ -808,82 +793,94 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: theme.colors.textSecondary, marginTop: 16 },
 
   // ==========================================
-  // ✅ ستايلات الكارت (تم إزالة المساحات الفارغة)
+  // ✅ ستايلات الكارت (تم تصغير الحجم والمسافات للأندرويد)
   // ==========================================
   doctorCard: {
     width: GRID_CARD_WIDTH,
     backgroundColor: theme.colors.white,
-    borderRadius: 16,
-    padding: 8, 
+    borderRadius: 14, // تقليل الانحناء قليلاً
+    padding: 5, // ✅ تقليل البادينغ الداخلي
     marginRight: 12,
     marginBottom: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
     borderColor: theme.colors.border + '40',
   },
   doctorImageContainer: {
     position: 'relative', alignItems: 'center',
-    marginBottom: 6, // تقليل المسافة
-    marginTop: 2,
+    marginBottom: 4, 
+    marginTop: 0,
   },
   doctorImage: {
     width: '100%', 
-    height: 140, 
-    borderRadius: 16, 
+    height: 110, // ✅ تقليل ارتفاع الصورة من 140 الى 110
+    borderRadius: 12, 
     backgroundColor: theme.colors.background,
   },
   featuredBadge: {
-    position: 'absolute', top: -6, left: -6,
-    backgroundColor: '#FFD700', width: 24, height: 24, borderRadius: 12,
+    position: 'absolute', top: -4, left: -4,
+    backgroundColor: '#FFD700', width: 22, height: 22, borderRadius: 11,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: theme.colors.white, elevation: 2,
   },
   availableBadge: {
     position: 'absolute', bottom: -2, right: -2,
-    backgroundColor: theme.colors.white, padding: 3, borderRadius: 10,
+    backgroundColor: theme.colors.white, padding: 2, borderRadius: 8,
   },
   onlineDot: {
-    width: 10, height: 10, borderRadius: 5,
+    width: 8, height: 8, borderRadius: 4,
     backgroundColor: theme.colors.success, borderWidth: 1, borderColor: theme.colors.white,
   },
   
-  // ✅ ضغط المعلومات لإزالة الفراغ
   doctorInfo: { 
     alignItems: 'center', 
-    marginBottom: 2, // مسافة صغيرة جداً
-    marginTop: 2 
+    marginBottom: 2,
+    paddingHorizontal: 2,
   },
   doctorName: {
-    fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary,
-    marginBottom: 2, textAlign: 'center',
+    fontSize: 13, // تقليل الخط قليلاً
+    fontWeight: '700', 
+    color: theme.colors.textPrimary,
+    marginBottom: 2, 
+    textAlign: 'center',
+    includeFontPadding: false, // ✅ مهم للأندرويد لإزالة الفراغ الزائد
   },
   specialtyContainer: {
     marginBottom: 2, backgroundColor: theme.colors.primary + '10',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
   },
   doctorSpecialty: {
-    fontSize: 10, color: theme.colors.primary, fontWeight: '600', textAlign: 'center',
+    fontSize: 10, 
+    color: theme.colors.primary, 
+    fontWeight: '600', 
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   doctorLocation: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  doctorLocationText: { fontSize: 10, color: theme.colors.textSecondary, marginLeft: 4 },
+  doctorLocationText: { 
+    fontSize: 9, 
+    color: theme.colors.textSecondary, 
+    marginLeft: 2,
+    includeFontPadding: false 
+  },
   ratingPill: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF8E1',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginBottom: 2,
+    paddingHorizontal: 6, paddingVertical: 1, borderRadius: 10, marginBottom: 4,
   },
-  ratingText: { fontSize: 10, color: '#F57C00', fontWeight: '700', marginLeft: 4 },
+  ratingText: { fontSize: 10, color: '#F57C00', fontWeight: '700', marginLeft: 2 },
   
-  // ✅ زر الحجز
-  cardActions: { alignItems: 'center', marginTop: 2 },
+  cardActions: { alignItems: 'center', marginTop: 0 },
   bookButton: {
-    backgroundColor: theme.colors.primary, borderRadius: 10,
-    paddingVertical: 8, paddingHorizontal: 12, width: '100%',
+    backgroundColor: theme.colors.primary, borderRadius: 8,
+    paddingVertical: 6, // تقليل ارتفاع الزر
+    paddingHorizontal: 10, width: '100%',
     alignItems: 'center', justifyContent: 'center',
   },
-  bookButtonText: { color: theme.colors.white, fontSize: 11, fontWeight: '600' },
+  bookButtonText: { color: theme.colors.white, fontSize: 11, fontWeight: '600', includeFontPadding: false },
 
   // Other components
   showAllButton: {
@@ -901,13 +898,11 @@ const styles = StyleSheet.create({
   },
   quickActionText: { fontSize: 12, color: theme.colors.textPrimary, textAlign: 'center' },
 
-  // ==========================================
-  // ✅ Popup Modal Styles
-  // ==========================================
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', // توسيط عمودي
+    justifyContent: 'center',
     alignItems: 'center',
   },
   popupContent: {
@@ -943,7 +938,6 @@ const styles = StyleSheet.create({
   closeBtn: {
       padding: 4,
   },
-  
   filterBody: {
       gap: 12,
       marginBottom: 20,
@@ -972,7 +966,6 @@ const styles = StyleSheet.create({
       color: theme.colors.primary,
       fontWeight: '600',
   },
-
   popupFooter: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -997,7 +990,6 @@ const styles = StyleSheet.create({
       color: theme.colors.white,
       fontWeight: '600',
   },
-
   listItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',
