@@ -149,7 +149,7 @@ const AppIntroScreen = () => {
 
         <TouchableOpacity style={styles.nextButton} onPress={scrollToNext}>
           <Text style={styles.nextButtonText}>
-            {currentIndex === features.length - 1 ? (t('intro.start') || 'ابدأ الآن') : (t('intro.next') || 'التالي')}
+            {currentIndex === features.length - 1 ? (t('intro.start') || 'ابدأ ') : (t('intro.next') || 'التالي')}
           </Text>
           <Ionicons 
             name={currentIndex === features.length - 1 ? "checkmark" : "arrow-forward"} 
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     width: 200,
     height: 200,
-    backgroundColor: theme.colors.primary + '10', // لون شفاف خفيف جداً
+    backgroundColor: theme.colors.primary + '10', // لون شفافjjj خفيف جداً
     borderRadius: 100,
   },
   textContainer: {
