@@ -505,7 +505,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                      <Ionicons name="star" size={18} color="#FFD700" />
                   </View>
                   <Text style={styles.statValue}>{doctor.rating ? Number(doctor.rating).toFixed(1) : t('common.not_specified')}</Text>
-                  {/* ✅ تصحيح المفتاح: doctors.rating بدلاً من rating.rating */}
                   <Text style={styles.statLabel}>{t('doctors.rating')}</Text>
                </TouchableOpacity>
 
@@ -523,7 +522,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                      <Ionicons name="people" size={18} color={theme.colors.success} />
                   </View>
                   <Text style={styles.statValue}>100+</Text>
-                  {/* ✅ تصحيح: استخدام مفتاح من landing.stats.patients */}
                   <Text style={styles.statLabel}>{t('landing.stats.patients')}</Text>
                </View>
             </View>
@@ -541,7 +539,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
            <TouchableOpacity style={styles.infoCard} onPress={handleOpenLocation} activeOpacity={0.7}>
               <View style={styles.cardHeaderRow}>
-                 {/* ✅ تصحيح المفتاح: common.clinic_location */}
                  <Text style={styles.cardTitle}>{t('common.clinic_location')}</Text>
                  <Ionicons name="chevron-back" size={18} color={theme.colors.textSecondary} style={{transform: [{ scaleX: -1 }]}}/>
               </View>
@@ -550,7 +547,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                     <Ionicons name="location" size={24} color={theme.colors.primary} />
                  </View>
                  <View style={{flex: 1}}>
-                    {/* ✅ تصحيح المفتاح: common.not_specified */}
                     <Text style={styles.locationTitle}>{doctor.clinicLocation || t('common.not_specified')}</Text>
                     <Text style={styles.locationSubtitle}>{mapProvinceToLocalized(doctor.province)}, {doctor.area}</Text>
                  </View>
@@ -567,13 +563,11 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 }}
               >
                  <Ionicons name="share-social-outline" size={20} color={theme.colors.primary} />
-                 {/* ✅ استخدام نسخ الرابط بدلاً من المشاركة غير الموجودة */}
                  <Text style={styles.actionBtnText}>{t('common.copy_link')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtnOutline} onPress={handleOpenLocation}>
                  <Ionicons name="map-outline" size={20} color={theme.colors.primary} />
-                 {/* ✅ تصحيح المفتاح: auth.map_location */}
                  <Text style={styles.actionBtnText}>{t('auth.map_location')}</Text>
               </TouchableOpacity>
            </View>
@@ -582,7 +576,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
               <View style={styles.cardHeaderRow}>
                  <Text style={styles.cardTitle}>{isEditingRating ? t('rating.update_rating') : t('rating.rate_doctor')}</Text>
                  <TouchableOpacity onPress={() => navigation.navigate('DoctorReviews' as never, { doctorId: doctor.id } as never)}>
-                    {/* ✅ تصحيح: استخدام common.see_all */}
                     <Text style={{color: theme.colors.primary, fontSize: 12}}>{t('common.see_all')}</Text>
                  </TouchableOpacity>
               </View>
@@ -591,9 +584,9 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                 <>
                   <View style={styles.ratingStarsRow}>
                       {[1, 2, 3, 4, 5].map((star) => (
-                         <TouchableOpacity key={star} onPress={() => setUserRating(star)}>
-                            <Ionicons name="star" size={36} color={star <= userRating ? "#FFD700" : "#E0E0E0"} />
-                         </TouchableOpacity>
+                          <TouchableOpacity key={star} onPress={() => setUserRating(star)}>
+                             <Ionicons name="star" size={36} color={star <= userRating ? "#FFD700" : "#E0E0E0"} />
+                          </TouchableOpacity>
                       ))}
                   </View>
                   <TextInput
@@ -612,7 +605,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   </TouchableOpacity>
                 </>
               ) : (
-                // ✅ تصحيح: استخدام rating.login_required
                 <Text style={{textAlign: 'center', color: theme.colors.textSecondary}}>{t('rating.login_required')}</Text>
               )}
            </View>
@@ -634,7 +626,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
       <Modal visible={showCalendar} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCalendar(false)}>
          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-               {/* ✅ تصحيح المفتاح: appointments.choose_booking_time */}
                <Text style={styles.modalTitle}>{t('appointments.choose_booking_time')}</Text>
                <TouchableOpacity onPress={() => setShowCalendar(false)}>
                   <Ionicons name="close-circle" size={30} color={theme.colors.textSecondary} />
@@ -653,7 +644,6 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                />
                {selectedDate && availableTimes.length > 0 && (
                   <View style={styles.slotsContainer}>
-                      {/* ✅ استخدام مفتاح مناسب بدلاً من النص الثابت */}
                       <Text style={styles.slotsTitle}>{t('appointments.choose_time_for_day')}:</Text>
                       <View style={styles.slotsGrid}>
                          {availableTimes.map((time, idx) => {
@@ -754,20 +744,20 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                  </TouchableOpacity>
               </View>
               <ScrollView contentContainerStyle={{padding: 20}}>
-                 <View style={styles.formContainer}>
-                    <Text style={styles.label}>{t('validation.patient_name')}</Text>
-                    <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder={t('validation.enter_patient_name')} />
-                    <Text style={styles.label}>{t('validation.patient_phone')}</Text>
-                    <TextInput style={styles.input} value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" placeholder={t('validation.enter_patient_phone')} />
-                    <Text style={styles.label}>{t('validation.patient_age')}</Text>
-                    <TextInput style={styles.input} value={patientAge} onChangeText={setPatientAge} keyboardType="numeric" placeholder={t('validation.enter_patient_age')} />
-                    <TouchableOpacity 
-                        style={[styles.mainBookingButton, {marginTop: 20}]} 
-                        onPress={() => { setIsBookingForOther(true); setShowBookingForOtherModal(false); setShowBookingModal(true); }}
-                    >
-                        <Text style={styles.mainBookingText}>{t('auth.login')}</Text> {/* أو أي نص مثل "استمرار" */}
-                    </TouchableOpacity>
-                 </View>
+                  <View style={styles.formContainer}>
+                     <Text style={styles.label}>{t('validation.patient_name')}</Text>
+                     <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder={t('validation.enter_patient_name')} />
+                     <Text style={styles.label}>{t('validation.patient_phone')}</Text>
+                     <TextInput style={styles.input} value={patientPhone} onChangeText={setPatientPhone} keyboardType="phone-pad" placeholder={t('validation.enter_patient_phone')} />
+                     <Text style={styles.label}>{t('validation.patient_age')}</Text>
+                     <TextInput style={styles.input} value={patientAge} onChangeText={setPatientAge} keyboardType="numeric" placeholder={t('validation.enter_patient_age')} />
+                     <TouchableOpacity 
+                         style={[styles.mainBookingButton, {marginTop: 20}]} 
+                         onPress={() => { setIsBookingForOther(true); setShowBookingForOtherModal(false); setShowBookingModal(true); }}
+                     >
+                         <Text style={styles.mainBookingText}>{t('auth.login')}</Text> {/* أو "استمرار" */}
+                     </TouchableOpacity>
+                  </View>
               </ScrollView>
            </View>
          </SafeAreaView>
@@ -798,7 +788,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 14, fontWeight: 'bold', color: theme.colors.textPrimary },
   statLabel: { fontSize: 12, color: theme.colors.textSecondary },
   divider: { width: 1, height: '80%', backgroundColor: '#F0F0F0', alignSelf: 'center' },
-  contentSection: { padding: 20, paddingBottom: 100 },
+  // 🔽 تم تعديل هذه القيمة لتكون أكبر لتجنب تغطية المحتوى بواسطة الفوتر الكبير
+  contentSection: { padding: 20, paddingBottom: 150 },
   infoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.textPrimary, marginBottom: 12 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
@@ -815,7 +806,7 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: theme.colors.primary, padding: 14, borderRadius: 12, alignItems: 'center' },
   submitBtnText: { color: '#fff', fontWeight: 'bold' },
   
-  // ✅ Footer Fixed with Better Padding for Android
+  // 🔽 التعديل الرئيسي هنا: زيادة المسافة السفلية للأندرويد بشكل خاص
   fixedFooter: { 
     position: 'absolute', 
     bottom: 0, 
@@ -825,14 +816,13 @@ const styles = StyleSheet.create({
     padding: 20, 
     borderTopWidth: 1, 
     borderTopColor: '#F0F0F0', 
-    // تمت زيادة المسافة للأندرويد لرفع الزر عن أزرار النظام
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24 
+    // إذا كان أندرويد اجعلها 60، إذا كان آيفون اجعلها 34
+    paddingBottom: Platform.OS === 'android' ? 60 : 34,
+    elevation: 20 // لضمان ظهوره فوق أي عنصر آخر
   },
   
-  // ✅ Main Booking Button (Fixed Height)
   mainBookingButton: { 
     backgroundColor: theme.colors.primary, 
-    // الارتفاع الثابت هو الحل لمنع الزر من أن يكون ضخماً
     height: 56, 
     borderRadius: 14, 
     flexDirection: 'row', 
@@ -857,17 +847,23 @@ const styles = StyleSheet.create({
   timeSlotBooked: { backgroundColor: '#FFEBEE', opacity: 0.6 },
   timeSlotText: { fontSize: 14, fontWeight: '500', color: '#333' },
   noSlotsText: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
-  modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  
+  // 🔽 التعديل هنا أيضاً للأزرار داخل المودال
+  modalFooter: { 
+    padding: 20, 
+    borderTopWidth: 1, 
+    borderTopColor: '#F0F0F0',
+    // زيادة المسافة السفلية للأندرويد لرفع أزرار التأكيد
+    paddingBottom: Platform.OS === 'android' ? 50 : 34
+  },
+  
   footerButtonsRow: { flexDirection: 'row', gap: 12 },
   
-  // ✅ Modal Buttons (Fixed Height & Centered)
   confirmBtn: { 
     flex: 1, 
     backgroundColor: theme.colors.primary, 
-    // إضافة ارتفاع ثابت هنا لمنع التضخم
     height: 50, 
     borderRadius: 12, 
-    // التوسيط لمنع النص من الاختلال
     justifyContent: 'center',
     alignItems: 'center' 
   },
