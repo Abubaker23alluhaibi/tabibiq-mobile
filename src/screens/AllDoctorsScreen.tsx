@@ -72,6 +72,31 @@ const AllDoctorsScreen = () => {
   // مؤقت للبحث
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // --- Helper Function for Image URLs ---
+  const getImageUrl = (imagePath: string | null | undefined): string | null => {
+    if (!imagePath || imagePath === 'null' || imagePath === 'undefined' || imagePath.trim() === '') {
+      return null;
+    }
+    
+    // إذا كانت الصورة من Cloudinary أو رابط كامل
+    if (imagePath.startsWith('https://res.cloudinary.com') || imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // إذا كانت الصورة محلية (تبدأ بـ /uploads/)
+    if (imagePath.startsWith('/uploads/')) {
+      return `${API_CONFIG.BASE_URL}${imagePath}`;
+    }
+    
+    // إذا كانت الصورة مسار نسبي آخر
+    if (imagePath && !imagePath.startsWith('http')) {
+      const cleanPath = imagePath.replace(/^\/+/, '');
+      return `${API_CONFIG.BASE_URL}/${cleanPath}`;
+    }
+    
+    return null;
+  };
+
   // --- Debounce Search Logic ---
   // هذا يمنع إرسال طلب للسيرفر مع كل حرف يكتبه المستخدم
   useEffect(() => {
@@ -113,17 +138,47 @@ const AllDoctorsScreen = () => {
       // التعامل مع هيكلية البيانات (سواء كانت مصفوفة مباشرة أو داخل كائن data)
       const rawDoctors = Array.isArray(data) ? data : (data.doctors || data.data || []);
       
-      const mapped: Doctor[] = rawDoctors.map((d: any) => ({
-        id: d._id || d.id,
-        name: d.name || t('common.doctor'),
-        specialty: mapSpecialtyToLocalized(d.specialty || d.category_ar || d.category),
-        province: d.province || t('common.not_specified'),
-        area: d.area || t('common.not_specified'),
-        image: d.imageUrl || d.profile_image || d.profileImage || d.image || null,
-        isFeatured: d.isFeatured || d.is_featured || false,
-        rating: Number(d.averageRating ?? d.ratingAverage ?? d.rating_avg ?? d.avgRating ?? d.rating ?? 0) || 0,
-        experience: d.experienceYears ? `${d.experienceYears} ${t('common.years')}` : t('common.not_specified'),
-      }));
+      // تسجيل للتشخيص - أول طبيب في القائمة
+      if (rawDoctors.length > 0) {
+        const firstDoctor = rawDoctors[0];
+        console.log('📋 Sample doctor from API:', {
+          name: firstDoctor.name,
+          imageUrl: firstDoctor.imageUrl,
+          image: firstDoctor.image,
+          profileImage: firstDoctor.profileImage,
+          profile_image: firstDoctor.profile_image,
+        });
+      }
+      
+      const mapped: Doctor[] = rawDoctors.map((d: any) => {
+        // الحصول على الصورة من أي حقل متاح
+        const rawImage = d.imageUrl || d.profile_image || d.profileImage || d.image || null;
+        // معالجة الصورة باستخدام getImageUrl
+        const processedImage = getImageUrl(rawImage);
+        
+        // تسجيل للتشخيص (يمكن حذفه لاحقاً)
+        if (rawImage && !processedImage) {
+          console.log('⚠️ Image processing failed:', { rawImage, doctorName: d.name });
+        } else if (processedImage) {
+          console.log('✅ Image processed successfully:', { 
+            rawImage, 
+            processedImage, 
+            doctorName: d.name 
+          });
+        }
+        
+        return {
+          id: d._id || d.id,
+          name: d.name || t('common.doctor'),
+          specialty: mapSpecialtyToLocalized(d.specialty || d.category_ar || d.category),
+          province: d.province || t('common.not_specified'),
+          area: d.area || t('common.not_specified'),
+          image: processedImage,
+          isFeatured: d.isFeatured || d.is_featured || false,
+          rating: Number(d.averageRating ?? d.ratingAverage ?? d.rating_avg ?? d.avgRating ?? d.rating ?? 0) || 0,
+          experience: d.experienceYears ? `${d.experienceYears} ${t('common.years')}` : t('common.not_specified'),
+        };
+      });
 
       // --- Client Side Filtering Fallback ---
       // إذا كان الباك إند لا يدعم الفلترة، نقوم بالفلترة هنا (لضمان عمل التطبيق في كل الحالات)
@@ -227,37 +282,66 @@ const AllDoctorsScreen = () => {
     );
   };
 
-  const renderItem = ({ item }: { item: Doctor }) => (
-    <TouchableOpacity
-      style={styles.gridCard}
-      activeOpacity={0.8}
-      onPress={() => (navigation as any).navigate('DoctorDetails', { doctorId: item.id })}
-    >
-      <Image
-        source={{ uri: item.image ? item.image : 'https://via.placeholder.com/300x200.png?text=Doctor' }}
-        style={styles.cardImage}
-      />
-      <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.cardSpec} numberOfLines={1}>{item.specialty}</Text>
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
-          <Text style={styles.cardLoc} numberOfLines={1}>
-             {mapProvinceToLocalized(item.province, i18n.language)}
-             {item.area ? ` - ${item.area}` : ''}
-          </Text>
+  const renderItem = ({ item }: { item: Doctor }) => {
+    // معالجة الصورة مرة أخرى للتأكد - استخدام getImageUrl مرة أخرى
+    const imageUri = item.image ? getImageUrl(item.image) : null;
+    
+    return (
+      <TouchableOpacity
+        style={styles.gridCard}
+        activeOpacity={0.8}
+        onPress={() => (navigation as any).navigate('DoctorDetails', { doctorId: item.id })}
+      >
+        <View style={styles.imageContainer}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.cardImage}
+              resizeMode="cover"
+              onError={(e) => {
+                console.log('❌ Failed to load doctor image:', {
+                  uri: imageUri,
+                  originalImage: item.image,
+                  doctorName: item.name,
+                });
+              }}
+              onLoadStart={() => {
+                console.log('🔄 Loading image:', imageUri);
+              }}
+              onLoad={() => {
+                console.log('✅ Image loaded successfully:', imageUri);
+              }}
+            />
+          ) : (
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.cardImage}
+              resizeMode="cover"
+            />
+          )}
         </View>
-        <View style={styles.cardFooter}>
-          {item.rating ? (
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#FFD700" />
-              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-            </View>
-          ) : <View />} 
+        <View style={styles.cardBody}>
+          <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.cardSpec} numberOfLines={1}>{item.specialty}</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
+            <Text style={styles.cardLoc} numberOfLines={1}>
+               {mapProvinceToLocalized(item.province, i18n.language)}
+               {item.area ? ` - ${item.area}` : ''}
+            </Text>
+          </View>
+          <View style={styles.cardFooter}>
+            {item.rating ? (
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+              </View>
+            ) : <View />} 
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderFooter = () => {
     if (!loadingMore) return <View style={{height: 20}} />;
@@ -516,7 +600,18 @@ const styles = StyleSheet.create({
     width: '48%', backgroundColor: theme.colors.white, borderRadius: 16, marginBottom: 16,
     overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border + '20', elevation: 3,
   },
-  cardImage: { width: '100%', height: 140, resizeMode: 'cover', backgroundColor: theme.colors.background },
+  imageContainer: {
+    width: '100%',
+    height: 140,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.background,
+  },
+  cardImage: { 
+    width: '100%', 
+    height: 140, 
+    resizeMode: 'cover', 
+    backgroundColor: theme.colors.background 
+  },
   cardBody: { padding: 12 },
   cardName: { fontSize: 14, fontWeight: '700', color: theme.colors.textPrimary, textAlign: 'left', marginBottom: 4 },
   cardSpec: { fontSize: 12, color: theme.colors.primary, fontWeight: '600', textAlign: 'left', marginBottom: 6 },

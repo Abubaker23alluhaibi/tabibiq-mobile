@@ -115,9 +115,15 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
 
   const getImageUrl = (imagePath: string | null | undefined): string | null => {
     if (!imagePath || imagePath === 'null' || imagePath === 'undefined') return null;
-    if (imagePath.startsWith('https://res.cloudinary.com')) return imagePath;
-    if (imagePath.startsWith('/uploads/')) return `${API_CONFIG.BASE_URL}${imagePath}`;
-    if (imagePath.startsWith('http')) return imagePath;
+    // إذا كانت الصورة من Cloudinary أو رابط كامل
+    if (imagePath.startsWith('https://res.cloudinary.com') || imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    // إذا كانت الصورة محلية (تبدأ بـ /uploads/)
+    if (imagePath.startsWith('/uploads/')) {
+      return `${API_CONFIG.BASE_URL}${imagePath}`;
+    }
+    // إذا كانت الصورة مسار نسبي آخر
     if (imagePath && !imagePath.startsWith('http') && !imagePath.startsWith('/uploads/')) {
       return `${API_CONFIG.BASE_URL}/${imagePath.replace(/^\/+/, '')}`;
     }
@@ -483,6 +489,10 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
                   source={{ uri: getImageUrl(doctor.imageUrl || doctor.image) || '' }} 
                   style={styles.profileImage}
                   resizeMode="cover"
+                  onError={(e) => {
+                    console.log('Failed to load doctor image in DoctorDetailsScreen:', getImageUrl(doctor.imageUrl || doctor.image));
+                  }}
+                  defaultSource={require('../../assets/icon.png')}
                 />
               ) : (
                 <Image 
@@ -575,7 +585,7 @@ const DoctorDetailsScreen: React.FC<DoctorDetailsScreenProps> = ({ route }) => {
            <View style={styles.infoCard} onLayout={(event) => { const layout = event.nativeEvent.layout; setRatingSectionY(layout.y + 200); }}>
               <View style={styles.cardHeaderRow}>
                  <Text style={styles.cardTitle}>{isEditingRating ? t('rating.update_rating') : t('rating.rate_doctor')}</Text>
-                 <TouchableOpacity onPress={() => navigation.navigate('DoctorReviews' as never, { doctorId: doctor.id } as never)}>
+                 <TouchableOpacity onPress={() => (navigation as any).navigate('DoctorReviews', { doctorId: doctor.id })}>
                     <Text style={{color: theme.colors.primary, fontSize: 12}}>{t('common.see_all')}</Text>
                  </TouchableOpacity>
               </View>

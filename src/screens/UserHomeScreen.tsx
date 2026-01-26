@@ -531,6 +531,10 @@ const UserHomeScreen = () => {
             source={{ uri: item.image }}
             style={styles.doctorImage}
             resizeMode="cover"
+            onError={(e) => {
+              console.log('Failed to load doctor image:', item.image);
+            }}
+            defaultSource={require('../../assets/icon.png')}
           />
         ) : (
           <Image
