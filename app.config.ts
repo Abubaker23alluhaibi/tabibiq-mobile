@@ -42,7 +42,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     package: 'com.tabibiq.platform',
-    versionCode: 15,
+    versionCode: 17,
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
@@ -94,7 +94,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           "targetSdkVersion": 35,
           "minSdkVersion": 24, 
           "buildToolsVersion": "35.0.0",
-          "kotlinVersion": "1.9.24"
+          "kotlinVersion": "2.1.21"
         }
       }
     ]
