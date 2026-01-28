@@ -1,6 +1,8 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+// Firebase Google Services plugin (لـ google-services.json)
+apply plugin: "com.google.gms.google-services"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -92,7 +94,7 @@ android {
         applicationId 'com.tabibiq.platform'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
+        versionCode 17
         versionName "1.0.2"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -179,4 +181,11 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Firebase BoM + Messaging (Push Notifications)
+    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    // Analytics (اختياري)
+    implementation("com.google.firebase:firebase-analytics")
+    // ✅ مكتبة الإشعارات (FCM)
+    implementation("com.google.firebase:firebase-messaging")
 }

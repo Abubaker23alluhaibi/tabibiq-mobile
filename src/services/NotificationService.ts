@@ -110,7 +110,7 @@ export class NotificationService {
     }
   }
 
-  // تسجيل الجهاز للحصول على رمز الإشعارات
+  // تسجيل الجهاز للحصول على رمز الإشعارات (FCM device token بدلاً من Expo push token)
   async registerForPushNotifications(): Promise<string | null> {
     if (!Device.isDevice) {
       logWarn('يجب تشغيل التطبيق على جهاز حقيقي');
@@ -132,14 +132,22 @@ export class NotificationService {
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: APP_CONFIG.NOTIFICATION.PROJECT_ID, // معرف مشروع Expo من ملف التكوين
-      });
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
 
-      this.expoPushToken = token.data;
-      logInfo('تم تسجيل رمز الإشعارات', { token: this.expoPushToken });
+      const token =
+        (deviceToken as any)?.data?.token ||
+        (deviceToken as any)?.data ||
+        (deviceToken as any)?.token;
 
-      // إرسال الرمز إلى الخادم
+      if (!token) {
+        logError('فشل في الحصول على FCM device token');
+        return null;
+      }
+
+      this.expoPushToken = token;
+      logInfo('تم تسجيل رمز الإشعارات (FCM device token)', { token: this.expoPushToken });
+
+      // إرسال الرمز إلى الخادم (سيتم اعتباره FCM token)
       await this.sendTokenToServer(this.expoPushToken);
 
       if (Platform.OS === 'android') {
@@ -232,14 +240,22 @@ export class NotificationService {
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: APP_CONFIG.NOTIFICATION.PROJECT_ID,
-      });
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
 
-      this.expoPushToken = token.data;
-      logInfo('تم تسجيل رمز الإشعارات للمستخدم', { 
+      const token =
+        (deviceToken as any)?.data?.token ||
+        (deviceToken as any)?.data ||
+        (deviceToken as any)?.token;
+
+      if (!token) {
+        logError('فشل في الحصول على FCM device token للمستخدم');
+        return null;
+      }
+
+      this.expoPushToken = token;
+      logInfo('تم تسجيل رمز الإشعارات للمستخدم (FCM device token)', {
         token: this.expoPushToken,
-        userId 
+        userId,
       });
 
       // إرسال الرمز إلى الخادم
@@ -292,14 +308,22 @@ export class NotificationService {
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: APP_CONFIG.NOTIFICATION.PROJECT_ID,
-      });
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
 
-      this.expoPushToken = token.data;
-      logInfo('تم تسجيل رمز الإشعارات للطبيب', { 
+      const token =
+        (deviceToken as any)?.data?.token ||
+        (deviceToken as any)?.data ||
+        (deviceToken as any)?.token;
+
+      if (!token) {
+        logError('فشل في الحصول على FCM device token للطبيب');
+        return null;
+      }
+
+      this.expoPushToken = token;
+      logInfo('تم تسجيل رمز الإشعارات للطبيب (FCM device token)', {
         token: this.expoPushToken,
-        doctorId 
+        doctorId,
       });
 
       // إرسال الرمز إلى الخادم

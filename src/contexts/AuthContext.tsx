@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api';
+import NotificationService from '../services/NotificationService';
 import { User } from '../types';
 import { doctorsAPI } from '../services/api';
 import { getToken as getSecureToken, saveToken as saveSecureToken, deleteToken as deleteSecureToken } from '../utils/secureStorage';
@@ -206,6 +207,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // 3. حفظ التوكن (الأهم)
       if (data.token) {
         await saveSecureToken(data.token);
+      }
+
+      // 4. تسجيل رمز الإشعارات في الخادم مع userId/doctorId الصحيح
+      try {
+        if (userData.user_type === 'doctor') {
+          await NotificationService.registerForDoctorNotifications(userData.id);
+        } else if (userData.user_type === 'user') {
+          await NotificationService.registerForUserNotifications(userData.id);
+        }
+      } catch (notificationError) {
+        console.log('Error registering notification token after login:', notificationError);
       }
 
       return {};

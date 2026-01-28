@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1018352493043",
+    "project_id": "tabibiq-f6ea6",
+    "storage_bucket": "tabibiq-f6ea6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1018352493043:android:59743cef43ef0a6967b286",
+        "android_client_info": {
+          "package_name": "com.tabibiq.platform"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsBh-3k9Cf9_f5-6QYiijarTARvIrj9SE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
