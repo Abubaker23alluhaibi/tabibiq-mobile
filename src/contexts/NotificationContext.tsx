@@ -175,7 +175,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
-  // دالة للتحديث التلقائي للإشعارات
+  // دالة للتحديث التلقائي للإشعارات (مزامنة فقط بدون إعادة إرسال push من التطبيق)
   const startAutoRefresh = () => {
     // تحديث الإشعارات كل 30 ثانية
     const interval = setInterval(async () => {
@@ -183,78 +183,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         const currentUser = await AsyncStorage.getItem('user');
         if (currentUser) {
           const user = JSON.parse(currentUser);
-          const previousCount = notifications.length;
-          
-          // مزامنة الإشعارات مع الخادم
+          // مزامنة الإشعارات مع الخادم فقط
           await syncNotificationsWithServer(user.id, false);
-          
-          // فحص الإشعارات الجديدة بعد التحديث
-          setTimeout(async () => {
-            if (notifications.length > previousCount) {
-              const newNotifications = notifications.slice(0, notifications.length - previousCount);
-              for (const notification of newNotifications) {
-                if (notification.type === 'appointment_cancelled' && !notification.isRead) {
-                  logNotificationEvent('إشعار إلغاء موعد جديد - إرسال تنبيه فوري', notification);
-                  
-                  // إرسال Push Notification حقيقي من الخادم
-                  try {
-                    const pushSuccess = await NotificationService.sendPushNotificationToUser(
-                      user.id,
-                      'تم إلغاء الموعد',
-                      notification.body,
-                      {
-                        ...notification.data,
-                        urgent: true,
-                        type: 'appointment_cancelled',
-                        fromServer: true
-                      }
-                    );
-                    
-                    if (pushSuccess) {
-                      logInfo('تم إرسال Push Notification لإلغاء الموعد');
-                    } else {
-                      logWarn('فشل في إرسال Push Notification، إرسال إشعار محلي بديل');
-                      // إرسال إشعار محلي كبديل
-                      Notifications.scheduleNotificationAsync({
-                        content: {
-                          title: 'تم إلغاء الموعد',
-                          body: notification.body,
-                          sound: 'default',
-                          priority: Notifications.AndroidNotificationPriority.MAX,
-                          vibrate: [0, 1000, 500, 1000, 500, 1000],
-                          data: {
-                            ...notification.data,
-                            urgent: true,
-                            type: 'appointment_cancelled'
-                          },
-                          ...(Platform.OS === 'android' && {
-                            channelId: 'appointment_cancellation',
-                            color: '#FF0000',
-                            smallIcon: 'ic_notification',
-                            largeIcon: 'ic_launcher',
-                            categoryId: 'appointment_cancellation',
-                            autoCancel: false,
-                            ongoing: false,
-                            visibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-                            showTimestamp: true,
-                            when: Date.now(),
-                            lights: true,
-                            lightColor: '#FF0000',
-                            localOnly: false,
-                            sticky: false,
-                            tag: 'appointment_cancellation_' + Date.now()
-                          }),
-                        },
-                        trigger: null,
-                      });
-                    }
-                  } catch (error) {
-                    logError('خطأ في إرسال إشعار إلغاء الموعد', error);
-                  }
-                }
-              }
-            }
-          }, 1000); // انتظار ثانية واحدة للتأكد من تحديث الإشعارات
         }
       } catch (error) {
         logError('خطأ في التحديث التلقائي للإشعارات', error);
@@ -533,92 +463,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       setNotifications(allNotifications);
       await saveNotificationsToStorage(allNotifications);
       
-      // فحص الإشعارات الجديدة وإرسال تنبيهات فورية
-      if (newServerNotifications.length > 0) {
-        logInfo('فحص الإشعارات الجديدة لإرسال التنبيهات', { count: newServerNotifications.length });
-        for (const notification of newServerNotifications) {
-          if (notification.type === 'appointment_cancelled' && !notification.isRead) {
-            logNotificationEvent('إشعار إلغاء موعد جديد من الخادم - إرسال تنبيه فوري', notification);
-            
-            // حذف التذكيرات المحلية للموعد الملغي
-            const appointmentId = notification.data?.appointmentId || notification.data?.appointment_id;
-            if (appointmentId) {
-              try {
-                logDebug('حذف التذكيرات المحلية للموعد الملغي', { appointmentId });
-                await NotificationService.cancelAppointmentReminders(appointmentId);
-                logInfo('تم حذف التذكيرات المحلية للموعد الملغي');
-              } catch (reminderError) {
-                logError('فشل في حذف التذكيرات المحلية للموعد الملغي', reminderError);
-              }
-            } else {
-              logWarn('لم يتم العثور على معرف الموعد في بيانات الإشعار', { data: notification.data });
-              // محاولة استخراج معرف الموعد من نص الإشعار إذا كان متاحاً
-              const bodyText = notification.body || '';
-              const appointmentIdMatch = bodyText.match(/موعدك مع.*?في.*?الساعة/);
-              if (appointmentIdMatch) {
-                logDebug('تم العثور على نص الموعد في الإشعار، لكن لا يمكن استخراج معرف الموعد');
-              }
-            }
-            
-            // إرسال Push Notification حقيقي من الخادم
-            try {
-              const pushSuccess = await NotificationService.sendPushNotificationToUser(
-                userId,
-                'تم إلغاء الموعد',
-                notification.body,
-                {
-                  ...notification.data,
-                  urgent: true,
-                  type: 'appointment_cancelled',
-                  fromServer: true
-                }
-              );
-              
-              if (pushSuccess) {
-                logInfo('تم إرسال Push Notification لإلغاء الموعد');
-              } else {
-                logWarn('فشل في إرسال Push Notification، إرسال إشعار محلي بديل');
-                // إرسال إشعار محلي كبديل
-                Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: 'تم إلغاء الموعد',
-                    body: notification.body,
-                    sound: 'default',
-                    priority: Notifications.AndroidNotificationPriority.MAX,
-                    vibrate: [0, 1000, 500, 1000, 500, 1000],
-                    data: {
-                      ...notification.data,
-                      urgent: true,
-                      type: 'appointment_cancelled',
-                      fromServer: true
-                    },
-                    ...(Platform.OS === 'android' && {
-                      channelId: 'appointment_cancellation',
-                      color: '#FF0000',
-                      smallIcon: 'ic_notification',
-                      largeIcon: 'ic_launcher',
-                      categoryId: 'appointment_cancellation',
-                      autoCancel: false,
-                      ongoing: false,
-                      visibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-                      showTimestamp: true,
-                      when: Date.now(),
-                      lights: true,
-                      lightColor: '#FF0000',
-                      localOnly: false,
-                      sticky: false,
-                      tag: 'appointment_cancellation_' + Date.now()
-                    }),
-                  },
-                  trigger: null,
-                });
-              }
-            } catch (error) {
-              logError('خطأ في إرسال إشعار إلغاء الموعد', error);
-            }
-          }
-        }
-      }
+      // لم نعد نعيد إرسال push من التطبيق نفسه
       
       logInfo('تم مزامنة الإشعارات مع الخادم', { count: allNotifications.length });
     } catch (error) {
@@ -856,22 +701,32 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
-  // دالة لتحديد الإشعار كمقروء
+  // دالة لتحديد الإشعار كمقروء (مع منع التكرار لنفس الإشعار)
   const markNotificationAsRead = async (notificationId: string) => {
     try {
       logDebug('تحديد الإشعار كمقروء', { notificationId });
-      
+
+      const existing = notifications.find(n => n.id === notificationId);
+      // إذا كان الإشعار غير موجود أو مقروء بالفعل لا نكرر الطلب
+      if (!existing) {
+        logWarn('محاولة تحديد إشعار غير موجود كمقروء', { notificationId });
+        return;
+      }
+      if (existing.isRead) {
+        logDebug('الإشعار مقروء بالفعل - تجاهل طلب التحديد', { notificationId });
+        return;
+      }
+
       // تحديث الإشعارات المحلية
-      const updatedNotifications = notifications.map(n => 
+      const updatedNotifications = notifications.map(n =>
         n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
       );
-      
+
       setNotifications(updatedNotifications);
       await saveNotificationsToStorage(updatedNotifications);
-      
+
       // تحديث الإشعار في الخادم إذا كان من الخادم
-      const notification = notifications.find(n => n.id === notificationId);
-      if (notification && !(notification as any).isLocal) {
+      if (!existing.isLocal) {
         try {
           await api.post(`/notifications/${notificationId}/mark-read`);
           logInfo('تم تحديث حالة الإشعار في الخادم');
@@ -879,37 +734,42 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           logWarn('فشل في تحديث حالة الإشعار في الخادم', serverError);
         }
       }
-      
+
       logInfo('تم تحديد الإشعار كمقروء بنجاح');
     } catch (error) {
       logError('خطأ في تحديد الإشعار كمقروء', error);
     }
   };
 
-  // دالة لتحديد جميع الإشعارات كمقروءة
+  // دالة لتحديد جميع الإشعارات كمقروءة (إرسال طلب واحد لكل إشعار غير مقروء فقط)
   const markAllNotificationsAsRead = async () => {
     try {
       logDebug('تحديد جميع الإشعارات كمقروءة');
-      
-      const updatedNotifications = notifications.map(n => ({ 
-        ...n, 
-        isRead: true, 
-        readAt: new Date().toISOString() 
+
+      const nowIso = new Date().toISOString();
+
+      const updatedNotifications = notifications.map(n => ({
+        ...n,
+        isRead: true,
+        readAt: n.readAt || nowIso,
       }));
-      
+
       setNotifications(updatedNotifications);
       await saveNotificationsToStorage(updatedNotifications);
-      
-      // تحديث الإشعارات في الخادم
-      const serverNotifications = notifications.filter(n => !(n as any).isLocal);
-      for (const notification of serverNotifications) {
+
+      // تحديث الإشعارات في الخادم - فقط غير المقروءة ومن الخادم
+      const serverUnreadNotifications = notifications.filter(
+        n => !(n as any).isLocal && !n.isRead
+      );
+
+      for (const notification of serverUnreadNotifications) {
         try {
           await api.post(`/notifications/${notification.id}/mark-read`);
         } catch (serverError) {
           logWarn('فشل في تحديث إشعار في الخادم', { notificationId: notification.id });
         }
       }
-      
+
       logInfo('تم تحديد جميع الإشعارات كمقروءة');
     } catch (error) {
       logError('خطأ في تحديد جميع الإشعارات كمقروءة', error);

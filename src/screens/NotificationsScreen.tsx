@@ -41,26 +41,22 @@ const NotificationsScreen = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // عند فتح الشاشة نحدد جميع الإشعارات كمقروءة لتصفير العداد فوراً
+  // عند فتح الشاشة نحدد جميع الإشعارات كمقروءة مرة واحدة فقط
   useFocusEffect(
     useCallback(() => {
       const run = async () => {
         try {
-
           const unreadNotifications = notifications.filter(n => !n.isRead);
 
-          
           if (unreadNotifications.length > 0) {
-
             await markAllNotificationsAsRead();
-
           }
         } catch (e) {
           // خطأ في تحديد الإشعارات كمقروءة
         }
       };
       run();
-    }, [notifications, markAllNotificationsAsRead])
+    }, [markAllNotificationsAsRead]) // لا نعتمد على notifications حتى لا يعاد الاستدعاء مع كل تحديث
   );
 
   useEffect(() => {
@@ -73,18 +69,6 @@ const NotificationsScreen = () => {
       clearDuplicateNotifications();
     }
   }, []);
-
-  // تحديد جميع الإشعارات كمقروءة عند فتح الصفحة
-  useEffect(() => {
-    const markAllAsReadOnOpen = async () => {
-      const unreadNotifications = notifications.filter(n => !n.isRead);
-      if (unreadNotifications.length > 0) {
-        await markAllNotificationsAsRead();
-      }
-    };
-
-    markAllAsReadOnOpen();
-  }, [notifications, markAllNotificationsAsRead]);
 
   const onRefresh = async () => {
     setRefreshing(true);

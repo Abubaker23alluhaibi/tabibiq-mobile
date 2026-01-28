@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TabibiQ - منصة طبيب العراق',
   slug: 'tabibiq-mobile',
   version: '1.0.2',
-  owner: 'abubakeriq',
+  owner: 'abubakeralluhaibi',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -73,12 +73,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png'
   },
   updates: {
-    url: 'https://u.expo.dev/be4c2514-ccbb-47d6-bcee-23b74a2ec333'
+    url: 'https://u.expo.dev/68734557-2172-4454-827e-578f6793d01c'
   },
   runtimeVersion: '1.0.2',
   extra: {
     eas: {
-      projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
+      projectId: 'bba7e53b-a29d-4162-92c7-19e1e13f69db',
     },
     apiUrl: 'https://web-production-78766.up.railway.app',
     environment: 'production',
