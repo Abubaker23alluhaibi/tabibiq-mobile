@@ -1,5 +1,33 @@
 # إشعارات FCM وفحص التوكن
 
+## 0. ملفات Firebase (Android و iOS)
+
+### أندرويد (جاهز)
+- **الملف:** `google-services.json`
+- **المكان:** في جذر المشروع `./google-services.json` (ويُنسخ إلى `android/app/google-services.json` عند البناء).
+- **الإعداد في app.config.ts:** `android.googleServicesFile: './google-services.json'`
+- **كيف تحصل عليه:** Firebase Console → مشروعك (tabibiq-f6ea6) → إعدادات المشروع → تطبيق Android → تحميل `google-services.json`.
+
+### آيفون (يحتاج إضافة الملف)
+- **الملف:** `GoogleService-Info.plist`
+- **المكان:** في جذر المشروع بجانب `google-services.json`، أي: `./GoogleService-Info.plist`
+- **الإعداد في app.config.ts:** `ios.googleServicesFile: './GoogleService-Info.plist'` (تمت إضافته)
+- **كيف تحصل عليه:**
+  1. Firebase Console → نفس المشروع (tabibiq-f6ea6) → إضافة تطبيق → اختر **iOS**.
+  2. أدخل **Bundle ID:** `com.tabibiq.platform` (نفس القيمة في app.config: `ios.bundleIdentifier`).
+  3. حمّل ملف **GoogleService-Info.plist** وضعه في مجلد المشروع (الجذر) باسم `GoogleService-Info.plist`.
+  4. لتفعيل الإشعارات على iOS تحتاج أيضاً رفع **مفتاح APNs** في Firebase: Firebase Console → إعدادات المشروع → Cloud Messaging → تطبيق iOS → رفع APNs Authentication Key (من Apple Developer).
+
+**ملخص المواقع:**
+| المنصة  | اسم الملف                 | المسار في المشروع           |
+|--------|----------------------------|------------------------------|
+| Android | google-services.json       | `./google-services.json`     |
+| iOS     | GoogleService-Info.plist   | `./GoogleService-Info.plist` |
+
+بدون وضع `GoogleService-Info.plist` في الجذر، بناء iOS قد يفشل؛ بعد تحميله من Firebase ضعه في الجذر ثم أعد البناء.
+
+---
+
 ## 1. أين يُحفظ FCM Token؟
 
 - **لا يُحفظ داخل مستند User.** مستند المستخدم (مثل `b@b.b` أو `697b472a7e732d426459931d`) **لا يحتوي أبداً** على حقل `fcmToken` — وهذا متعمّد.

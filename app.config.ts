@@ -22,6 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: false,
     bundleIdentifier: 'com.tabibiq.platform',
     buildNumber: '1.0.2',
+    // ملف إعداد Firebase للإشعارات (FCM) على iOS - حمّله من Firebase Console كـ GoogleService-Info.plist
+    googleServicesFile: './GoogleService-Info.plist',
     infoPlist: {
       NSLocationWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
       NSLocationAlwaysAndWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
