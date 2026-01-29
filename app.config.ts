@@ -43,6 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     package: 'com.tabibiq.platform',
     versionCode: 17,
+    googleServicesFile: './google-services.json',
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',

@@ -205,23 +205,26 @@ export class NotificationService {
 
       if (response.ok) {
         logApiResponse('/notifications/register', response.status);
+        logInfo('🔔 [FCM] تم إرسال التوكن للسيرفر بنجاح — تحقق من مجموعة notificationtokens في MongoDB');
       } else {
-        logWarn('فشل في إرسال رمز الإشعارات إلى الخادم', {
+        const errBody = await response.text();
+        logWarn('🔔 [FCM] فشل إرسال التوكن إلى الخادم', {
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
+          body: errBody?.slice(0, 200),
         });
-        logInfo('الإشعارات ستعمل محلياً حتى يتم إصلاح مشاكل الخادم');
       }
-    } catch (error) {
-      logError('خطأ في إرسال رمز الإشعارات', error);
-      logInfo('الإشعارات ستعمل محلياً حتى يتم إصلاح مشاكل الخادم');
+    } catch (error: any) {
+      logError('🔔 [FCM] خطأ في إرسال رمز الإشعارات', error?.message || error);
     }
   }
 
   // تسجيل الجهاز للحصول على رمز الإشعارات (للمستخدمين)
   async registerForUserNotifications(userId: string): Promise<string | null> {
+    logInfo('🔔 [FCM] محاولة تسجيل التوكن للمستخدم', { userId });
+
     if (!Device.isDevice) {
-      logWarn('يجب تشغيل التطبيق على جهاز حقيقي');
+      logWarn('🔔 [FCM] يجب تشغيل التطبيق على جهاز حقيقي (Expo Go لا يدعم FCM في SDK 53)');
       return null;
     }
 
@@ -236,11 +239,17 @@ export class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        logError('لم يتم منح إذن الإشعارات');
+        logError('🔔 [FCM] لم يتم منح إذن الإشعارات — لن يُسجّل التوكن');
         return null;
       }
 
-      const deviceToken = await Notifications.getDevicePushTokenAsync();
+      let deviceToken: any;
+      try {
+        deviceToken = await Notifications.getDevicePushTokenAsync();
+      } catch (tokenError: any) {
+        logError('🔔 [FCM] فشل getDevicePushTokenAsync (غالباً Expo Go أو محاكي)', tokenError?.message || tokenError);
+        return null;
+      }
 
       const token =
         (deviceToken as any)?.data?.token ||
@@ -248,15 +257,12 @@ export class NotificationService {
         (deviceToken as any)?.token;
 
       if (!token) {
-        logError('فشل في الحصول على FCM device token للمستخدم');
+        logError('🔔 [FCM] فشل في الحصول على FCM device token — قد تكون تستخدم Expo Go');
         return null;
       }
 
       this.expoPushToken = token;
-      logInfo('تم تسجيل رمز الإشعارات للمستخدم (FCM device token)', {
-        token: this.expoPushToken,
-        userId,
-      });
+      logInfo('🔔 [FCM] تم الحصول على التوكن، جاري الإرسال للسيرفر', { userId });
 
       // إرسال الرمز إلى الخادم
       await this.sendTokenToServer(this.expoPushToken, userId);
@@ -279,7 +285,8 @@ export class NotificationService {
       }
 
       return this.expoPushToken;
-    } catch (error) {
+    } catch (error: any) {
+      logError('🔔 [FCM] خطأ في registerForUserNotifications', error?.message || error);
       return null;
     }
   }

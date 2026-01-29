@@ -209,16 +209,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await saveSecureToken(data.token);
       }
 
-      // 4. تسجيل رمز الإشعارات في الخادم مع userId/doctorId الصحيح
+      // 4. تسجيل رمز الإشعارات في الخادم (يُحفظ في مجموعة notificationtokens وليس داخل مستند User)
       try {
         if (userData.user_type === 'doctor') {
+          console.log('🔔 [FCM] جاري تسجيل توكن الإشعارات للطبيب:', userData.id);
           await NotificationService.registerForDoctorNotifications(userData.id);
         } else if (userData.user_type === 'user') {
+          console.log('🔔 [FCM] جاري تسجيل توكن الإشعارات للمستخدم:', userData.id);
           await NotificationService.registerForUserNotifications(userData.id);
         }
-      } catch (notificationError) {
-        console.log('Error registering notification token after login:', notificationError);
+      } catch (notificationError: any) {
+        console.warn('🔔 [FCM] فشل تسجيل التوكن بعد الدخول:', notificationError?.message || notificationError);
       }
+
+      // 5. محاولة ثانية بعد 2.5 ثانية (إذا فشلت الأولى لأن الإذن لم يُمنح بعد)
+      setTimeout(async () => {
+        try {
+          if (userData.user_type === 'doctor') {
+            await NotificationService.registerForDoctorNotifications(userData.id);
+          } else if (userData.user_type === 'user') {
+            await NotificationService.registerForUserNotifications(userData.id);
+          }
+        } catch (_) {}
+      }, 2500);
 
       return {};
     } catch (error) {

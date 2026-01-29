@@ -133,7 +133,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
-  // دالة لتسجيل الإشعارات
+  // دالة لتسجيل الإشعارات — ترسل التوكن مع userId/doctorId عند وجود مستخدم مسجل دخوله
   const registerForNotifications = async () => {
     try {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -150,15 +150,33 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       }
 
       setIsNotificationEnabled(true);
-      
-      // تسجيل Push Token للتأكد من إرسال Push Notifications
-      const pushToken = await NotificationService.registerForPushNotifications();
-      if (pushToken) {
-        logInfo('تم تسجيل Push Token', { token: pushToken });
-      } else {
-        logWarn('فشل في تسجيل Push Token');
+
+      // إرسال التوكن مع userId/doctorId إذا كان المستخدم مسجل دخوله (مهم لوصول الإشعارات من الخادم)
+      let pushToken: string | null = null;
+      try {
+        const currentUserJson = await AsyncStorage.getItem('user');
+        if (currentUserJson) {
+          const currentUser = JSON.parse(currentUserJson) as { id?: string; user_type?: string };
+          if (currentUser?.id) {
+            if (currentUser.user_type === 'doctor') {
+              pushToken = await NotificationService.registerForDoctorNotifications(currentUser.id);
+              if (pushToken) logInfo('تم تسجيل Push Token للطبيب', { doctorId: currentUser.id });
+            } else {
+              pushToken = await NotificationService.registerForUserNotifications(currentUser.id);
+              if (pushToken) logInfo('تم تسجيل Push Token للمستخدم', { userId: currentUser.id });
+            }
+          }
+        }
+      } catch (e) {
+        logWarn('لم يتم ربط التوكن بالمستخدم، جاري التسجيل بدون معرف المستخدم', e);
       }
-      
+
+      if (!pushToken) {
+        pushToken = await NotificationService.registerForPushNotifications();
+        if (pushToken) logInfo('تم تسجيل Push Token (بدون معرف مستخدم)');
+      }
+      if (!pushToken) logWarn('فشل في تسجيل Push Token');
+
       logInfo('تم تسجيل الإشعارات بنجاح');
     } catch (error) {
       logError('خطأ في تسجيل الإشعارات', error);
@@ -824,17 +842,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   useEffect(() => {
     const initializeNotifications = async () => {
       await loadNotificationsFromStorage();
-      
-      // تسجيل Push Token للتأكد من إرسال Push Notifications
-      try {
-        const pushToken = await NotificationService.registerForPushNotifications();
-        if (pushToken) {
 
-        }
+      // تسجيل Push Token مع userId/doctorId عند وجود مستخدم مسجل دخوله
+      try {
+        await registerForNotifications();
       } catch (error) {
         logError('خطأ في تسجيل Push Token', error);
       }
-      
+
       // فحص الإشعارات الجديدة من الخادم عند بدء التطبيق
       try {
         const currentUser = await AsyncStorage.getItem('user');
