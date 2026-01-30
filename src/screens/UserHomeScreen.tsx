@@ -121,26 +121,6 @@ const UserHomeScreen = () => {
     }
   }, [debouncedSearchQuery]);
 
-  useEffect(() => {
-    const featuredDoctors = filteredDoctors.slice(0, 6);
-    if (featuredDoctors.length <= 1) return;
-
-    const interval = setInterval(() => {
-      let nextIndex = currentScrollIndex + 1;
-      if (nextIndex >= featuredDoctors.length) {
-        nextIndex = 0;
-      }
-      setCurrentScrollIndex(nextIndex);
-      featuredListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-        viewPosition: 0.5
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [currentScrollIndex, doctors]);
-
   const fetchDoctors = async () => {
     setLoading(true);
     try {
@@ -194,16 +174,8 @@ const UserHomeScreen = () => {
       const featured = (processedDoctors as Doctor[]).filter(d => (d as any).isFeatured === true);
       const regular = (processedDoctors as Doctor[]).filter(d => !(d as any).isFeatured);
       const shuffledRegular = shuffleArray<Doctor>(regular);
-      
-      const maxDoctorsToShow = 10;
-      let finalDoctors = [...featured];
-      
-      if (finalDoctors.length < maxDoctorsToShow) {
-        const remainingSlots = maxDoctorsToShow - finalDoctors.length;
-        const regularToAdd = shuffledRegular.slice(0, remainingSlots);
-        finalDoctors = [...finalDoctors, ...regularToAdd];
-      }
-      
+      // عرض كل الأطباء (موصى بهم أولاً ثم الباقي) وليس فقط 10
+      const finalDoctors = [...featured, ...shuffledRegular];
       setDoctors(finalDoctors);
     } catch (error) {
       logError('Error fetching doctors', error);
@@ -319,6 +291,29 @@ const UserHomeScreen = () => {
 
     return matchesSearch && matchesProvince && matchesSpecialty;
   });
+
+  // تمرير تلقائي للقائمة الأفقية (مع منع scrollToIndex عند قائمة فارغة)
+  useEffect(() => {
+    const list = filteredDoctors.slice(0, 6);
+    if (list.length <= 1) return;
+
+    const interval = setInterval(() => {
+      const currentList = filteredDoctors.slice(0, 6);
+      if (currentList.length === 0) return;
+      let nextIndex = currentScrollIndex + 1;
+      if (nextIndex >= currentList.length) nextIndex = 0;
+      setCurrentScrollIndex(nextIndex);
+      try {
+        featuredListRef.current?.scrollToIndex({
+          index: nextIndex,
+          animated: true,
+          viewPosition: 0.5
+        });
+      } catch (_) {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [currentScrollIndex, filteredDoctors.length]);
 
   const handleDoctorPress = (doctor: Doctor) => {
     if (!user) {
@@ -717,6 +712,15 @@ const UserHomeScreen = () => {
               </TouchableOpacity>
             </ScrollView>
           </View>
+
+          <TouchableOpacity
+            style={styles.nearestDoctorsButton}
+            onPress={() => (navigation as any).navigate('NearestDoctors')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="navigate" size={20} color={theme.colors.primary} />
+            <Text style={styles.nearestDoctorsButtonText}>{t('nearest_doctors.title', 'الأطباء الأقرب')}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -737,6 +741,7 @@ const UserHomeScreen = () => {
           getItemLayout={(data, index) => (
             { length: GRID_CARD_WIDTH + 12, offset: (GRID_CARD_WIDTH + 12) * index, index }
           )}
+          onScrollToIndexFailed={() => {}}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
@@ -890,6 +895,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   moreChipText: { fontSize: 14, color: theme.colors.primary, fontWeight: '600' },
+  nearestDoctorsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    marginTop: 10,
+    gap: 8,
+  },
+  nearestDoctorsButtonText: { fontSize: 15, color: theme.colors.primary, fontWeight: '600' },
 
   // ✅ تعديل ستايل الإعلان للتوسيط ومنع الميلان
   advertisementSlider: { 
@@ -1010,7 +1030,7 @@ const styles = StyleSheet.create({
   showAllButtonText: { color: theme.colors.primary, fontSize: 14, fontWeight: 'bold', marginRight: 8 },
   quickActions: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, marginBottom: 20 },
   quickAction: { flex: 1, alignItems: 'center', marginHorizontal: 4 },
-  quickActionIcon: {
+  quickActionIcon: {  
     width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.primary,
     justifyContent: 'center', alignItems: 'center', marginBottom: 8,
   },

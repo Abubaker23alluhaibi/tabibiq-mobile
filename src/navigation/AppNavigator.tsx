@@ -33,6 +33,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import DoctorProfileEditScreen from '../screens/DoctorProfileEditScreen';
 import UserProfileEditScreen from '../screens/UserProfileEditScreen';
 import AllDoctorsScreen from '../screens/AllDoctorsScreen';
+import NearestDoctorsScreen from '../screens/NearestDoctorsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TopRatedDoctorsScreen from '../screens/TopRatedDoctorsScreen';
 import DoctorReviewsScreen from '../screens/DoctorReviewsScreen';
@@ -277,6 +278,7 @@ const AppNavigator = () => {
                   <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: t('auth.change_password') }} />
                   <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} options={{ title: t('privacy.settings') }} />
                   <Stack.Screen name="TopRatedDoctors" component={TopRatedDoctorsScreen} options={{ headerShown: false }} />
+                  <Stack.Screen name="NearestDoctors" component={NearestDoctorsScreen} options={{ headerShown: false }} />
                   <Stack.Screen name="DoctorReviews" component={DoctorReviewsScreen} options={{ headerShown: false }} />
                 </>
               )}

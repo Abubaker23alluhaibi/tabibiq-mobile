@@ -273,6 +273,13 @@ export default {
     no_doctors_available: 'No doctors available',
   },
 
+  nearest_doctors: {
+    title: 'Nearest Doctors',
+    subtitle: 'Sorted by distance from your location',
+    getting_location: 'Getting your location...',
+    no_doctors: 'No doctors near your location at the moment',
+  },
+
   // Doctor
   doctor: {
     title: 'Doctor',

@@ -756,6 +756,12 @@ export const doctorsAPI = {
     return await api.get(`/doctors/${doctorId}`);
   },
 
+  getNearestDoctors: async (lat: number, long: number, limit?: number) => {
+    const params: Record<string, string> = { lat: String(lat), long: String(long) };
+    if (limit != null) params.limit = String(limit);
+    return await api.get('/doctors/nearest', { params });
+  },
+
   changePassword: async (doctorId: string, newPassword: string) => {
     try {
       const token = await getToken();

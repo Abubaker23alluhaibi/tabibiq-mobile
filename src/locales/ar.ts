@@ -527,6 +527,13 @@ export default {
     no_doctors_available: 'لا يوجد أطباء متاحون',
   },
 
+  nearest_doctors: {
+    title: 'الأطباء الأقرب',
+    subtitle: 'مرتبون حسب المسافة من موقعك',
+    getting_location: 'جاري تحديد موقعك...',
+    no_doctors: 'لا يوجد أطباء قريبون من موقعك حالياً',
+  },
+
   // الطبيب
   doctor: {
     title: 'الطبيب',

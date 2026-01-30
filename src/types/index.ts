@@ -22,6 +22,7 @@ export type RootStackParamList = {
   AllDoctors: undefined;
   ChangePassword: undefined;
   TopRatedDoctors: undefined;
+  NearestDoctors: undefined;
   DoctorReviews: { doctorId: string };
   PrivacySettings: undefined;
 };

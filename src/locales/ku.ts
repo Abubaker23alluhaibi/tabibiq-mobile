@@ -446,6 +446,13 @@ export default {
     no_doctors_available: 'هیچ پزیشکێک بەردەست نییە',
   },
 
+  nearest_doctors: {
+    title: 'نزیکترین پزیشکەکان',
+    subtitle: 'ڕیزکراو بەپێی دووری لە شوێنەکەت',
+    getting_location: 'دیاریکردنی شوێنەکەت...',
+    no_doctors: 'لە ئێستادا هیچ پزیشکێک لە نزیکت نییە',
+  },
+
   // دکتۆر
   doctor: {
     title: 'پزیشک',

@@ -34,6 +34,10 @@ export const API_CONFIG = {
     return `${this.BASE_URL}/doctors`;
   },
 
+  get DOCTORS_NEAREST() {
+    return `${this.BASE_URL}/doctors/nearest`;
+  },
+
   get DOCTOR_PASSWORD() {
     return `${this.BASE_URL}/doctor-password`;
   },
