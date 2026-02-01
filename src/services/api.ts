@@ -256,33 +256,18 @@ export const appointmentsAPI = {
 
   cancelAppointment: async (appointmentId: string) => {
     try {
-      // التحقق من صحة معرف الموعد
       if (!validateId(appointmentId)) {
-        throw new Error('معرف الموعد غير صحيح');
+        return { success: false, message: 'معرف الموعد غير صحيح' };
       }
-
-      const token = await getToken();
-      // استخدام endpoint الباك إند الجديد
-      const response = await fetch(`${API_BASE_URL}/appointments/${encodeURIComponent(appointmentId)}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      const endpoint = `/appointments/${encodeURIComponent(appointmentId)}`;
+      const data = await api.delete(endpoint);
+      if (data != null) {
         return { success: true, data };
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        return { success: false, message: errorData.error || `فشل في إلغاء الموعد (${response.status})` };
       }
+      return { success: false, message: 'فشل في إلغاء الموعد' };
     } catch (error: any) {
-      return { 
-        success: false, 
-        message: error.message || 'فشل في إلغاء الموعد' 
-      };
+      const message = error?.message || 'فشل في إلغاء الموعد';
+      return { success: false, message };
     }
   },
 
@@ -505,7 +490,7 @@ export const api = {
       
       return result;
     } catch (error) {
-      return null;
+      throw error;
     }
   },
 

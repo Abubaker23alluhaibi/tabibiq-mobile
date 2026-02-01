@@ -289,6 +289,7 @@ const AppNavigator = () => {
                   <Stack.Screen name="DoctorAnalytics" component={DoctorAnalyticsScreen} options={{ title: t('doctor.analytics') }} />
                   <Stack.Screen name="AppointmentDurationEditor" component={AppointmentDurationEditorScreen} options={{ title: 'مدة الموعد' }} />
                   <Stack.Screen name="DoctorProfileEdit" component={DoctorProfileEditScreen} options={{ title: t('profile.edit_profile') }} />
+                  <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} options={{ title: t('privacy.settings') }} />
                   <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
                   <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ headerShown: false }} />
                   <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: t('auth.change_password') }} />

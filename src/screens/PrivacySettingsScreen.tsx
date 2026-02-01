@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Share,
   Platform,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -23,11 +23,24 @@ import { getToken } from '../utils/secureStorage';
 import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
 import TermsOfServiceButton from '../components/TermsOfServiceButton';
 
+const DELETE_CONTACT_WHATSAPP = '+9647769012572';
+const DELETE_CONTACT_EMAIL = 'tabibiqapp@gmail.com';
+
 const PrivacySettingsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { user, profile, signOut } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
+
+  const openWhatsAppForDeletion = () => {
+    const url = `https://wa.me/${DELETE_CONTACT_WHATSAPP.replace(/\s+/g, '').replace('+', '')}`;
+    Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('privacy.contact_open_error') || 'لا يمكن فتح الواتساب'));
+  };
+
+  const openEmailForDeletion = () => {
+    const url = `mailto:${DELETE_CONTACT_EMAIL}?subject=${encodeURIComponent(t('privacy.delete_request_subject') || 'طلب حذف الحساب - TabibiQ')}`;
+    Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('privacy.contact_open_error') || 'لا يمكن فتح البريد'));
+  };
 
   const handleExportData = async () => {
     try {
@@ -100,81 +113,6 @@ const PrivacySettingsScreen: React.FC = () => {
     } finally {
       setLoading(null);
     }
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      t('privacy.delete_account') || 'حذف الحساب',
-      t('privacy.delete_warning') || 'هل أنت متأكد من حذف حسابك؟ سيتم حذف جميع بياناتك بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.',
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('privacy.delete_confirm') || 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading('delete');
-              
-              const token = await getToken();
-              if (!token) {
-                Alert.alert(t('common.error'), t('privacy.delete_error') || 'يجب تسجيل الدخول أولاً');
-                return;
-              }
-
-              // إرسال طلب حذف الحساب
-              const response = await fetch(`${API_CONFIG.BASE_URL}/users/${user?.id}`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (response.ok || response.status === 404) {
-                Alert.alert(
-                  t('privacy.delete_success') || 'تم الحذف',
-                  t('privacy.delete_success_message') || 'تم حذف حسابك بنجاح',
-                  [
-                    {
-                      text: t('common.ok'),
-                      onPress: async () => {
-                        await signOut();
-                        navigation.navigate('Welcome' as never);
-                      },
-                    },
-                  ]
-                );
-              } else {
-                // Fallback: حذف محلي
-                Alert.alert(
-                  t('privacy.delete_success') || 'تم الحذف',
-                  t('privacy.delete_success_message') || 'تم حذف بياناتك المحلية. سيتم حذف البيانات من الخادم عند توفر هذه الميزة.',
-                  [
-                    {
-                      text: t('common.ok'),
-                      onPress: async () => {
-                        await signOut();
-                        navigation.navigate('Welcome' as never);
-                      },
-                    },
-                  ]
-                );
-              }
-            } catch (error) {
-              Alert.alert(
-                t('common.error'),
-                t('privacy.delete_error') || 'حدث خطأ أثناء حذف الحساب'
-              );
-            } finally {
-              setLoading(null);
-            }
-          },
-        },
-      ]
-    );
   };
 
   return (
@@ -256,28 +194,43 @@ const PrivacySettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Delete Account */}
+        {/* طلب حذف الحساب - تواصل معنا (مريض أو طبيب) */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {t('privacy.delete_account') || 'حذف الحساب'}
+          </Text>
+          <Text style={styles.sectionDescription}>
+            {t('privacy.delete_contact_message') || 'لحذف حسابك (مريض أو طبيب) تواصل معنا على الواتساب أو الإيميل وسنقوم بحذف حسابك وبياناتك من الخادم.'}
+          </Text>
           <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={handleDeleteAccount}
-            disabled={loading === 'delete'}
+            style={[styles.actionButton, styles.contactButton]}
+            onPress={openWhatsAppForDeletion}
           >
-            {loading === 'delete' ? (
-              <ActivityIndicator color={theme.colors.error} />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={24} color={theme.colors.error} />
-                <View style={styles.actionButtonContent}>
-                  <Text style={[styles.actionButtonTitle, styles.deleteButtonText]}>
-                    {t('privacy.delete_account') || 'حذف حسابي'}
-                  </Text>
-                  <Text style={[styles.actionButtonDescription, styles.deleteButtonText]}>
-                    {t('privacy.delete_description') || 'حذف حسابك وكل بياناتك بشكل نهائي'}
-                  </Text>
-                </View>
-              </>
-            )}
+            <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+            <View style={styles.actionButtonContent}>
+              <Text style={styles.actionButtonTitle}>
+                {t('privacy.contact_whatsapp') || 'الواتساب'}
+              </Text>
+              <Text style={styles.actionButtonDescription}>
+                +964 776 901 2572
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.contactButton]}
+            onPress={openEmailForDeletion}
+          >
+            <Ionicons name="mail-outline" size={24} color={theme.colors.primary} />
+            <View style={styles.actionButtonContent}>
+              <Text style={styles.actionButtonTitle}>
+                {t('privacy.contact_email') || 'الإيميل'}
+              </Text>
+              <Text style={styles.actionButtonDescription}>
+                tabibiqapp@gmail.com
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -391,6 +344,10 @@ const styles = StyleSheet.create({
   },
   exportButton: {
     borderColor: theme.colors.primary,
+  },
+  contactButton: {
+    borderColor: theme.colors.border,
+    marginBottom: 12,
   },
   deleteButton: {
     borderColor: theme.colors.error,

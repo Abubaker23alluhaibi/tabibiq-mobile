@@ -131,13 +131,14 @@ const MyAppointmentsScreen = () => {
   const isTodayAppointment = (dateString: string) => dateString === getLocalDateString();
   const isUpcomingAppointment = (dateString: string) => dateString > getLocalDateString();
 
+  // المواعيد الملغاة تبقى في مكانها (قادمة/اليوم/سابقة) مع تغيير حالتها إلى ملغية فقط
   let filteredAppointments = [];
   if (selectedTab === 'today') {
-    filteredAppointments = appointments.filter(apt => apt.status !== 'cancelled' && isTodayAppointment(apt.date));
+    filteredAppointments = appointments.filter(apt => isTodayAppointment(apt.date));
   } else if (selectedTab === 'archived') {
     filteredAppointments = appointments.filter(apt => apt.status === 'cancelled' || isPastAppointment(apt.date));
   } else {
-    filteredAppointments = appointments.filter(apt => apt.status !== 'cancelled' && (isTodayAppointment(apt.date) || isUpcomingAppointment(apt.date)));
+    filteredAppointments = appointments.filter(apt => isTodayAppointment(apt.date) || isUpcomingAppointment(apt.date));
   }
 
   if (searchText.trim()) {
@@ -167,17 +168,17 @@ const MyAppointmentsScreen = () => {
                 const result = await appointmentsAPI.cancelAppointment(appointmentId);
                 
                 if (result && result.success) {
-                    setAppointments(prev => prev.filter(apt => (apt._id || apt.id) !== appointmentId));
+                    setAppointments(prev => prev.map(apt => (apt._id || apt.id) === appointmentId ? { ...apt, status: 'cancelled' } : apt));
                     hideModal();
-                    showSuccess(t('success.title'), t('appointment.cancel_appointment'));
+                    showSuccess(t('success.title'), t('appointment.cancel_success'));
                     await fetchAppointments();
                 } else {
                     hideModal();
-                    showError(t('error.title'), t('error.message'));
+                    showError(t('common.error'), (result && result.message) || t('appointment.cancel_error'));
                 }
-            } catch (err) {
+            } catch (err: any) {
                 hideModal();
-                showError(t('error.title'), t('error.message'));
+                showError(t('common.error'), err?.message || t('appointment.cancel_error'));
             }
         }
     );

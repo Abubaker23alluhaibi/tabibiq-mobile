@@ -46,6 +46,7 @@
     },
     "production": {
       "channel": "production",
+      "distribution": "store",
       "ios": {
         "resourceClass": "m-medium"
       },

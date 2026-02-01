@@ -39,6 +39,15 @@ export default {
     medical_disclaimer: 'Disclaimer: This app does not provide medical advice. For emergencies, contact emergency services immediately.',
   },
 
+  privacy: {
+    delete_error_forbidden: 'You are not allowed to delete this account',
+    delete_contact_message: 'To delete your account (patient or doctor), contact us via WhatsApp or email and we will delete your account and data from the server.',
+    contact_whatsapp: 'WhatsApp',
+    contact_email: 'Email',
+    delete_request_subject: 'Account deletion request - TabibiQ',
+    contact_open_error: 'Could not open app',
+  },
+
   // Day names
   day_names: {
     sunday: 'Sunday',

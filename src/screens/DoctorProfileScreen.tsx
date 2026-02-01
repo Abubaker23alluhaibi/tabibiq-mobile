@@ -209,6 +209,11 @@ const DoctorProfileScreen: React.FC = () => {
             title={t('auth.change_password')} 
             onPress={() => navigation.navigate('ChangePassword' as never)} 
           />
+          <MenuButton 
+            icon="shield-checkmark-outline" 
+            title={t('privacy.settings') || 'إعدادات الخصوصية'} 
+            onPress={() => navigation.navigate('PrivacySettings' as never)} 
+          />
         </View>
 
         {/* زر الخروج */}
