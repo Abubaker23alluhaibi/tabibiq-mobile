@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TabibiQ - منصة طبيب العراق',
   slug: 'tabibiq-mobile',
   version: '1.0.2',
-  owner: 'abubakeralluhaibi',
+  owner: 'abubakeriq',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -25,8 +25,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // ملف إعداد Firebase للإشعارات (FCM) على iOS - حمّله من Firebase Console كـ GoogleService-Info.plist
     googleServicesFile: './GoogleService-Info.plist',
     infoPlist: {
-      NSLocationWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
-      NSLocationAlwaysAndWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض مواقع الأطباء والعيادات',
+      // الموقع يُستخدم فقط أثناء الاستخدام (شاشة الأطباء الأقرب) - لا خلفية
+      NSLocationWhenInUseUsageDescription: 'يستخدم التطبيق الموقع لعرض الأطباء الأقرب إليك عند فتح شاشة "الأطباء الأقرب" فقط',
       NSUserNotificationsUsageDescription: 'يستخدم التطبيق الإشعارات لإرسال تذكيرات المواعيد والتحديثات المهمة',
       NSCameraUsageDescription: 'يستخدم التطبيق الكاميرا لالتقاط صور الملف الشخصي',
       NSPhotoLibraryUsageDescription: 'يستخدم التطبيق معرض الصور لاختيار صور الملف الشخصي',
@@ -76,12 +76,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png'
   },
   updates: {
-    url: 'https://u.expo.dev/68734557-2172-4454-827e-578f6793d01c'
+    url: 'https://u.expo.dev/be4c2514-ccbb-47d6-bcee-23b74a2ec333'
+
   },
   runtimeVersion: '1.0.2',
   extra: {
     eas: {
-      projectId: 'bba7e53b-a29d-4162-92c7-19e1e13f69db',
+      projectId: 'be4c2514-ccbb-47d6-bcee-23b74a2ec333',
     },
     apiUrl: 'https://web-production-78766.up.railway.app',
     environment: 'production',

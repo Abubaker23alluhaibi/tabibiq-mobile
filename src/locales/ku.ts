@@ -444,6 +444,7 @@ export default {
     favorites: 'دڵخۆشەکان',
     recommended_doctors: 'پزیشکە پێشنیارکراوەکان',
     no_doctors_available: 'هیچ پزیشکێک بەردەست نییە',
+    nearby_badge: 'لە نزیکەوە',
   },
 
   nearest_doctors: {

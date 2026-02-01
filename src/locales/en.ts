@@ -271,6 +271,7 @@ export default {
     welcome: 'Welcome',
     recommended_doctors: 'Recommended Doctors',
     no_doctors_available: 'No doctors available',
+    nearby_badge: 'Nearby',
   },
 
   nearest_doctors: {

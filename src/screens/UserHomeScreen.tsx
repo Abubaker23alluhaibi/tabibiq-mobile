@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ import {
 } from '../utils/constants'; 
 import AdvertisementSlider from '../components/AdvertisementSlider';
 import { logError, logApiCall, logApiResponse } from '../utils/logger';
+import { useNearestDoctors } from '../hooks/useNearestDoctors';
 
 import { SPECIALTY_CATEGORIES as NEW_SPECIALTY_CATEGORIES } from '../utils/medicalSpecialties'; 
 
@@ -61,6 +62,9 @@ interface Doctor {
   isFeatured?: boolean;
   status?: string;
   work_times?: any[];
+  /** من القريبين - يظهر فقط ضمن المقترحين عند توفر موقع المستخدم */
+  isNearby?: boolean;
+  distance?: number;
 }
 
 type FilterViewMode = 'MAIN' | 'PROVINCE' | 'CATEGORY' | 'SPECIALTY';
@@ -96,12 +100,18 @@ const UserHomeScreen = () => {
   const [showAllRecommended, setShowAllRecommended] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+  const { doctors: nearestDoctors, refetch: refetchNearest } = useNearestDoctors(30);
+
   useEffect(() => {
     fetchDoctors();
     if (!isNotificationEnabled) {
       registerForNotifications();
     }
   }, [t]);
+
+  useEffect(() => {
+    refetchNearest();
+  }, []);
 
   // Debounce للبحث
   useEffect(() => {
@@ -292,13 +302,28 @@ const UserHomeScreen = () => {
     return matchesSearch && matchesProvince && matchesSpecialty;
   });
 
+  const nearestIds = useMemo(() => new Set(nearestDoctors.map(d => d.id)), [nearestDoctors]);
+  const nearestDistanceMap = useMemo(
+    () => new Map(nearestDoctors.map(d => [d.id, d.distance])),
+    [nearestDoctors]
+  );
+  const displayedDoctors = useMemo(
+    () =>
+      filteredDoctors.map(d => ({
+        ...d,
+        isNearby: nearestIds.has(d.id),
+        distance: nearestDistanceMap.get(d.id),
+      })),
+    [filteredDoctors, nearestIds, nearestDistanceMap]
+  );
+
   // تمرير تلقائي للقائمة الأفقية (مع منع scrollToIndex عند قائمة فارغة)
   useEffect(() => {
-    const list = filteredDoctors.slice(0, 6);
+    const list = displayedDoctors.slice(0, 6);
     if (list.length <= 1) return;
 
     const interval = setInterval(() => {
-      const currentList = filteredDoctors.slice(0, 6);
+      const currentList = displayedDoctors.slice(0, 6);
       if (currentList.length === 0) return;
       let nextIndex = currentScrollIndex + 1;
       if (nextIndex >= currentList.length) nextIndex = 0;
@@ -313,7 +338,7 @@ const UserHomeScreen = () => {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentScrollIndex, filteredDoctors.length]);
+  }, [currentScrollIndex, displayedDoctors.length]);
 
   const handleDoctorPress = (doctor: Doctor) => {
     if (!user) {
@@ -544,6 +569,15 @@ const UserHomeScreen = () => {
             <Ionicons name="star" size={10} color={theme.colors.white} />
           </View>
         )}
+
+        {item.isNearby && (
+          <View style={styles.nearbyBadge}>
+            <Ionicons name="navigate" size={9} color={theme.colors.white} />
+            <Text style={styles.nearbyBadgeText} numberOfLines={1}>
+              {t('user_home.nearby_badge', 'من القريبين')}
+            </Text>
+          </View>
+        )}
         
         {item.available && (
           <View style={styles.availableBadge}>
@@ -732,7 +766,7 @@ const UserHomeScreen = () => {
 
         <FlatList
           ref={featuredListRef}
-          data={filteredDoctors.slice(0, 6)}
+          data={displayedDoctors.slice(0, 6)}
           renderItem={renderDoctorCard}
           keyExtractor={item => item.id}
           horizontal
@@ -755,10 +789,10 @@ const UserHomeScreen = () => {
           }
         />
 
-        {filteredDoctors.length > 6 && (
+        {displayedDoctors.length > 6 && (
           <>
             <FlatList
-              data={showAllRecommended ? filteredDoctors.slice(6) : filteredDoctors.slice(6, 10)}
+              data={showAllRecommended ? displayedDoctors.slice(6) : displayedDoctors.slice(6, 10)}
               renderItem={renderDoctorCard}
               keyExtractor={item => item.id + '-grid'}
               numColumns={2}
@@ -767,9 +801,9 @@ const UserHomeScreen = () => {
               contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
             />
             
-            {!showAllRecommended && filteredDoctors.length > 10 && (
+            {!showAllRecommended && displayedDoctors.length > 10 && (
               <TouchableOpacity style={styles.showAllButton} onPress={() => setShowAllRecommended(true)}>
-                <Text style={styles.showAllButtonText}>عرض جميع الأطباء ({filteredDoctors.length})</Text>
+                <Text style={styles.showAllButtonText}>عرض جميع الأطباء ({displayedDoctors.length})</Text>
                 <Ionicons name="chevron-down" size={20} color={theme.colors.primary} />
               </TouchableOpacity>
             )}
@@ -964,6 +998,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFD700', width: 22, height: 22, borderRadius: 11,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: theme.colors.white, elevation: 2,
+  },
+  nearbyBadge: {
+    position: 'absolute', bottom: 4, left: 4,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.primary, paddingHorizontal: 6, paddingVertical: 3,
+    borderRadius: 8, maxWidth: '85%', gap: 2,
+    borderWidth: 1, borderColor: theme.colors.white, elevation: 2,
+  },
+  nearbyBadgeText: {
+    fontSize: 8, color: theme.colors.white, fontWeight: '600', includeFontPadding: false,
   },
   availableBadge: {
     position: 'absolute', bottom: -2, right: -2,

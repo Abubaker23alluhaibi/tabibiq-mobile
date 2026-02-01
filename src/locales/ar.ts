@@ -525,6 +525,7 @@ export default {
     welcome: 'مرحباً بك',
     recommended_doctors: 'الأطباء الموصى بهم',
     no_doctors_available: 'لا يوجد أطباء متاحون',
+    nearby_badge: 'من القريبين',
   },
 
   nearest_doctors: {
