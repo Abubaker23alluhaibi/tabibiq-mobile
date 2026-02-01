@@ -2,7 +2,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'TabibiQ - منصة طبيب العراق',
+  name: 'IQ منصة طبيب ',
   slug: 'tabibiq-mobile',
   version: '1.0.2',
   owner: 'abubakeriq',
@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     package: 'com.tabibiq.platform',
-    versionCode: 17,
+    versionCode: 18,
     googleServicesFile: './google-services.json',
     permissions: [
       'android.permission.ACCESS_FINE_LOCATION',
