@@ -377,6 +377,7 @@ export default {
     enter_new_password: 'وشەی نهێنی نوێت بنووسە',
     enter_confirm_password: 'دووبارە وشەی نهێنی نوێت بنووسە',
     password_changed_success: 'وشەی نهێنی بە سەرکەوتوویی گۆڕدرا',
+    re_login_with_new_password: 'تکایە دووبارە بە وشەی نهێنیی نوێ چوونەژوورەوە بکە.',
     password_change_failed: 'گۆڕینی وشەی نهێنی سەرکەوتوو نەبوو',
     current_password_required: 'وشەی نهێنی ئێستا پێویستە',
     new_password_required: 'وشەی نهێنی نوێ پێویستە',

@@ -456,6 +456,7 @@ export default {
     enter_confirm_password: 'أعد إدخال كلمة المرور الجديدة',
     password_changed_success: 'تم تغيير كلمة المرور بنجاح',
     password_change_failed: 'فشل في تغيير كلمة المرور',
+    re_login_with_new_password: 'يرجى تسجيل الدخول مرة أخرى بالكلمة الجديدة.',
     current_password_required: 'كلمة المرور الحالية مطلوبة',
     new_password_required: 'كلمة المرور الجديدة مطلوبة',
     confirm_password_required: 'تأكيد كلمة المرور مطلوب',

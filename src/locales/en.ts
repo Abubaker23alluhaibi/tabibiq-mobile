@@ -208,6 +208,7 @@ export default {
     enter_confirm_password: 'Re-enter new password',
     password_changed_success: 'Password changed successfully',
     password_change_failed: 'Failed to change password',
+    re_login_with_new_password: 'Please log in again with your new password.',
     current_password_required: 'Current password is required',
     new_password_required: 'New password is required',
     confirm_password_required: 'Password confirmation is required',

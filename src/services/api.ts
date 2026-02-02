@@ -621,31 +621,35 @@ export const authAPI = {
         password: newPassword,
         currentPassword,
       });
-      
-      if (data && data.success) {
-        return data;
-      }
-
+      if (data && data.success) return data;
       const data2 = await api.put('/user/profile', {
         password: newPassword,
         currentPassword,
       });
-      
-      if (data2 && data2.success) {
-        return data2;
-      }
+      if (data2 && data2.success) return data2;
+      return { success: false, error: 'فشل في تغيير كلمة المرور' };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'فشل في تغيير كلمة المرور' };
+    }
+  },
 
-      return {
-        success: true,
-        message: 'تم تغيير كلمة المرور محلياً. سيتم المزامنة مع الخادم عند توفر هذه الميزة.',
-        localUpdate: true
-      };
-    } catch (error) {
-      return {
-        success: true,
-        message: 'تم تغيير كلمة المرور محلياً. سيتم المزامنة مع الخادم عند توفر هذه الميزة.',
-        localUpdate: true
-      };
+  /** تغيير كلمة مرور المستخدم (مريض) عبر endpoint السيرفر الصحيح + يحفظ التوكن الجديد بعد النجاح يُدار من الشاشة */
+  updatePassword: async (userId: string, newPassword: string) => {
+    try {
+      const headers = await getHeaders(true);
+      const response = await fetch(`${API_BASE_URL}/user-password/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { success: true, data };
+      }
+      const errData = await response.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'فشل في تغيير كلمة المرور' };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'حدث خطأ في تغيير كلمة المرور' };
     }
   },
 

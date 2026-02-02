@@ -24,7 +24,7 @@ import { isStrongPassword, getPasswordStrength } from '../utils/helpers';
 const ChangePasswordScreen: React.FC = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -79,48 +79,54 @@ const ChangePasswordScreen: React.FC = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!validateForm()) {
+    if (!validateForm() || !user?.id) {
       return;
     }
 
     setLoading(true);
     try {
-      let response;
-      
-      // ✅ استخدام API مخصص للأطباء إذا كان المستخدم طبيب
-      if (user?.user_type === 'doctor') {
-        response = await doctorsAPI.changePassword(user.id, form.newPassword);
-      } else {
-        response = await authAPI.changePassword(
-          form.currentPassword,
-          form.newPassword
-        );
+      const loginIdentifier = user.phone || user.email || '';
+      const userType = (user as any).user_type || 'user';
+
+      // 1) التحقق من كلمة المرور الحالية بتسجيل دخول تجريبي
+      const verifyLogin = await signIn(loginIdentifier, form.currentPassword, userType as 'user' | 'doctor');
+      if (verifyLogin?.error) {
+        Alert.alert(t('common.error'), t('auth.current_password_required') || 'كلمة المرور الحالية غير صحيحة');
+        setLoading(false);
+        return;
       }
 
-      if (response && response.success) {
+      // 2) تغيير كلمة المرور على السيرفر (endpoint الصحيح للمريض أو الطبيب)
+      let response: { success?: boolean; error?: string } | null = null;
+      if (userType === 'doctor') {
+        response = await doctorsAPI.changePassword(user.id, form.newPassword);
+      } else {
+        response = await authAPI.updatePassword(user.id, form.newPassword);
+      }
+
+      if (!response?.success) {
+        Alert.alert(t('common.error'), response?.error || t('auth.password_change_failed'));
+        setLoading(false);
+        return;
+      }
+
+      // 3) إعادة تسجيل الدخول بالكلمة الجديدة لحفظ توكن جديد (كي لا يطلع خطأ عند الاستخدام لاحقاً)
+      const reLogin = await signIn(loginIdentifier, form.newPassword, userType as 'user' | 'doctor');
+      if (reLogin?.error) {
+        Alert.alert(
+          t('common.success'),
+          t('auth.password_changed_success') + (t('auth.re_login_with_new_password') || ' يرجى تسجيل الدخول مرة أخرى بالكلمة الجديدة.'),
+          [{ text: t('common.ok'), onPress: () => navigation.goBack() }]
+        );
+      } else {
         Alert.alert(
           t('common.success'),
           t('auth.password_changed_success'),
-          [
-            {
-              text: t('common.ok'),
-              onPress: () => navigation.goBack(),
-            },
-          ]
+          [{ text: t('common.ok'), onPress: () => navigation.goBack() }]
         );
-      } else {
-        const errorMessage = response?.error || t('auth.password_change_failed');
-        Alert.alert(t('common.error'), errorMessage);
       }
     } catch (error: any) {
-      let errorMessage = t('auth.password_change_failed');
-      
-      if (error?.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
+      const errorMessage = error?.message || t('auth.password_change_failed');
       Alert.alert(t('common.error'), errorMessage);
     } finally {
       setLoading(false);
