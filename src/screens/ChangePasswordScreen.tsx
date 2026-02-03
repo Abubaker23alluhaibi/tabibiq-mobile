@@ -24,21 +24,18 @@ import { isStrongPassword, getPasswordStrength } from '../utils/helpers';
 const ChangePasswordScreen: React.FC = () => {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { user, signIn } = useAuth();
+  const { user, signOut } = useAuth();
   
   const [loading, setLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [form, setForm] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
 
   const [errors, setErrors] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -53,14 +50,9 @@ const ChangePasswordScreen: React.FC = () => {
 
   const validateForm = () => {
     const newErrors = {
-      currentPassword: '',
       newPassword: '',
       confirmPassword: '',
     };
-
-    if (!form.currentPassword.trim()) {
-      newErrors.currentPassword = t('auth.current_password_required');
-    }
 
     if (!form.newPassword.trim()) {
       newErrors.newPassword = t('auth.new_password_required');
@@ -85,18 +77,9 @@ const ChangePasswordScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const loginIdentifier = user.phone || user.email || '';
       const userType = (user as any).user_type || 'user';
 
-      // 1) التحقق من كلمة المرور الحالية بتسجيل دخول تجريبي
-      const verifyLogin = await signIn(loginIdentifier, form.currentPassword, userType as 'user' | 'doctor');
-      if (verifyLogin?.error) {
-        Alert.alert(t('common.error'), t('auth.current_password_required') || 'كلمة المرور الحالية غير صحيحة');
-        setLoading(false);
-        return;
-      }
-
-      // 2) تغيير كلمة المرور على السيرفر (endpoint الصحيح للمريض أو الطبيب)
+      // تغيير كلمة المرور على السيرفر (المستخدم مسجل دخول — التوكن يثبت هويته)
       let response: { success?: boolean; error?: string } | null = null;
       if (userType === 'doctor') {
         response = await doctorsAPI.changePassword(user.id, form.newPassword);
@@ -110,21 +93,14 @@ const ChangePasswordScreen: React.FC = () => {
         return;
       }
 
-      // 3) إعادة تسجيل الدخول بالكلمة الجديدة لحفظ توكن جديد (كي لا يطلع خطأ عند الاستخدام لاحقاً)
-      const reLogin = await signIn(loginIdentifier, form.newPassword, userType as 'user' | 'doctor');
-      if (reLogin?.error) {
-        Alert.alert(
-          t('common.success'),
-          t('auth.password_changed_success') + (t('auth.re_login_with_new_password') || ' يرجى تسجيل الدخول مرة أخرى بالكلمة الجديدة.'),
-          [{ text: t('common.ok'), onPress: () => navigation.goBack() }]
-        );
-      } else {
-        Alert.alert(
-          t('common.success'),
-          t('auth.password_changed_success'),
-          [{ text: t('common.ok'), onPress: () => navigation.goBack() }]
-        );
-      }
+      // تسجيل الخروج فوراً حتى لا يبقى توكن قديم — المستخدم يسجّل الدخول لاحقاً بالكلمة الجديدة فقط
+      await signOut();
+
+      Alert.alert(
+        t('common.success'),
+        t('auth.password_changed_success') + '\n\n' + (t('auth.re_login_with_new_password') || 'سجّل الدخول الآن باستخدام نفس البريد أو رقم الهاتف وكلمة المرور الجديدة فقط.'),
+        [{ text: t('common.ok'), onPress: () => navigation.getParent()?.goBack?.() || navigation.goBack() }]
+      );
     } catch (error: any) {
       const errorMessage = error?.message || t('auth.password_change_failed');
       Alert.alert(t('common.error'), errorMessage);
@@ -156,43 +132,6 @@ const ChangePasswordScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.formContainer}>
-          {/* كلمة المرور الحالية */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>{t('auth.current_password')}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="lock-closed"
-                size={20}
-                color={theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.input, errors.currentPassword && styles.inputError]}
-                placeholder={t('auth.enter_current_password')}
-                placeholderTextColor={theme.colors.textSecondary}
-                value={form.currentPassword}
-                onChangeText={(value) => handleChange('currentPassword', value)}
-                secureTextEntry={!showCurrentPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                textAlign="right"
-              />
-              <TouchableOpacity
-                style={styles.passwordToggle}
-                onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-              >
-                <Ionicons
-                  name={showCurrentPassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color={theme.colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.currentPassword ? (
-              <Text style={styles.errorText}>{errors.currentPassword}</Text>
-            ) : null}
-          </View>
-
           {/* كلمة المرور الجديدة */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>{t('auth.new_password')}</Text>
