@@ -38,6 +38,7 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import TopRatedDoctorsScreen from '../screens/TopRatedDoctorsScreen';
 import DoctorReviewsScreen from '../screens/DoctorReviewsScreen';
 import PrivacySettingsScreen from '../screens/PrivacySettingsScreen';
+import WebViewScreen from '../screens/WebViewScreen'; // ✅ إضافة الاستيراد هنا
 
 import { RootStackParamList } from '../types';
 
@@ -65,9 +66,7 @@ const commonTabOptions = (insets: any) => ({
     borderTopColor: '#eeeeee',
     elevation: 10, 
     shadowOpacity: 0.05,
-    // حساب الارتفاع ليشمل منطقة الأزرار السفلية
     height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
-    // رفع المحتوى عن منطقة الأزرار
     paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
     paddingTop: 10,
   },
@@ -114,18 +113,17 @@ const UserTabNavigator = () => {
           }
 
           return (
-            // تم التعديل: زيادة عرض الحاوية وتوسيط العناصر
             <View style={{ alignItems: 'center', justifyContent: 'center', width: 100 }}>
               <Ionicons name={iconName} size={24} color={color} />
               <Text 
-                numberOfLines={1} // ✅ يجبر النص يكون سطر واحد
+                numberOfLines={1}
                 style={{ 
-                  fontSize: 9, // حجم خط مناسب
+                  fontSize: 9, 
                   color: color, 
                   marginTop: 2, 
                   fontWeight: focused ? 'bold' : 'normal',
-                  textAlign: 'center', // ✅ توسيط النص
-                  width: '100%', // ✅ يأخذ العرض المتاح
+                  textAlign: 'center', 
+                  width: '100%', 
                 }}
               >
                 {label}
@@ -173,17 +171,16 @@ const DoctorTabNavigator = () => {
           }
 
           return (
-            // تم التعديل هنا أيضاً
             <View style={{ alignItems: 'center', justifyContent: 'center', width: 100 }}>
               <Ionicons name={iconName} size={24} color={color} />
               <Text 
-                numberOfLines={1} // ✅ يجبر النص يكون سطر واحد
+                numberOfLines={1}
                 style={{ 
                   fontSize: 9, 
                   color: color, 
                   marginTop: 2, 
                   fontWeight: focused ? 'bold' : 'normal',
-                  textAlign: 'center', // ✅ توسيط النص
+                  textAlign: 'center', 
                   width: '100%',
                 }}
               >
@@ -263,6 +260,8 @@ const AppNavigator = () => {
               <Stack.Screen name="UserSignUp" component={UserSignUpScreen} options={{ title: t('auth.login') }} />
               <Stack.Screen name="UserHomeStack" component={UserTabNavigator} options={{ headerShown: false }} />
               <Stack.Screen name="DoctorDetails" component={DoctorDetailsScreen} options={{ title: t('doctor.details'), headerShown: true }} />
+              {/* ✅ إضافة شاشة الـ WebView هنا لتكون متاحة للضيوف */}
+              <Stack.Screen name="WebViewScreen" component={WebViewScreen} options={{ title: 'تسجيل طبيب', headerShown: true }} />
             </>
           ) : (
             <>
@@ -280,6 +279,8 @@ const AppNavigator = () => {
                   <Stack.Screen name="TopRatedDoctors" component={TopRatedDoctorsScreen} options={{ headerShown: false }} />
                   <Stack.Screen name="NearestDoctors" component={NearestDoctorsScreen} options={{ headerShown: false }} />
                   <Stack.Screen name="DoctorReviews" component={DoctorReviewsScreen} options={{ headerShown: false }} />
+                  {/* ✅ إضافة شاشة الـ WebView هنا لتكون متاحة للمستخدم المسجل */}
+                  <Stack.Screen name="WebViewScreen" component={WebViewScreen} options={{ title: 'تسجيل طبيب', headerShown: true }} />
                 </>
               )}
               {user.user_type === 'doctor' && (

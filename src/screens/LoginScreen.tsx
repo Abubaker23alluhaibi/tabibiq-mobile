@@ -151,9 +151,8 @@ const LoginScreen = () => {
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
-                Linking.openURL('https://www.tabib-iq.com/signup-doctor').catch(() => {
-                  Alert.alert(t('common.error'), 'فشل في فتح الرابط');
-                });
+                // التعديل هنا: التوجه لشاشة الـ WebView الداخلية
+                navigation.navigate('WebViewScreen' as never);
               },
             },
           ]
@@ -166,7 +165,6 @@ const LoginScreen = () => {
     }
   };
 
-  // ✅✅ التعديل الجوهري هنا: تبسيط المنطق لمنع الانتقال عند الخطأ
   const handleLogin = async () => {
     if (!password.trim()) {
       Alert.alert(t('common.error'), t('auth.enter_password'));
@@ -176,17 +174,13 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      // نستخدم النوع الذي اكتشفناه سابقاً، ولا نجرب غيره
       const loginType = userType || 'user';
       
       const result = await signIn(emailOrPhone.trim(), password, loginType);
       
       if (result.error) {
-        // ❌ في حالة الخطأ: نعرض رسالة فقط ونتوقف هنا
-        // لا يوجد أي كود انتقال (Navigation) أو (markAppAsLaunched) هنا
         Alert.alert(t('common.error'), t('auth.login_error_message') || 'كلمة المرور غير صحيحة');
       } else {
-        // ✅ في حالة النجاح فقط: ننتقل للرئيسية
         await markAppAsLaunched();
       }
     } catch (error) {
@@ -317,9 +311,8 @@ const LoginScreen = () => {
             <TouchableOpacity
               style={styles.doctorSignupButton}
               onPress={() => {
-                Linking.openURL('https://www.tabib-iq.com/signup-doctor').catch(() => {
-                  Alert.alert(t('common.error'), 'فشل في فتح الرابط');
-                });
+                // التعديل هنا: التوجه لشاشة الـ WebView الداخلية
+                navigation.navigate('WebViewScreen' as never);
               }}
             >
               <Ionicons name="medical-outline" size={20} color={theme.colors.white} />
