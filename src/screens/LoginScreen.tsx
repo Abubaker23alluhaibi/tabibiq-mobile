@@ -31,8 +31,6 @@ import { useApp } from '../contexts/AppContext';
 import { isValidEmail, isValidPhone, normalizePhone } from '../utils/helpers';
 import { API_CONFIG } from '../config/api';
 import { theme } from '../utils/theme';
-import PrivacyPolicyButton from '../components/PrivacyPolicyButton';
-import TermsOfServiceButton from '../components/TermsOfServiceButton';
 import { changeLanguage } from '../locales';
 
 const { width } = Dimensions.get('window');
@@ -151,8 +149,8 @@ const LoginScreen = () => {
               onPress: () => {
                 setShowPasswordField(false);
                 setPassword('');
-                // التعديل هنا: التوجه لشاشة الـ WebView الداخلية
-                navigation.navigate('WebViewScreen' as never);
+                // توجيه لرابط التسجيل في الـ WebView
+                navigation.navigate('WebViewScreen' as never, { url: 'https://www.tabib-iq.com/signup-doctor' });
               },
             },
           ]
@@ -175,9 +173,7 @@ const LoginScreen = () => {
 
     try {
       const loginType = userType || 'user';
-      
       const result = await signIn(emailOrPhone.trim(), password, loginType);
-      
       if (result.error) {
         Alert.alert(t('common.error'), t('auth.login_error_message') || 'كلمة المرور غير صحيحة');
       } else {
@@ -199,9 +195,7 @@ const LoginScreen = () => {
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Welcome' as never)}>
             <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={24} color={theme.colors.white} />
           </TouchableOpacity>
-
           <Text style={styles.headerTitle}>{t('auth.login_title')}</Text>
-
           <TouchableOpacity
             style={styles.languageButton}
             onPress={() => {
@@ -211,7 +205,7 @@ const LoginScreen = () => {
           >
             <Ionicons name="language" size={20} color="#FFFFFF" />
             <Text style={styles.languageText}>
-              {i18n.language === 'ar' ? 'العربية' : i18n.language === 'en' ? 'English' : 'کوردی'}
+              {i18n.language === 'ar' ? 'العربية' : i18n.language === 'en' ? 'English' : 'کوردي'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -311,8 +305,8 @@ const LoginScreen = () => {
             <TouchableOpacity
               style={styles.doctorSignupButton}
               onPress={() => {
-                // التعديل هنا: التوجه لشاشة الـ WebView الداخلية
-                navigation.navigate('WebViewScreen' as never);
+                // توجيه لرابط التسجيل
+                navigation.navigate('WebViewScreen' as never, { url: 'https://www.tabib-iq.com/signup-doctor' });
               }}
             >
               <Ionicons name="medical-outline" size={20} color={theme.colors.white} />
@@ -322,21 +316,17 @@ const LoginScreen = () => {
             </TouchableOpacity>
             
             <View style={styles.privacyLinks}>
-              <PrivacyPolicyButton
-                variant="text"
-                size="small"
-                showIcon={false}
-                style={styles.privacyButton}
-                textStyle={styles.privacyLinkText}
-              />
+              {/* تعديل زر سياسة الخصوصية */}
+              <TouchableOpacity onPress={() => navigation.navigate('WebViewScreen' as never, { url: 'https://www.tabib-iq.com/privacy' })}>
+                <Text style={styles.privacyLinkText}>{t('common.privacy_policy')}</Text>
+              </TouchableOpacity>
+
               <Text style={styles.privacySeparator}> • </Text>
-              <TermsOfServiceButton
-                variant="text"
-                size="small"
-                showIcon={false}
-                style={styles.termsButton}
-                textStyle={styles.privacyLinkText}
-              />
+
+              {/* تعديل زر شروط الاستخدام */}
+              <TouchableOpacity onPress={() => navigation.navigate('WebViewScreen' as never, { url: 'https://www.tabib-iq.com/terms' })}>
+                <Text style={styles.privacyLinkText}>{t('common.terms_of_service')}</Text>
+              </TouchableOpacity>
             </View>
             <Text style={styles.disclaimerText}>
               {t('common.medical_disclaimer')}
@@ -526,12 +516,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-  },
-  privacyButton: {
-    marginBottom: 0,
-  },
-  termsButton: {
-    marginBottom: 0,
   },
   privacyLinkText: {
     color: 'rgba(255, 255, 255, 0.9)',

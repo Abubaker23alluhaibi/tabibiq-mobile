@@ -29,6 +29,9 @@
     "playstore": {
       "distribution": "store",
       "channel": "production",
+      "env": {
+        "NODE_ENV": "production"
+      },
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -47,6 +50,9 @@
     "production": {
       "channel": "production",
       "distribution": "store",
+      "env": {
+        "NODE_ENV": "production"
+      },
       "ios": {
         "resourceClass": "m-medium"
       },
